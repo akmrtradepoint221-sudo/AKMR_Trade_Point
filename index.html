@@ -15,7 +15,7 @@
   --amber:#A8721C; --amber-bg:#FBF0DC; --red:#B23A2E; --red-bg:#FBE7E3;
   --blue:#2A5DB0; --blue-bg:#E8EEFA; --purple:#7A3E94; --purple-bg:#F1E7F5;
   --gold-bg:#FBF0DC;
-  --sidebar-w:230px; --radius:8px; 
+  --sidebar-w:230px; --radius:8px;
 }
 *{box-sizing:border-box;}
 html,body{margin:0; height:100%;}
@@ -292,6 +292,10 @@ table{width:100%; border-collapse:collapse; font-size:12.8px; min-width:680px;}
 thead th{text-align:left; padding:10px 14px; font-size:10.3px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); border-bottom:1px solid var(--line); background:var(--panel-2); font-weight:700; white-space:nowrap; cursor:pointer; user-select:none;}
 thead th .sort-ic{opacity:0.4; margin-left:3px; font-size:10px;}
 thead th.sorted .sort-ic{opacity:1; color:var(--maroon);}
+#paymentsColFilterRow th{cursor:default; padding:5px 10px; background:var(--panel-2);}
+.col-filter-input{width:100%; box-sizing:border-box; padding:5px 7px; font-size:11px; font-weight:400; text-transform:none; letter-spacing:normal; border:1px solid var(--line); border-radius:5px; background:var(--panel); color:var(--ink);}
+select.col-filter-input{cursor:pointer;}
+.col-filter-input:focus{outline:none; border-color:var(--maroon);}
 tbody td{padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:middle;}
 tbody tr:last-child td{border-bottom:none;}
 tbody tr:hover{background:var(--panel-2);}
@@ -455,7 +459,8 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
 .summary-stat.grandtotal{background:var(--panel-2);}
 .summary-stat.amber::before{background:var(--amber);}
 .summary-stat.amber .s-value{color:var(--amber);}
-#paymentsKpiStrip{grid-template-columns:repeat(5,1fr);}
+#paymentsKpiStrip{grid-template-columns:repeat(6,1fr);}
+@media (max-width:1100px){ #paymentsKpiStrip{grid-template-columns:repeat(4,1fr);} }
 @media (max-width:900px){ #paymentsKpiStrip{grid-template-columns:repeat(3,1fr);} }
 @media (max-width:560px){ #paymentsKpiStrip{grid-template-columns:repeat(2,1fr);} }
 #returnLossKpiStrip{grid-template-columns:repeat(3,1fr);}
@@ -532,12 +537,25 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
 .prod-cell{display:flex; align-items:center; gap:10px;}
 .prod-thumb{width:30px; height:30px; border-radius:7px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-family:'Marcellus',serif; font-size:12px; color:#fff; font-weight:600;}
 </style>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
+<div id="passcodeGateOverlay" style="display:none; position:fixed; inset:0; z-index:99999; background:#2A1500; align-items:center; justify-content:center; font-family:inherit;">
+  <div style="background:#fff; border-radius:14px; padding:36px 32px; width:min(340px, 88vw); box-shadow:0 20px 60px rgba(0,0,0,.4); text-align:center;">
+    <div style="font-size:28px; margin-bottom:6px;">🔒</div>
+    <h2 style="margin:0 0 6px; font-size:18px; color:#2A1500;">AKMR Trade Point</h2>
+    <p style="margin:0 0 18px; font-size:13px; color:#7a6a55;">Enter the shared passcode to open the dashboard.</p>
+    <input id="passcodeInput" type="password" placeholder="Passcode" autocomplete="off"
+      style="width:100%; box-sizing:border-box; padding:10px 12px; border-radius:8px; border:1.5px solid #d8cdb8; font-size:14px; margin-bottom:10px; text-align:center;">
+    <div id="passcodeError" style="display:none; color:#b3261e; font-size:12.5px; margin-bottom:10px;">Incorrect passcode — try again.</div>
+    <button id="passcodeSubmitBtn" style="width:100%; padding:10px 12px; border-radius:8px; border:none; background:#7A1F1F; color:#fff; font-weight:700; font-size:14px; cursor:pointer;">Unlock</button>
+  </div>
+</div>
 
 <div class="brand-strip">
   <div class="brand-strip-left">
-    <svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="17" fill="#C9A227" stroke="#FCF6E8" stroke-width="1.3"/><circle cx="20" cy="20" r="12" fill="none" stroke="#451313" stroke-width="1.1"/><text x="20" y="25" text-anchor="middle" font-family="Marcellus, serif" font-size="13" fill="#451313">AK</text></svg>
+    <svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="17" fill="#C9A227" stroke="#FCF6E8" stroke-width="1.3"/><circle cx="20" cy="20" r="12" fill="none" stroke="#451313" stroke-width="1.1"/><text x="20" y="24.5" text-anchor="middle" font-family="Marcellus, serif" font-size="10.5" fill="#451313">ATP</text></svg>
     <b>AKMR Trade Point</b>
   </div>
   <div class="brand-strip-right">
@@ -550,7 +568,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
   <aside class="sidebar" id="sidebar">
     <div class="side-brand">
-      <svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="17" fill="#C9A227" stroke="#451313" stroke-width="1.5"/><circle cx="20" cy="20" r="12" fill="none" stroke="#451313" stroke-width="1.2"/><text x="20" y="25" text-anchor="middle" font-family="Marcellus, serif" font-size="13" fill="#451313">AK</text></svg>
+      <svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="17" fill="#C9A227" stroke="#451313" stroke-width="1.5"/><circle cx="20" cy="20" r="12" fill="none" stroke="#451313" stroke-width="1.2"/><text x="20" y="24.5" text-anchor="middle" font-family="Marcellus, serif" font-size="10.5" fill="#451313">ATP</text></svg>
       <div><div class="name">AKMR Trade Point</div><div class="sub">Seller Panel</div></div>
     </div>
     <div style="padding:14px 16px 4px;"><button class="btn" style="width:100%;" id="quickAddBtn" title="Import Meesho orders, returns &amp; payments">+ Import orders</button></div>
@@ -569,16 +587,16 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
       <div class="nav-group-label">Account</div>
       <button class="nav-item" data-view="account"><span class="ic">●</span> Business Profile</button>
     </nav>
-    <div class="side-foot"><b>Muganahalli, Tumkur (D)</b>GSTIN 29ACNFA0979M1ZM</div>
+    <div class="side-foot"><b>AKMR Trade Point</b></div>
   </aside>
 
   <div class="main">
     <div class="topbar">
       <div class="topbar-left">
         <button class="menu-toggle" id="menuToggle">☰</button>
-        <div><div class="view-title" id="viewTitle">Home</div><div class="view-sub" id="viewSub">Today's snapshot across Meesho, Flipkart &amp; Amazon</div></div>
+        <div><div class="view-title" id="viewTitle">Home</div><div class="view-sub" id="viewSub">Today's snapshot across Meesho</div></div>
       </div>
-      <div class="topbar-right"><div class="gst-chip">GSTIN 29ACNFA0979M1ZM</div></div>
+      <div class="topbar-right"></div>
     </div>
 
     <div class="content">
@@ -614,7 +632,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
           </div>
 
           <div class="card">
-            <div class="card-head"><h3>🕒 Recent activity</h3><span class="meta">Latest orders across all platforms</span></div>
+            <div class="card-head"><h3>🕒 Recent activity</h3><span class="meta">Latest orders</span></div>
             <div class="activity-feed" id="activityFeed"></div>
           </div>
         </div>
@@ -640,12 +658,18 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
             <select class="filter-select" id="productFilter" title="Filter by product"><option value="all">All products</option></select>
             <select class="filter-select" id="statusFilter" title="Filter by status"><option value="All">All statuses</option><option value="Shipped">Shipped</option><option value="Delivered">Delivered</option><option value="Cancelled">Cancelled</option><option value="RTO">RTO</option><option value="Customer Return">Customer Return</option><option value="RTO_LOCKED">RTO_LOCKED</option><option value="Lost">Lost</option></select>
             <select class="filter-select" id="paymentFilter" title="Filter by payment status"><option value="all">All payments</option><option value="received">Payment received</option><option value="pending">Payment pending</option></select>
-            <select class="filter-select" id="platformFilter"><option value="all">All platforms</option><option value="Meesho">Meesho</option><option value="Flipkart">Flipkart</option><option value="Amazon">Amazon</option></select>
+            <select class="filter-select" id="platformFilter"><option value="all">All platforms</option><option value="Meesho">Meesho</option></select>
             <button class="btn small secondary" id="clearFiltersBtn">Clear filters</button>
+          </div>
+          <div class="toolbar" id="ordersBulkBar" style="display:none; background:var(--panel-2); border-radius:8px; padding:8px 12px; margin-top:-6px; margin-bottom:10px;">
+            <span><b id="ordersSelectedCount">0</b> selected</span>
+            <button class="btn small secondary" id="ordersClearSelectionBtn">Clear selection</button>
+            <button class="btn small" style="background:var(--red); margin-left:auto;" id="ordersBulkDeleteBtn">🗑 Delete selected</button>
           </div>
           <div class="table-scroll">
             <table>
               <thead><tr>
+                <th style="width:30px;"><input type="checkbox" id="ordersSelectAllCb" title="Select all"></th>
                 <th data-sort="date">Date <span class="sort-ic">↕</span></th>
                 <th data-sort="id">Order No <span class="sort-ic">↕</span></th>
                 <th>Product</th>
@@ -674,10 +698,17 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
             <div class="search-box"><span class="si">🔍</span><input type="text" id="invSearch" placeholder="Search product..."></div>
             <select class="filter-select" id="invFilter"><option value="all">All stock levels</option><option value="low">Low stock (&lt;5)</option><option value="out">Out of stock</option><option value="ok">Healthy stock</option></select>
             <button class="btn small" id="newStockBtn" style="margin-left:auto;">+ Add New Item</button>
+            <button class="btn small secondary" id="deleteAllInventoryBtn" style="color:var(--red);">🗑 Delete all</button>
+            <button class="btn small secondary" id="undoInventoryBtn" style="display:none;">↩ Undo delete</button>
+          </div>
+          <div class="toolbar" id="inventoryBulkBar" style="display:none; background:var(--panel-2); border-radius:8px; padding:8px 12px; margin-top:-6px; margin-bottom:10px;">
+            <span><b id="inventorySelectedCount">0</b> selected</span>
+            <button class="btn small secondary" id="inventoryClearSelectionBtn">Clear selection</button>
+            <button class="btn small" style="background:var(--red); margin-left:auto;" id="inventoryBulkDeleteBtn">🗑 Delete selected</button>
           </div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th data-sort="name">Product <span class="sort-ic">↕</span></th><th>HSN</th><th data-sort="qty" style="text-align:right;">Total In Stock <span class="sort-ic">↕</span></th><th>Stock level</th><th data-sort="sold" style="text-align:right;">Sold <span class="sort-ic">↕</span></th><th style="text-align:right;">Damaged</th><th data-sort="purchasePrice" style="text-align:right;">Purchase price <span class="sort-ic">↕</span></th><th data-sort="gstPaid" style="text-align:right;">GST paid <span class="sort-ic">↕</span></th><th data-sort="totalPurchase" style="text-align:right;">Total purchase <span class="sort-ic">↕</span></th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
+              <thead><tr><th style="width:30px;"><input type="checkbox" id="inventorySelectAllCb" title="Select all"></th><th data-sort="name">Product <span class="sort-ic">↕</span></th><th>HSN</th><th data-sort="totalReceived" style="text-align:right;">Total Purchased <span class="sort-ic">↕</span></th><th data-sort="qty" style="text-align:right;">Total In Stock <span class="sort-ic">↕</span></th><th>Stock level</th><th data-sort="sold" style="text-align:right;">Sold <span class="sort-ic">↕</span></th><th data-sort="returned" style="text-align:right;">Returned</th><th style="text-align:right;">Damaged</th><th data-sort="purchasePrice" style="text-align:right;">Purchase price <span class="sort-ic">↕</span></th><th data-sort="gstPaid" style="text-align:right;">GST paid <span class="sort-ic">↕</span></th><th data-sort="totalPurchase" style="text-align:right;">Total purchase <span class="sort-ic">↕</span></th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
               <tbody id="inventoryBody"></tbody>
               <tfoot id="inventoryFootWrap"></tfoot>
             </table>
@@ -697,11 +728,18 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
             <div class="search-box"><span class="si">🔍</span><input type="text" id="listingSearch" placeholder="Search product..."></div>
             <select class="filter-select" id="listingFilter"><option value="all">All statuses</option><option value="available">Available</option><option value="qcerror">QC Error</option><option value="paused">Paused</option></select>
             <button class="btn small" id="newListingBtn" style="margin-left:auto;">+ Add Listing</button>
+            <button class="btn small secondary" id="deleteAllListingBtn" style="color:var(--red);">🗑 Delete all</button>
+            <button class="btn small secondary" id="undoListingBtn" style="display:none;">↩ Undo delete</button>
+          </div>
+          <div class="toolbar" id="listingBulkBar" style="display:none; background:var(--panel-2); border-radius:8px; padding:8px 12px; margin-top:-6px; margin-bottom:10px;">
+            <span><b id="listingSelectedCount">0</b> selected</span>
+            <button class="btn small secondary" id="listingClearSelectionBtn">Clear selection</button>
+            <button class="btn small" style="background:var(--red); margin-left:auto;" id="listingBulkDeleteBtn">🗑 Delete selected</button>
           </div>
           <p class="subtle-note" style="padding:0 0 12px;">Product names and per-piece cost are pulled live from Inventory — pick the product(s) that make up each listing and the calculator works out Total cost, GST and the price to list. Bank settlement is entered once Meesho actually pays out.</p>
           <div class="table-scroll">
             <table>
-              <thead><tr><th data-sort="name">Product <span class="sort-ic">↕</span></th><th>Status</th><th data-sort="base" style="text-align:right;">Price <span class="sort-ic">↕</span></th><th style="text-align:right;">Packing</th><th style="text-align:right;">MISC</th><th style="text-align:right;">Profit</th><th style="text-align:right;">Return</th><th style="text-align:right;">Damage</th><th data-sort="total" style="text-align:right;">Total <span class="sort-ic">↕</span></th><th style="text-align:right;">GST</th><th data-sort="sell" style="text-align:right;">Selling Price <span class="sort-ic">↕</span></th><th style="text-align:right;">Delivery</th><th data-sort="meesho" style="text-align:right;">Meesho Listed Price <span class="sort-ic">↕</span></th><th data-sort="bank" style="text-align:right;">Bank <span class="sort-ic">↕</span></th><th style="text-align:right;">Actions</th></tr></thead>
+              <thead><tr><th style="width:30px;"><input type="checkbox" id="listingSelectAllCb" title="Select all"></th><th data-sort="name">Product <span class="sort-ic">↕</span></th><th>Status</th><th data-sort="base" style="text-align:right;">Price <span class="sort-ic">↕</span></th><th style="text-align:right;">Packing</th><th style="text-align:right;">MISC</th><th style="text-align:right;">Profit</th><th style="text-align:right;">Return</th><th style="text-align:right;">Damage</th><th data-sort="total" style="text-align:right;">Total <span class="sort-ic">↕</span></th><th style="text-align:right;">GST</th><th data-sort="sell" style="text-align:right;">Selling Price <span class="sort-ic">↕</span></th><th style="text-align:right;">Delivery</th><th data-sort="meesho" style="text-align:right;">Meesho Listed Price <span class="sort-ic">↕</span></th><th data-sort="bank" style="text-align:right;">Bank <span class="sort-ic">↕</span></th><th style="text-align:right;">Actions</th></tr></thead>
               <tbody id="listingBody"></tbody>
               <tfoot id="listingFootWrap"></tfoot>
             </table>
@@ -717,10 +755,18 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
             <div class="search-box"><span class="si">🔍</span><input type="text" id="rawSearch" placeholder="Search material..."></div>
             <select class="filter-select" id="rawCatFilter"><option value="all">All categories</option></select>
             <button class="btn small" id="newRawBtn" style="margin-left:auto;">+ Add New Item</button>
+            <button class="btn small secondary" id="deleteAllRawBtn" style="color:var(--red);">🗑 Delete all</button>
+            <button class="btn small secondary" id="undoRawBtn" style="display:none;">↩ Undo delete</button>
+          </div>
+          <div class="toolbar" id="rawBulkBar" style="display:none; background:var(--panel-2); border-radius:8px; padding:8px 12px; margin-top:-6px; margin-bottom:10px;">
+            <span><b id="rawSelectedCount">0</b> selected</span>
+            <button class="btn small secondary" id="rawClearSelectionBtn">Clear selection</button>
+            <button class="btn small" style="background:var(--red); margin-left:auto;" id="rawBulkDeleteBtn">🗑 Delete selected</button>
           </div>
           <div class="table-scroll">
             <table>
               <thead><tr>
+                <th style="width:30px;"><input type="checkbox" id="rawSelectAllCb" title="Select all"></th>
                 <th data-sort="name">Material <span class="sort-ic">↕</span></th>
                 <th>Category</th>
                 <th data-sort="qty" style="text-align:right;">Quantity <span class="sort-ic">↕</span></th>
@@ -842,29 +888,48 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
             <select class="filter-select" id="paymentsProductFilter" title="Filter by product"><option value="all">All products</option></select>
             <select class="filter-select" id="paymentsStatusFilter" title="Filter by status"><option value="All">All statuses</option><option value="Shipped">Shipped</option><option value="Delivered">Delivered</option><option value="Cancelled">Cancelled</option><option value="RTO">RTO</option><option value="Customer Return">Customer Return</option><option value="RTO_LOCKED">RTO_LOCKED</option><option value="Lost">Lost</option></select>
             <select class="filter-select" id="paymentsPaymentFilter" title="Filter by payment status"><option value="all">All payments</option><option value="received">Payment received</option><option value="pending">Payment pending</option></select>
-            <select class="filter-select" id="paymentsPlatformFilter" title="Filter by platform"><option value="all">All platforms</option><option value="Meesho">Meesho</option><option value="Flipkart">Flipkart</option><option value="Amazon">Amazon</option></select>
+            <select class="filter-select" id="paymentsPlatformFilter" title="Filter by platform"><option value="all">All platforms</option><option value="Meesho">Meesho</option></select>
             <button class="btn small secondary" id="paymentsClearFiltersBtn">Clear filters</button>
           </div>
           <div class="card-head"><h3>Payment ledger — Meesho settlement details</h3><span class="meta">Click a row for the full Meesho settlement breakdown (compensation, claims, recovery)</span></div>
           <div class="table-scroll">
             <table><thead><tr>
-              <th>Dispatch Date</th>
-              <th>Sub Order No</th>
-              <th>Supplier SKU</th>
-              <th>Catalog ID</th>
-              <th>Live Order Status</th>
-              <th style="text-align:right;">Quantity</th>
-              <th style="text-align:right;">Listing Price (Incl. taxes)</th>
-              <th style="text-align:right;">Shipping Charge (Incl. GST)</th>
-              <th style="text-align:right;">Product GST %</th>
-              <th style="text-align:right;">TCS</th>
-              <th style="text-align:right;">TDS</th>
-              <th style="text-align:right;">Final Settlement Amount</th>
-              <th>Payment Date</th>
-              <th style="text-align:right;">Price per Unit</th>
-              <th style="text-align:right;">Other Expense</th>
-              <th style="text-align:right;">Net Profit</th>
-              <th style="text-align:right;">Margin %</th>
+              <th data-sort="dispatchDate">Dispatch Date <span class="sort-ic">↕</span></th>
+              <th data-sort="id">Sub Order No <span class="sort-ic">↕</span></th>
+              <th data-sort="supplierSku">Supplier SKU <span class="sort-ic">↕</span></th>
+              <th data-sort="catalogId">Catalog ID <span class="sort-ic">↕</span></th>
+              <th data-sort="liveStatus">Live Order Status <span class="sort-ic">↕</span></th>
+              <th data-sort="qty" style="text-align:right;">Quantity <span class="sort-ic">↕</span></th>
+              <th data-sort="listingPrice" style="text-align:right;">Listing Price (Incl. taxes) <span class="sort-ic">↕</span></th>
+              <th data-sort="shippingCharge" style="text-align:right;">Shipping Charge (Incl. GST) <span class="sort-ic">↕</span></th>
+              <th data-sort="gstPct" style="text-align:right;">Product GST % <span class="sort-ic">↕</span></th>
+              <th data-sort="tcs" style="text-align:right;">TCS <span class="sort-ic">↕</span></th>
+              <th data-sort="tds" style="text-align:right;">TDS <span class="sort-ic">↕</span></th>
+              <th data-sort="settlementAmt" style="text-align:right;">Final Settlement Amount <span class="sort-ic">↕</span></th>
+              <th data-sort="paymentDate">Payment Date <span class="sort-ic">↕</span></th>
+              <th data-sort="pricePerUnit" style="text-align:right;">Price per Unit <span class="sort-ic">↕</span></th>
+              <th data-sort="otherExpense" style="text-align:right;">Other Expense <span class="sort-ic">↕</span></th>
+              <th data-sort="netProfit" style="text-align:right;">Net Profit <span class="sort-ic">↕</span></th>
+              <th data-sort="margin" style="text-align:right;">Margin % <span class="sort-ic">↕</span></th>
+            </tr>
+            <tr id="paymentsColFilterRow">
+              <th><select class="col-filter-input" data-filter-key="dispatchDate"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" data-filter-key="id"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" data-filter-key="supplierSku"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" data-filter-key="catalogId"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" id="paymentsLiveStatusFilter" data-filter-key="liveStatus"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" data-filter-key="qty" style="text-align:right;"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" data-filter-key="listingPrice" style="text-align:right;"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" data-filter-key="shippingCharge" style="text-align:right;"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" data-filter-key="gstPct" style="text-align:right;"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" data-filter-key="tcs" style="text-align:right;"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" data-filter-key="tds" style="text-align:right;"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" data-filter-key="settlementAmt" style="text-align:right;"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" data-filter-key="paymentDate"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" data-filter-key="pricePerUnit" style="text-align:right;"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" data-filter-key="otherExpense" style="text-align:right;"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" data-filter-key="netProfit" style="text-align:right;"><option value="">All</option></select></th>
+              <th><select class="col-filter-input" data-filter-key="margin" style="text-align:right;"><option value="">All</option></select></th>
             </tr></thead>
             <tbody id="paymentsBody"></tbody></table>
           </div>
@@ -1006,7 +1071,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
     </div>
     <div class="modal-body">
       <div class="form-grid">
-        <div><label>Platform</label><select class="form-select" id="f-platform"><option>Meesho</option><option>Flipkart</option><option>Amazon</option></select></div>
+        <div><label>Platform</label><select class="form-select" id="f-platform"><option>Meesho</option></select></div>
         <div><label>Product</label><select class="form-select" id="f-product"></select></div>
         <div><label>Quantity</label><input type="number" id="f-qty" min="1" value="1"></div>
         <div><label>Selling price (₹)</label><input type="number" id="f-price" min="0" step="0.01"></div>
@@ -1174,7 +1239,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
     <div class="modal-body">
       <div class="modal-grid">
         <div><label>Order No <span class="req">*</span></label><input type="text" id="o-id"><div class="field-err" id="oerr-id"></div></div>
-        <div><label>Platform</label><select id="o-platform" class="form-select"><option>Meesho</option><option>Flipkart</option><option>Amazon</option></select></div>
+        <div><label>Platform</label><select id="o-platform" class="form-select"><option>Meesho</option></select></div>
         <div><label>Order date <span class="req">*</span></label><input type="date" id="o-date"><div class="field-err" id="oerr-date"></div></div>
         <div><label>Status</label><select id="o-status" class="form-select"><option>Pending</option><option>Shipped</option><option>Delivered</option><option>RTO</option><option>RTO_LOCKED</option><option>Customer Return</option><option>Cancelled</option></select></div>
         <div class="full"><label>Product <span class="req">*</span></label><input type="text" id="o-product" list="orderProductList" placeholder="Type, or pick a catalog item to auto-link cost"><datalist id="orderProductList"></datalist><div class="field-err" id="oerr-product"></div></div>
@@ -1202,19 +1267,23 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
    totalReceived = total units ever stocked in (only grows when you add new stock via Edit).
    damaged = units manually marked damaged (reduces availability, tracked separately from sales).
    qty = remaining/available stock = totalReceived - unitsSold - damaged. Always DERIVED, never edited directly. */
+let _invDeletedSnapshot = null, _rawDeletedSnapshot = null, _listingDeletedSnapshot = null;
 let inventory = [
-  {name:"White Pearl Long", hsn:7117, totalReceived:12, damaged:0, pricePerP:15, gstPct:0.03},
-  {name:"White Pearl short", hsn:7117, totalReceived:13, damaged:0, pricePerP:12, gstPct:0.03},
-  {name:"White Pearl Earrings", hsn:7117, totalReceived:24, damaged:0, pricePerP:5, gstPct:0.03},
-  {name:"Hand band with key chain", hsn:7117, totalReceived:36, damaged:0, pricePerP:11, gstPct:0.03},
-  {name:"Green_coin_ necklace", hsn:7117, totalReceived:13, damaged:0, pricePerP:165, gstPct:0.03},
-  {name:"Green_lakshmi_ necklace", hsn:7117, totalReceived:6, damaged:0, pricePerP:260, gstPct:0.03},
-  {name:"Brown_leaf", hsn:7117, totalReceived:5, damaged:0, pricePerP:195, gstPct:0},
-  {name:"Green_lotus", hsn:7117, totalReceived:2, damaged:0, pricePerP:75, gstPct:0},
-  {name:"Purple lotus", hsn:7117, totalReceived:2, damaged:0, pricePerP:75, gstPct:0},
-  {name:"Pink_coin_ necklace", hsn:7117, totalReceived:12, damaged:0, pricePerP:170, gstPct:0.03},
-  {name:"Multi_lakshmi_ necklace", hsn:7117, totalReceived:3, damaged:0, pricePerP:260, gstPct:0.03},
-  {name:"Long_Green_lakshmi_ necklace", hsn:7117, totalReceived:3, damaged:0, pricePerP:325, gstPct:0.03},
+  {name:"Round Plain Bangle", hsn:7117, totalReceived:20, damaged:0, pricePerP:4, gstPct:0.03},
+  {name:"Round Twisted bangel", hsn:7117, totalReceived:20, damaged:0, pricePerP:10, gstPct:0.03},
+  {name:"Black Eye Thread", hsn:7117, totalReceived:24, damaged:0, pricePerP:3, gstPct:0.03},
+  {name:"Pink_coin_ necklace", hsn:7117, totalReceived:7, damaged:0, pricePerP:165, gstPct:0.03},
+  {name:"Coin_gren_necklace", hsn:7117, totalReceived:27, damaged:0, pricePerP:165, gstPct:0.03},
+  {name:"Coin_purple_necklace", hsn:7117, totalReceived:7, damaged:0, pricePerP:165, gstPct:0.03},
+  {name:"Peacock_red", hsn:7117, totalReceived:12, damaged:0, pricePerP:58, gstPct:0.03},
+  {name:"White_floral", hsn:7117, totalReceived:3, damaged:0, pricePerP:58, gstPct:0.03},
+  {name:"White Pearl Necklace Set with Earrings", hsn:7117, totalReceived:3, damaged:0, pricePerP:200, gstPct:0.03},
+  {name:"Pink_Coin_Necklace", hsn:7117, totalReceived:20, damaged:0, pricePerP:170, gstPct:0.03},
+  {name:"Green_Coin_Necklace", hsn:7117, totalReceived:13, damaged:0, pricePerP:170, gstPct:0.03},
+  {name:"Purple_Coin_Necklace", hsn:7117, totalReceived:27, damaged:0, pricePerP:170, gstPct:0.03},
+  {name:"LakshmiCoin_Green_long_harha", hsn:7117, totalReceived:3, damaged:0, pricePerP:250, gstPct:0.03},
+  {name:"multi_color_hanaging_design", hsn:7117, totalReceived:3, damaged:0, pricePerP:200, gstPct:0.03},
+  {name:"3 set _white and red stone (God set)", hsn:7117, totalReceived:1, damaged:0, pricePerP:300, gstPct:0.03},
 ];
 let nextInvId = 1;
 inventory.forEach(i=> i.id = "inv"+(nextInvId++));
@@ -1275,20 +1344,20 @@ function invIdByName(name){
   return item ? item.id : null;
 }
 let listing = [
-  {id:"lst1", components:[{productId:invIdByName("White Pearl Long"), qty:1}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:140},
-  {id:"lst2", components:[{productId:invIdByName("White Pearl short"), qty:1}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:140},
-  {id:"lst3", components:[{productId:invIdByName("White Pearl Long"), qty:1},{productId:invIdByName("White Pearl short"), qty:1}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:230},
-  {id:"lst4", components:[{productId:invIdByName("Hand band with key chain"), qty:3}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:169},
-  {id:"lst5", components:[{productId:invIdByName("Hand band with key chain"), qty:3}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:169},
-  {id:"lst6", components:[{productId:invIdByName("Hand band with key chain"), qty:2}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:149},
-  {id:"lst7", components:[{productId:invIdByName("Green_coin_ necklace"), qty:1}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:328},
-  {id:"lst8", components:[{productId:invIdByName("Green_lakshmi_ necklace"), qty:1}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:426},
-  {id:"lst9", components:[{productId:invIdByName("Brown_leaf"), qty:1}], packing:20, misc:10, profit:100, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"QC Error", bank:408},
-  {id:"lst10", components:[{productId:invIdByName("Green_lotus"), qty:1}], packing:20, misc:10, profit:130, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:179},
-  {id:"lst11", components:[{productId:invIdByName("Purple lotus"), qty:1}], packing:20, misc:10, profit:75, retPct:0.10, dmgPct:0.10, gstPct:0.03, status:"Available", bank:213},
+  {id:"lst1", components:[{productId:invIdByName("Round Plain Bangle"), qty:1}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:140},
+  {id:"lst2", components:[{productId:invIdByName("Round Twisted bangel"), qty:1}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:140},
+  {id:"lst3", components:[{productId:invIdByName("Round Plain Bangle"), qty:1},{productId:invIdByName("Round Twisted bangel"), qty:1}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:230},
+  {id:"lst4", components:[{productId:invIdByName("Black Eye Thread"), qty:3}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:169},
+  {id:"lst5", components:[{productId:invIdByName("Black Eye Thread"), qty:3}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:169},
+  {id:"lst6", components:[{productId:invIdByName("Black Eye Thread"), qty:2}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:149},
+  {id:"lst7", components:[{productId:invIdByName("Coin_gren_necklace"), qty:1}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:328},
+  {id:"lst8", components:[{productId:invIdByName("LakshmiCoin_Green_long_harha"), qty:1}], packing:20, misc:10, profit:50, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:426},
+  {id:"lst9", components:[{productId:invIdByName("Peacock_red"), qty:1}], packing:20, misc:10, profit:100, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"QC Error", bank:408},
+  {id:"lst10", components:[{productId:invIdByName("White_floral"), qty:1}], packing:20, misc:10, profit:130, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:179},
+  {id:"lst11", components:[{productId:invIdByName("Coin_purple_necklace"), qty:1}], packing:20, misc:10, profit:75, retPct:0.10, dmgPct:0.10, gstPct:0.03, status:"Available", bank:213},
   {id:"lst12", components:[{productId:invIdByName("Pink_coin_ necklace"), qty:1}], packing:20, misc:10, profit:120, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:408},
-  {id:"lst13", components:[{productId:invIdByName("Multi_lakshmi_ necklace"), qty:1}], packing:20, misc:10, profit:120, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:null},
-  {id:"lst14", components:[{productId:invIdByName("Long_Green_lakshmi_ necklace"), qty:1}], packing:20, misc:10, profit:134, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:null},
+  {id:"lst13", components:[{productId:invIdByName("multi_color_hanaging_design"), qty:1}], packing:20, misc:10, profit:120, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:null},
+  {id:"lst14", components:[{productId:invIdByName("White Pearl Necklace Set with Earrings"), qty:1}], packing:20, misc:10, profit:134, retPct:0.15, dmgPct:0.10, gstPct:0.03, status:"Available", bank:null},
 ];
 let nextListingId = 15;
 
@@ -1313,13 +1382,11 @@ const expenseCategories = ["Ad Spend / Marketing","Packaging Materials","Shippin
    reload resets to DEFAULT_BUSINESS_PROFILE). Bank account fields are masked on screen by default
    with a show/hide toggle since they're sensitive; nothing here is ever sent anywhere. */
 const DEFAULT_BUSINESS_PROFILE = {
-  company: { name:"AKMR Trade Point", owner:"", legalType:"", phone:"8105108480", address:"Muganahalli, Sira (T), Tumkur (D), Karnataka – 572137", email:"", website:"" },
-  tax: { gstin:"29ACNFA0979M1ZM", pan:"ACNFA0979••", hsn:"7117", gstType:"", stateCode:"29 – Karnataka", tan:"" },
+  company: { name:"AKMR Trade Point", owner:"", legalType:"", phone:"", address:"", email:"", website:"" },
+  tax: { gstin:"", pan:"", hsn:"", gstType:"", stateCode:"", tan:"" },
   bank: { holder:"", bankName:"", accountNumber:"", ifsc:"", branch:"", accountType:"", upi:"" },
   channels: [
     {key:"Meesho", status:"Active", sellerId:"", category:"", warehouse:"", returnAddress:""},
-    {key:"Flipkart", status:"Registered, no orders yet", sellerId:"", category:"", warehouse:"", returnAddress:""},
-    {key:"Amazon", status:"Registered, no orders yet", sellerId:"", category:"", warehouse:"", returnAddress:""},
   ],
 };
 let businessProfile = JSON.parse(JSON.stringify(DEFAULT_BUSINESS_PROFILE));
@@ -1340,6 +1407,24 @@ const ORIGINAL_EXPENSES = JSON.parse(JSON.stringify(expenses));
 function unitsSoldFor(name){
   return orders.filter(o=> o.product.trim().toLowerCase() === name.trim().toLowerCase()).reduce((s,o)=>s+o.qty,0);
 }
+/* "Sold" for the Inventory tab only counts units that are truly a completed sale: status Delivered
+   AND payment actually received. This deliberately excludes RTO/Customer Return/RTO_LOCKED (the
+   item physically came back, so it was never really sold — those units stay available/in-stock),
+   Cancelled (never shipped), Pending (not shipped yet), and plain Shipped-with-no-payment-yet
+   (not yet confirmed as a completed sale). */
+function soldUnitsFor(name){
+  return orders.filter(o=> o.product.trim().toLowerCase() === name.trim().toLowerCase() && o.status==="Delivered" && o.bank!=null).reduce((s,o)=>s+o.qty,0);
+}
+/* Units that came back to the seller — RTO, RTO_LOCKED, or a Customer Return — shown as their own
+   Inventory column so it's clear how many units of a product have been returned. */
+/* Units that came back to the seller as a Customer Return — shown as its own Inventory column so
+   it's clear how many units of a product customers sent back. RTO (never actually delivered to the
+   customer) is deliberately excluded here — those units are still kept out of "Sold" and stay
+   available in stock, they just aren't counted as a "Return" since the customer never received them. */
+const RETURNED_STATUSES = ["Customer Return"];
+function returnedUnitsFor(name){
+  return orders.filter(o=> o.product.trim().toLowerCase() === name.trim().toLowerCase() && RETURNED_STATUSES.includes(o.status)).reduce((s,o)=>s+o.qty,0);
+}
 /* "Sold" for dashboard/reporting purposes only counts orders that actually left the warehouse or came back
    after leaving it — Shipped, Delivered, RTO, Customer Return, RTO_LOCKED. Pending (not shipped yet) and
    Cancelled (never shipped) are excluded so the count reflects real movement, not raw order volume. */
@@ -1348,9 +1433,10 @@ function qualifyingSoldUnitsFor(name){
   return orders.filter(o=> o.product.trim().toLowerCase() === name.trim().toLowerCase() && QUALIFYING_SOLD_STATUSES.includes(o.status)).reduce((s,o)=>s+o.qty,0);
 }
 function recomputeInvFields(item){
-  const sold = unitsSoldFor(item.name);
+  const sold = soldUnitsFor(item.name);
   item.sold = sold;
-  item.qty = Math.max(0, item.totalReceived - sold - (item.damaged||0)); // remaining/available stock
+  item.returned = returnedUnitsFor(item.name);
+  item.qty = Math.max(0, item.totalReceived - sold - (item.damaged||0)); // remaining/available stock — RTO/Customer Return units were never subtracted, so they're already counted as available
   item.purchase = item.totalReceived * item.pricePerP; // cost basis is on everything ever received, not just what's left
   item.gstPaid = item.purchase * item.gstPct;
   item.totalPurchase = item.purchase + item.gstPaid;
@@ -1416,10 +1502,84 @@ let dateToVal = "";
 let activePaymentStatusTab = "All";
 let paymentsSearchTerm = "";
 let paymentsPlatformFilterVal = "all";
+let paymentsColFilters = {};
+let paymentsSort = {key:null, dir:1};
 let paymentsProductFilterVal = "all";
 let paymentsPaymentFilterVal = "all";
 let paymentsDateFromVal = "";
 let paymentsDateToVal = "";
+
+/* ===================== BULK SELECT + DELETE (Orders / Inventory / Listing / Raw Materials) =====================
+   Every table below gets a header "select all" checkbox plus a per-row checkbox. Checking one or
+   more rows reveals a small bulk-action bar with a live count and a "Delete selected" button. That
+   button always routes through the same confirm-modal pattern used for single-item delete — bulk
+   delete never skips the "are you sure" step, and it never bypasses rules like "can't delete an
+   inventory item that already has sales against it". ---- */
+let selectedOrderIds = new Set();
+let selectedInventoryIds = new Set();
+let selectedListingIds = new Set();
+let selectedRawIds = new Set();
+
+function syncBulkBar(barId, countId, selectedSet){
+  const bar = document.getElementById(barId);
+  if(!bar) return;
+  const n = selectedSet.size;
+  bar.style.display = n>0 ? "flex" : "none";
+  const countEl = document.getElementById(countId);
+  if(countEl) countEl.textContent = n;
+}
+function syncSelectAllCb(cbId, visibleIds, selectedSet){
+  const cb = document.getElementById(cbId);
+  if(!cb) return;
+  if(!visibleIds.length){ cb.checked = false; cb.indeterminate = false; return; }
+  const selectedVisible = visibleIds.filter(id=>selectedSet.has(id));
+  cb.checked = selectedVisible.length === visibleIds.length;
+  cb.indeterminate = selectedVisible.length>0 && selectedVisible.length < visibleIds.length;
+}
+/* Wires up the header checkbox + row checkboxes + bulk bar for one table. Call this at the end of
+   that table's render function, after the rows (with .row-check checkboxes) are in the DOM. */
+function wireBulkSelect({bodyId, selectAllCbId, barId, countId, clearBtnId, deleteBtnId, selectedSet, visibleIds, onRender, onBulkDelete}){
+  syncSelectAllCb(selectAllCbId, visibleIds, selectedSet);
+  syncBulkBar(barId, countId, selectedSet);
+  document.querySelectorAll(`#${bodyId} .row-check`).forEach(cb=>{
+    cb.checked = selectedSet.has(cb.dataset.rowId);
+    cb.addEventListener("click", e=> e.stopPropagation());
+    cb.addEventListener("change", e=>{
+      const id = e.target.dataset.rowId;
+      if(e.target.checked) selectedSet.add(id); else selectedSet.delete(id);
+      syncSelectAllCb(selectAllCbId, visibleIds, selectedSet);
+      syncBulkBar(barId, countId, selectedSet);
+    });
+  });
+  const selectAllCb = document.getElementById(selectAllCbId);
+  if(selectAllCb && !selectAllCb.dataset.wired){
+    selectAllCb.dataset.wired = "1";
+    selectAllCb.addEventListener("change", e=>{
+      if(e.target.checked) visibleIds.forEach(id=>selectedSet.add(id));
+      else visibleIds.forEach(id=>selectedSet.delete(id));
+      onRender();
+    });
+  }
+  const clearBtn = document.getElementById(clearBtnId);
+  if(clearBtn && !clearBtn.dataset.wired){
+    clearBtn.dataset.wired = "1";
+    clearBtn.addEventListener("click", ()=>{ selectedSet.clear(); onRender(); });
+  }
+  const deleteBtn = document.getElementById(deleteBtnId);
+  if(deleteBtn && !deleteBtn.dataset.wired){
+    deleteBtn.dataset.wired = "1";
+    deleteBtn.addEventListener("click", onBulkDelete);
+  }
+}
+function openBulkConfirm({title, text, confirmLabel, onConfirm}){
+  const body = document.getElementById("confirmBody");
+  const foot = document.getElementById("confirmFoot");
+  body.innerHTML = `<h4 class="confirm-title">${title}</h4><p class="confirm-text">${text}</p>`;
+  foot.innerHTML = `<button class="btn secondary" id="confirmCancelBtn">Cancel</button><button class="btn" style="background:var(--red);" id="confirmDeleteBtn">${confirmLabel}</button>`;
+  document.getElementById("confirmCancelBtn").addEventListener("click", closeConfirm);
+  document.getElementById("confirmDeleteBtn").addEventListener("click", onConfirm);
+  document.getElementById("confirmOverlay").classList.add("show");
+}
 
 function esc(s){ return String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function fmt(n){ return "₹" + Number(n||0).toLocaleString("en-IN", {maximumFractionDigits:2}); }
@@ -1428,8 +1588,8 @@ function fmtDateFull(iso){ const d=new Date(iso+"T00:00:00"); const dd=String(d.
 
 /* ===================== NAVIGATION ===================== */
 const titles = {
-  home:["Home","Today's snapshot across Meesho, Flipkart & Amazon"],
-  orders:["Orders","Track, search and filter every order across platforms"],
+  home:["Home","Today's snapshot across Meesho"],
+  orders:["Orders","Track, search and filter every order"],
   inventory:["Inventory","Stock on hand, by product — from the Inventory sheet"],
   rawmat:["Raw Materials","Packaging & supply purchases, and per-piece packing cost"],
   returns:["Returns / RTO","Reverse shipping costs when a parcel comes back"],
@@ -1462,6 +1622,9 @@ function setView(view){
   }
   if(view==="listing"){
     renderListing();
+  }
+  if(view==="reports"){
+    renderPL();
   }
 }
 document.querySelectorAll(".nav-item").forEach(n=> n.addEventListener("click", ()=> setView(n.dataset.view)));
@@ -1583,7 +1746,7 @@ function homeHeroYearOptions(){
   const visible = getVisibleOrders();
   const nowYear = new Date().getFullYear();
   const years = new Set();
-  for(let y=nowYear-5; y<=nowYear+2; y++) years.add(y);
+  for(let y=nowYear-5; y<=nowYear+20; y++) years.add(y);
   years.add(homeSelYear);
   visible.forEach(o=>{ const y = parseInt((o.date||"").slice(0,4),10); if(!isNaN(y)) years.add(y); });
   return [...years].sort((a,b)=>a-b);
@@ -1597,17 +1760,53 @@ function renderHomeHero(){
   const greet = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const visible = getVisibleOrders();
 
-  const maxDay = daysInMonth(homeSelYear, homeSelMonth);
+  const maxDay = homeSelMonth===-1 ? 31 : daysInMonth(homeSelYear, homeSelMonth);
+  if(homeSelMonth===-1) homeSelDay = 0;
   if(homeSelDay > maxDay) homeSelDay = 0;
 
   const periodOrders = visible.filter(o=>{
     const d = new Date(o.date+"T00:00:00");
-    if(d.getMonth()!==homeSelMonth || d.getFullYear()!==homeSelYear) return false;
-    if(homeSelDay!==0 && d.getDate()!==homeSelDay) return false;
+    if(d.getFullYear()!==homeSelYear) return false;
+    if(homeSelMonth!==-1 && d.getMonth()!==homeSelMonth) return false;
+    if(homeSelMonth!==-1 && homeSelDay!==0 && d.getDate()!==homeSelDay) return false;
     return true;
   });
   const periodRevenue = periodOrders.reduce((s,o)=>s+(o.sell||0)*o.qty, 0);
   const pendingPayments = visible.filter(o=>o.bank==null && o.status!=="Cancelled").length;
+
+  /* Delivered / Net Profit / RTO / Customer Return — all scoped to the same period as Orders &
+     Revenue above, and all computed from the exact same per-order ledger figures the Payments tab
+     uses (getPaymentRowFigures), so these hero numbers can never drift out of sync with the
+     Payments dashboard or the order table. RTO/RTO_LOCKED and Customer Return are excluded from
+     the Net Profit figure (they never completed as a real sale) and shown as their own loss totals
+     instead, mirroring the Payments tab's success-vs-loss split. */
+  const deliveredOrders = periodOrders.filter(o=>o.status==="Delivered");
+  const rtoOrders = periodOrders.filter(o=>o.status==="RTO" || o.status==="RTO_LOCKED");
+  const customerReturnOrders = periodOrders.filter(o=>o.status==="Customer Return");
+  const isLossStatus = (o)=> o.status==="RTO" || o.status==="RTO_LOCKED" || o.status==="Customer Return" || o.status==="Lost";
+
+  const settledSuccessOrders = periodOrders.filter(o=>o.paymentDetails && !isLossStatus(o));
+  const successFigures = settledSuccessOrders.map(getPaymentRowFigures);
+  const periodReceived = successFigures.reduce((s,rf)=>s+(rf.settlementAmt||0),0);
+  const unsettledSuccessCount = periodOrders.filter(o=>!o.paymentDetails && !isLossStatus(o)).length;
+
+  const rtoLoss = rtoOrders.filter(o=>o.paymentDetails).map(getPaymentRowFigures).reduce((s,rf)=>s+(rf.netProfitVal||0),0);
+  const customerReturnLoss = customerReturnOrders.filter(o=>o.paymentDetails).map(getPaymentRowFigures).reduce((s,rf)=>s+(rf.netProfitVal||0),0);
+
+  /* Net Bank Settlement (period) = Final Settlement Amount (period) minus Return Settlement (period),
+     mirroring the exact same formula used in the Payments tab's Net Bank Settlement (Overall) card,
+     just scoped to the selected home-page period instead of all-time. */
+  const periodReturnSettlement = customerReturnOrders.filter(o=>o.paymentDetails).map(getPaymentRowFigures).reduce((s,rf)=>s+(rf.settlementAmt||0),0);
+  const periodNetBankSettlement = periodReceived - Math.abs(periodReturnSettlement);
+
+  /* Net Profit (period) = Net Bank Settlement (period) − Price per Unit (period) − Other Expense
+     (period), mirroring the Payments tab's Net Profit (Overall) formula exactly. Price per Unit
+     only counts orders that actually shipped out — Shipped, Delivered or Cancelled. */
+  const periodPricePerUnitOrders = settledSuccessOrders.filter(o=> ["Shipped","Delivered","Cancelled"].includes(getPaymentStatus(o)));
+  const periodPricePerUnit = periodPricePerUnitOrders.reduce((s,o)=>s+(getPaymentRowFigures(o).pricePerUnitTotal||0),0);
+  const periodOtherExpense = successFigures.reduce((s,rf)=>s+(rf.otherExpenseVal||0),0);
+  const periodNetProfit = periodNetBankSettlement - periodPricePerUnit - periodOtherExpense;
+  const periodMargin = periodNetBankSettlement>0 ? (periodNetProfit/periodNetBankSettlement*100) : null;
 
   const lowStockCount = inventory.filter(i=>i.qty<5).length;
   const missingCostCount = visible.filter(o=>o.cost==null).length;
@@ -1616,7 +1815,10 @@ function renderHomeHero(){
 
   const now = new Date();
   let periodLabel;
-  if(homeSelDay!==0){
+  if(homeSelMonth===-1){
+    const isCurrentYear = homeSelYear===now.getFullYear();
+    periodLabel = isCurrentYear ? "This year's" : (homeSelYear+" —");
+  } else if(homeSelDay!==0){
     const isToday = homeSelDay===now.getDate() && homeSelMonth===now.getMonth() && homeSelYear===now.getFullYear();
     periodLabel = isToday ? "Today's" : (homeSelDay+" "+MONTH_NAMES[homeSelMonth].slice(0,3)+" "+homeSelYear+" —");
   } else {
@@ -1625,21 +1827,21 @@ function renderHomeHero(){
   }
   const years = homeHeroYearOptions();
   const todayStr = now.toLocaleDateString("en-GB",{weekday:"short", day:"2-digit", month:"short", year:"numeric"});
-  const dayOptions = `<option value="0" ${homeSelDay===0?"selected":""}>All days</option>` + Array.from({length:maxDay},(_,i)=>i+1).map(d=>`<option value="${d}" ${d===homeSelDay?"selected":""}>${d}</option>`).join("");
+  const dayOptions = `<option value="0" ${homeSelDay===0?"selected":""}>All days</option>` + (homeSelMonth===-1 ? "" : Array.from({length:maxDay},(_,i)=>i+1).map(d=>`<option value="${d}" ${d===homeSelDay?"selected":""}>${d}</option>`).join(""));
 
   el.innerHTML = `
     <div class="hero-top">
       <div class="hero-greet">
         <div class="eyebrow">AKMR Trade Point</div>
         <h2>${greet}! Here's how business looks.</h2>
-        <div class="hero-sub">Snapshot across Meesho, Flipkart &amp; Amazon</div>
+        <div class="hero-sub">Snapshot across Meesho</div>
       </div>
       <div class="hero-right">
         <div class="hero-date">📅 ${todayStr}</div>
         <div class="hero-range">
           <span class="hr-ic">🗓</span>
-          <select id="heroDaySelect" title="Day">${dayOptions}</select>
-          <select id="heroMonthSelect" title="Month">${MONTH_NAMES.map((m,i)=>`<option value="${i}" ${i===homeSelMonth?"selected":""}>${m}</option>`).join("")}</select>
+          <select id="heroDaySelect" title="Day" ${homeSelMonth===-1?"disabled":""}>${dayOptions}</select>
+          <select id="heroMonthSelect" title="Month"><option value="-1" ${homeSelMonth===-1?"selected":""}>All months</option>${MONTH_NAMES.map((m,i)=>`<option value="${i}" ${i===homeSelMonth?"selected":""}>${m}</option>`).join("")}</select>
           <select id="heroYearSelect" title="Year">${years.map(y=>`<option value="${y}" ${y===homeSelYear?"selected":""}>${y}</option>`).join("")}</select>
         </div>
       </div>
@@ -1651,9 +1853,34 @@ function renderHomeHero(){
         <div class="hs-sub">${visible.length} total orders</div>
       </div>
       <div class="hero-stat" data-jump="orders">
+        <div class="hs-label">✅ ${periodLabel} delivered</div>
+        <div class="hs-value">${deliveredOrders.length}</div>
+        <div class="hs-sub">${periodOrders.length ? Math.round(deliveredOrders.length/periodOrders.length*100) : 0}% of period orders</div>
+      </div>
+      <div class="hero-stat" data-jump="orders">
         <div class="hs-label">💵 ${periodLabel} revenue</div>
         <div class="hs-value">${fmt(periodRevenue)}</div>
         <div class="hs-sub">Gross, before returns</div>
+      </div>
+      <div class="hero-stat" data-jump="payments">
+        <div class="hs-label">🏦 ${periodLabel} net bank settlement</div>
+        <div class="hs-value">${fmt(periodNetBankSettlement)}</div>
+        <div class="hs-sub">Settlement received, net of customer returns</div>
+      </div>
+      <div class="hero-stat" data-jump="payments">
+        <div class="hs-label">📈 ${periodLabel} net profit</div>
+        <div class="hs-value ${periodNetProfit<0?'attn':''}">${fmt(periodNetProfit)}</div>
+        <div class="hs-sub">${periodMargin!=null ? periodMargin.toFixed(1)+"% margin" : (unsettledSuccessCount ? unsettledSuccessCount+" order(s) awaiting settlement" : "No settled sales yet")}</div>
+      </div>
+      <div class="hero-stat" data-jump="returns">
+        <div class="hs-label">↩️ ${periodLabel} RTO</div>
+        <div class="hs-value ${rtoOrders.length>0?'attn':''}">${rtoOrders.length}</div>
+        <div class="hs-sub">${rtoLoss<0 ? fmt(Math.abs(rtoLoss))+" lost" : (rtoOrders.length ? "Awaiting settlement" : "None this period")}</div>
+      </div>
+      <div class="hero-stat" data-jump="returns">
+        <div class="hs-label">🔁 ${periodLabel} customer return</div>
+        <div class="hs-value ${customerReturnOrders.length>0?'attn':''}">${customerReturnOrders.length}</div>
+        <div class="hs-sub">${customerReturnLoss<0 ? fmt(Math.abs(customerReturnLoss))+" lost" : (customerReturnOrders.length ? "Awaiting settlement" : "None this period")}</div>
       </div>
       <div class="hero-stat" data-jump="payments">
         <div class="hs-label">⏳ Payments pending</div>
@@ -2029,7 +2256,7 @@ function renderOrdersSummary(){
   const needsAttention = issues + missingCost;
   const totalLoss = computeOverallLoss();
   el.innerHTML = `
-    <div class="kpi"><div class="label">Total orders</div><div class="value">${total}</div><div class="delta flat">Across Meesho, Flipkart &amp; Amazon</div></div>
+    <div class="kpi"><div class="label">Total orders</div><div class="value">${total}</div><div class="delta flat">Across Meesho</div></div>
     <div class="kpi"><div class="label">Total revenue</div><div class="value">${fmt(revenue)}</div><div class="delta flat">Gross, before returns</div></div>
     <div class="kpi"><div class="label">Pending / Shipped</div><div class="value">${pending} / ${shipped}</div><div class="delta flat">${delivered} delivered</div></div>
     <div class="kpi ${needsAttention>0?'warn':''}"><div class="label">Needs attention</div><div class="value">${needsAttention}</div><div class="delta ${needsAttention>0?'down':'flat'}">${issues} RTO/RTO_LOCKED/Cancelled/Customer Return · ${missingCost} missing cost</div></div>
@@ -2121,6 +2348,7 @@ function renderOrdersTable(){
       : `<span style="color:var(--ink-soft);">Pending</span>`;
     const tr = document.createElement("tr"); tr.className="clickable";
     tr.innerHTML = `
+      <td><input type="checkbox" class="row-check" data-row-id="${esc(o.id)}"></td>
       <td>${fmtDateFull(o.date)}</td>
       <td class="mono" style="font-size:11px; color:var(--ink-soft);">${esc(o.id)}</td>
       <td><div class="prod-cell"><div class="prod-thumb" style="background:${thumbColor(name)};">${esc(name.charAt(0))}</div>${esc(name)}</div></td>
@@ -2138,6 +2366,28 @@ function renderOrdersTable(){
   });
   body.querySelectorAll("[data-order-edit]").forEach(b=> b.addEventListener("click", (e)=>{ e.stopPropagation(); openOrderModal(b.dataset.orderEdit); }));
   body.querySelectorAll("[data-order-delete]").forEach(b=> b.addEventListener("click", (e)=>{ e.stopPropagation(); confirmDeleteOrder(b.dataset.orderDelete); }));
+  wireBulkSelect({
+    bodyId:"ordersBody", selectAllCbId:"ordersSelectAllCb", barId:"ordersBulkBar", countId:"ordersSelectedCount",
+    clearBtnId:"ordersClearSelectionBtn", deleteBtnId:"ordersBulkDeleteBtn",
+    selectedSet: selectedOrderIds, visibleIds: list.map(o=>o.id), onRender: renderOrdersTable,
+    onBulkDelete: ()=>{
+      const ids = list.map(o=>o.id).filter(id=>selectedOrderIds.has(id));
+      if(!ids.length) return;
+      openBulkConfirm({
+        title: `Delete ${ids.length} order(s)?`,
+        text: `This will permanently remove ${ids.length} selected order(s) from your records. This action can't be undone (unless you use "Reset to sample data").`,
+        confirmLabel: "Delete selected",
+        onConfirm: ()=>{
+          orders = orders.filter(o=>!ids.includes(o.id));
+          selectedOrderIds.clear();
+          inventory.forEach(recomputeInvFields);
+          closeConfirm();
+          renderAll();
+          populateProductSelect();
+        }
+      });
+    }
+  });
 }
 document.querySelectorAll("thead th[data-sort]").forEach(th=>{
   th.addEventListener("click", ()=>{
@@ -2182,11 +2432,31 @@ document.getElementById("paymentsStatusFilter").addEventListener("change", (e)=>
 document.getElementById("paymentsClearFiltersBtn").addEventListener("click", ()=>{
   paymentsSearchTerm=""; paymentsPlatformFilterVal="all"; activePaymentStatusTab="All";
   paymentsProductFilterVal="all"; paymentsPaymentFilterVal="all"; paymentsDateFromVal=""; paymentsDateToVal="";
+  paymentsColFilters={}; paymentsSort={key:null, dir:1};
   document.getElementById("paymentsSearch").value=""; document.getElementById("paymentsPlatformFilter").value="all";
   document.getElementById("paymentsProductFilter").value="all"; document.getElementById("paymentsPaymentFilter").value="all";
   document.getElementById("paymentsDateFromFilter").value=""; document.getElementById("paymentsDateToFilter").value="";
   document.getElementById("paymentsStatusFilter").value="All";
+  document.querySelectorAll("#paymentsColFilterRow .col-filter-input").forEach(inp=> inp.value="");
+  document.querySelectorAll("#view-payments thead th[data-sort]").forEach(t=>t.classList.remove("sorted"));
   renderPayments();
+});
+document.querySelectorAll("#paymentsColFilterRow .col-filter-input").forEach(inp=>{
+  inp.addEventListener("click", (e)=> e.stopPropagation());
+  const evtType = inp.tagName === "SELECT" ? "change" : "input";
+  inp.addEventListener(evtType, (e)=>{
+    paymentsColFilters[e.target.dataset.filterKey] = e.target.value;
+    renderPayments();
+  });
+});
+document.querySelectorAll("#view-payments thead th[data-sort]").forEach(th=>{
+  th.addEventListener("click", ()=>{
+    const key = th.dataset.sort;
+    if(paymentsSort.key===key) paymentsSort.dir *= -1; else { paymentsSort.key=key; paymentsSort.dir=1; }
+    th.closest("table").querySelectorAll("thead th[data-sort]").forEach(t=>t.classList.remove("sorted"));
+    th.classList.add("sorted");
+    renderPayments();
+  });
 });
 function openOrderDrawer(o){
   const rev = o.sell*o.qty;
@@ -2321,7 +2591,7 @@ function renderInventory(){
   if(invSearchTerm) list = list.filter(i=>i.name.toLowerCase().includes(invSearchTerm));
   if(invSort.key){
     list.sort((a,b)=>{
-      const map = {name:"name", qty:"qty", sold:"sold", purchasePrice:"purchase", gstPaid:"gstPaid", totalPurchase:"totalPurchase"};
+      const map = {name:"name", totalReceived:"totalReceived", qty:"qty", sold:"sold", returned:"returned", purchasePrice:"purchase", gstPaid:"gstPaid", totalPurchase:"totalPurchase"};
       let av=a[map[invSort.key]], bv=b[map[invSort.key]];
       if(typeof av === "string") return av.localeCompare(bv) * invSort.dir;
       return ((av||0)-(bv||0)) * invSort.dir;
@@ -2343,9 +2613,10 @@ function renderInventory(){
          </div>`
       : `<div class="damaged-cell"><span class="damaged-val">${item.damaged||0}</span><button class="damaged-edit-btn" title="Update damaged stock" data-edit-damaged="${item.id}">✎</button></div>`;
 
-    return `<tr><td>${esc(item.name.trim())}</td><td class="num-cell">${esc(item.hsn)}</td><td class="num-cell">${item.qty}</td>
+    return `<tr><td><input type="checkbox" class="row-check" data-row-id="${esc(item.id)}"></td><td>${esc(item.name.trim())}</td><td class="num-cell">${esc(item.hsn)}</td><td class="num-cell">${item.totalReceived}</td><td class="num-cell">${item.qty}</td>
       <td><div class="stock-bar-bg"><div class="stock-bar-fill" style="width:${pct}%; background:${level};"></div></div></td>
       <td class="num-cell">${item.sold||0}</td>
+      <td class="num-cell">${item.returned||0}</td>
       <td>${damagedCell}</td>
       <td class="num-cell">${fmt(item.purchase)}</td><td class="num-cell">${fmt(item.gstPaid)}</td><td class="num-cell">${fmt(item.totalPurchase)}</td>
       <td>${pill}</td>
@@ -2365,7 +2636,7 @@ function renderInventory(){
     const input = document.getElementById("damaged-input-"+id);
     const val = parseFloat(input.value);
     if(isNaN(val) || val<0){ input.style.borderColor = "var(--red)"; return; }
-    const sold = unitsSoldFor(item.name);
+    const sold = soldUnitsFor(item.name);
     if(val + sold > item.totalReceived){
       input.style.borderColor = "var(--red)";
       input.title = `Can't exceed available stock — only ${item.totalReceived - sold} unit(s) not yet sold.`;
@@ -2385,7 +2656,8 @@ function renderInventory(){
 
   /* ---- Stock Summary (compact single-line strip) ---- */
   const totalStock = inventory.reduce((s,i)=>s+i.totalReceived,0);
-  const totalSold = inventory.reduce((s,i)=>s+qualifyingSoldUnitsFor(i.name),0);
+  const totalSold = inventory.reduce((s,i)=>s+(i.sold||0),0);
+  const totalReturned = inventory.reduce((s,i)=>s+(i.returned||0),0);
   const totalDamaged = inventory.reduce((s,i)=>s+(i.damaged||0),0);
   const totalRemaining = inventory.reduce((s,i)=>s+i.qty,0);
   const totalPurchase = inventory.reduce((s,i)=>s+i.purchase,0);
@@ -2403,12 +2675,14 @@ function renderInventory(){
 
   /* ---- Professional totals bar ---- */
   document.getElementById("inventoryFootWrap").innerHTML = `
-    <tr><td colspan="11" style="padding:0; border:none;">
+    <tr><td colspan="14" style="padding:0; border:none;">
       <div class="totals-bar">
         <div class="t-label">📋 Grand Total — ${inventory.length} item(s)</div>
+        <div class="t-cell"><span class="t-tag">Total Purchased</span><span class="t-num">${totalStock}</span></div>
         <div class="t-cell"><span class="t-tag">Total In Stock</span><span class="t-num">${totalRemaining}</span></div>
         <div class="t-cell"></div>
         <div class="t-cell"><span class="t-tag">Sold</span><span class="t-num">${totalSold}</span></div>
+        <div class="t-cell"><span class="t-tag">Returned</span><span class="t-num">${totalReturned}</span></div>
         <div class="t-cell"><span class="t-tag">Damaged</span><span class="t-num">${totalDamaged}</span></div>
         <div class="t-cell"><span class="t-tag">Purchase</span><span class="t-num">${fmt(totalPurchase)}</span></div>
         <div class="t-cell"><span class="t-tag">GST Paid</span><span class="t-num">${fmt(totalGst)}</span></div>
@@ -2417,6 +2691,40 @@ function renderInventory(){
       </div>
     </td></tr>
   `;
+  wireBulkSelect({
+    bodyId:"inventoryBody", selectAllCbId:"inventorySelectAllCb", barId:"inventoryBulkBar", countId:"inventorySelectedCount",
+    clearBtnId:"inventoryClearSelectionBtn", deleteBtnId:"inventoryBulkDeleteBtn",
+    selectedSet: selectedInventoryIds, visibleIds: list.map(i=>i.id), onRender: renderInventory,
+    onBulkDelete: ()=>{
+      const selectedItems = list.filter(i=>selectedInventoryIds.has(i.id));
+      if(!selectedItems.length) return;
+      const blocked = selectedItems.filter(i=> soldUnitsFor(i.name) > 0);
+      const deletable = selectedItems.filter(i=> soldUnitsFor(i.name) === 0);
+      if(!deletable.length){
+        openBulkConfirm({
+          title: `Can't delete the selected item(s)`,
+          text: `All ${blocked.length} selected item(s) already have units sold in your order history. Deleting them would break those past orders and reports. Set stock to 0 instead, or rename/edit them.`,
+          confirmLabel: "OK",
+          onConfirm: closeConfirm
+        });
+        return;
+      }
+      const skipNote = blocked.length ? ` ${blocked.length} of the selected item(s) will be skipped because they already have units sold in your order history.` : "";
+      openBulkConfirm({
+        title: `Delete ${deletable.length} inventory item(s)?`,
+        text: `This will permanently remove ${deletable.length} item(s) from your inventory.${skipNote} This action can't be undone (unless you use "Reset to sample data").`,
+        confirmLabel: "Delete selected",
+        onConfirm: ()=>{
+          const deletableIds = deletable.map(i=>i.id);
+          inventory = inventory.filter(i=>!deletableIds.includes(i.id));
+          selectedInventoryIds.clear();
+          closeConfirm();
+          renderAll();
+          populateProductSelect();
+        }
+      });
+    }
+  });
 }
 document.getElementById("invSearch").addEventListener("input", e=>{ invSearchTerm=e.target.value.toLowerCase(); renderInventory(); });
 document.getElementById("invFilter").addEventListener("change", e=>{ invFilterVal=e.target.value; renderInventory(); });
@@ -2480,7 +2788,7 @@ document.getElementById("stockModalSave").addEventListener("click", ()=>{
 
   if(editingStockId){
     const item = inventory.find(i=>i.id===editingStockId);
-    const soldAlready = unitsSoldFor(name);
+    const soldAlready = soldUnitsFor(name);
     if(totalReceived - soldAlready - (item.damaged||0) < 0){
       document.getElementById("err-qty").textContent = `Can't be less than units already sold (${soldAlready}) plus damaged (${item.damaged||0}).`;
       document.getElementById("m-qty").classList.add("invalid");
@@ -2524,6 +2832,41 @@ function confirmDeleteStock(id){
 function closeConfirm(){ document.getElementById("confirmOverlay").classList.remove("show"); }
 document.getElementById("confirmOverlay").addEventListener("click", (e)=>{ if(e.target.id==="confirmOverlay") closeConfirm(); });
 
+document.getElementById("deleteAllInventoryBtn").addEventListener("click", ()=>{
+  if(!inventory.length){
+    const body = document.getElementById("confirmBody");
+    const foot = document.getElementById("confirmFoot");
+    body.innerHTML = `<h4 class="confirm-title">Nothing to delete</h4><p class="confirm-text">Inventory is already empty.</p>`;
+    foot.innerHTML = `<button class="btn secondary" id="confirmCancelBtn">Close</button>`;
+    document.getElementById("confirmCancelBtn").addEventListener("click", closeConfirm);
+    document.getElementById("confirmOverlay").classList.add("show");
+    return;
+  }
+  const body = document.getElementById("confirmBody");
+  const foot = document.getElementById("confirmFoot");
+  body.innerHTML = `<h4 class="confirm-title">Delete all inventory items?</h4><p class="confirm-text">This permanently removes every product currently in Inventory (${inventory.length} item(s)). This can't be undone.</p>`;
+  foot.innerHTML = `<button class="btn secondary" id="confirmCancelBtn">Cancel</button><button class="btn" style="background:var(--red);" id="confirmDeleteBtn">Delete all</button>`;
+  document.getElementById("confirmCancelBtn").addEventListener("click", closeConfirm);
+  document.getElementById("confirmDeleteBtn").addEventListener("click", ()=>{
+    _invDeletedSnapshot = JSON.parse(JSON.stringify(inventory));
+    inventory = [];
+    selectedInventoryIds.clear();
+    closeConfirm();
+    renderAll();
+    populateProductSelect();
+    document.getElementById("undoInventoryBtn").style.display = "inline-block";
+  });
+  document.getElementById("confirmOverlay").classList.add("show");
+});
+document.getElementById("undoInventoryBtn").addEventListener("click", ()=>{
+  if(!_invDeletedSnapshot) return;
+  inventory = _invDeletedSnapshot;
+  _invDeletedSnapshot = null;
+  document.getElementById("undoInventoryBtn").style.display = "none";
+  renderAll();
+  populateProductSelect();
+});
+
 /* ===================== LISTING PRICE ===================== */
 let listingSearchTerm = "";
 let listingFilterVal = "all";
@@ -2551,6 +2894,7 @@ function renderListing(){
     const statusKey = (item.status||"Available").toLowerCase().replace(/\s+/g,"");
     const stockWarn = listingHasStockIssue(item) ? '<span class="stock-warn-tag">⚠ Out of stock</span>' : "";
     return `<tr>
+      <td><input type="checkbox" class="row-check" data-row-id="${esc(item.id)}"></td>
       <td>${esc(name)}${stockWarn}</td>
       <td><span class="status-pill ${statusKey}">${item.status||"Available"}</span></td>
       <td class="num-cell">${fmt(fig.basePrice)}</td>
@@ -2570,7 +2914,7 @@ function renderListing(){
         <button class="icon-btn danger" title="Delete" data-delete-listing="${item.id}">🗑</button>
       </div></td>
     </tr>`;
-  }).join("") : `<tr><td colspan="15"><div class="empty-state"><div class="ic">🏷</div><b>No listings yet</b>Add one to work out what to list it for.</div></td></tr>`;
+  }).join("") : `<tr><td colspan="16"><div class="empty-state"><div class="ic">🏷</div><b>No listings yet</b>Add one to work out what to list it for.</div></td></tr>`;
 
   document.querySelectorAll("#listingBody [data-edit-listing]").forEach(b=> b.addEventListener("click", ()=> openListingModal(b.dataset.editListing)));
   document.querySelectorAll("#listingBody [data-delete-listing]").forEach(b=> b.addEventListener("click", ()=> confirmDeleteListing(b.dataset.deleteListing)));
@@ -2596,6 +2940,27 @@ function renderListing(){
   const badgeEl = document.getElementById("navListingBadge");
   badgeEl.textContent = qcCount;
   badgeEl.style.display = qcCount>0 ? "" : "none";
+  wireBulkSelect({
+    bodyId:"listingBody", selectAllCbId:"listingSelectAllCb", barId:"listingBulkBar", countId:"listingSelectedCount",
+    clearBtnId:"listingClearSelectionBtn", deleteBtnId:"listingBulkDeleteBtn",
+    selectedSet: selectedListingIds, visibleIds: rows.map(r=>r.item.id), onRender: renderListing,
+    onBulkDelete: ()=>{
+      const ids = rows.map(r=>r.item.id).filter(id=>selectedListingIds.has(id));
+      if(!ids.length) return;
+      openBulkConfirm({
+        title: `Delete ${ids.length} listing(s)?`,
+        text: `This removes the listing price calculation for ${ids.length} selected item(s). Your Inventory stock and past orders are not affected. This can't be undone.`,
+        confirmLabel: "Delete selected",
+        onConfirm: ()=>{
+          listing = listing.filter(l=>!ids.includes(l.id));
+          selectedListingIds.clear();
+          closeConfirm();
+          renderAll();
+          populateProductSelect();
+        }
+      });
+    }
+  });
 }
 document.getElementById("listingSearch").addEventListener("input", e=>{ listingSearchTerm=e.target.value.toLowerCase(); renderListing(); });
 document.getElementById("listingFilter").addEventListener("change", e=>{ listingFilterVal=e.target.value; renderListing(); });
@@ -2744,6 +3109,41 @@ function confirmDeleteListing(id){
   document.getElementById("confirmOverlay").classList.add("show");
 }
 
+document.getElementById("deleteAllListingBtn").addEventListener("click", ()=>{
+  if(!listing.length){
+    const body = document.getElementById("confirmBody");
+    const foot = document.getElementById("confirmFoot");
+    body.innerHTML = `<h4 class="confirm-title">Nothing to delete</h4><p class="confirm-text">Listing is already empty.</p>`;
+    foot.innerHTML = `<button class="btn secondary" id="confirmCancelBtn">Close</button>`;
+    document.getElementById("confirmCancelBtn").addEventListener("click", closeConfirm);
+    document.getElementById("confirmOverlay").classList.add("show");
+    return;
+  }
+  const body = document.getElementById("confirmBody");
+  const foot = document.getElementById("confirmFoot");
+  body.innerHTML = `<h4 class="confirm-title">Delete all listings?</h4><p class="confirm-text">This permanently removes every listing price calculation (${listing.length} item(s)). Your Inventory stock and past orders are not affected. This can't be undone.</p>`;
+  foot.innerHTML = `<button class="btn secondary" id="confirmCancelBtn">Cancel</button><button class="btn" style="background:var(--red);" id="confirmDeleteBtn">Delete all</button>`;
+  document.getElementById("confirmCancelBtn").addEventListener("click", closeConfirm);
+  document.getElementById("confirmDeleteBtn").addEventListener("click", ()=>{
+    _listingDeletedSnapshot = JSON.parse(JSON.stringify(listing));
+    listing = [];
+    selectedListingIds.clear();
+    closeConfirm();
+    renderAll();
+    populateProductSelect();
+    document.getElementById("undoListingBtn").style.display = "inline-block";
+  });
+  document.getElementById("confirmOverlay").classList.add("show");
+});
+document.getElementById("undoListingBtn").addEventListener("click", ()=>{
+  if(!_listingDeletedSnapshot) return;
+  listing = _listingDeletedSnapshot;
+  _listingDeletedSnapshot = null;
+  document.getElementById("undoListingBtn").style.display = "none";
+  renderAll();
+  populateProductSelect();
+});
+
 /* ===================== RAW MATERIALS ===================== */
 let rawSort = {key:null, dir:1};
 let rawSearchTerm = "", rawCatFilterVal = "all";
@@ -2771,7 +3171,7 @@ function renderRawMaterials(){
   }
   document.getElementById("rawMatBody").innerHTML = list.length ? list.map(m=>{
     const dateStr = m.purchaseDate ? new Date(m.purchaseDate+"T00:00:00").toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}) : "—";
-    return `<tr><td>${esc(m.name)}</td>
+    return `<tr><td><input type="checkbox" class="row-check" data-row-id="${esc(m.id)}"></td><td>${esc(m.name)}</td>
       <td>${m.category? `<span class="status-pill nodata">${esc(m.category)}</span>` : "—"}</td>
       <td class="num-cell">${m.qty}</td>
       <td>${esc(m.unit||"pcs")}</td>
@@ -2783,14 +3183,34 @@ function renderRawMaterials(){
         <button class="icon-btn" title="Edit" data-raw-edit="${m.id}">✎</button>
         <button class="icon-btn danger" title="Delete" data-raw-delete="${m.id}">🗑</button>
       </div></td></tr>`;
-  }).join("") : `<tr><td colspan="9" style="text-align:center; color:var(--ink-soft); padding:26px;">No raw materials match this search/filter.</td></tr>`;
+  }).join("") : `<tr><td colspan="10" style="text-align:center; color:var(--ink-soft); padding:26px;">No raw materials match this search/filter.</td></tr>`;
 
   document.querySelectorAll("#rawMatBody [data-raw-edit]").forEach(b=> b.addEventListener("click", ()=> openRawModal(b.dataset.rawEdit)));
   document.querySelectorAll("#rawMatBody [data-raw-delete]").forEach(b=> b.addEventListener("click", ()=> confirmDeleteRaw(b.dataset.rawDelete)));
 
   const totQty = list.reduce((s,m)=>s+m.qty,0);
   const totCost = list.reduce((s,m)=>s+m.totalCost,0);
-  document.getElementById("rawMatFoot").innerHTML = `<td>Grand total</td><td></td><td class="num-cell">${totQty}</td><td></td><td></td><td class="num-cell">${fmt(totCost)}</td><td></td><td></td><td></td>`;
+  document.getElementById("rawMatFoot").innerHTML = `<td></td><td>Grand total</td><td></td><td class="num-cell">${totQty}</td><td></td><td></td><td class="num-cell">${fmt(totCost)}</td><td></td><td></td><td></td>`;
+  wireBulkSelect({
+    bodyId:"rawMatBody", selectAllCbId:"rawSelectAllCb", barId:"rawBulkBar", countId:"rawSelectedCount",
+    clearBtnId:"rawClearSelectionBtn", deleteBtnId:"rawBulkDeleteBtn",
+    selectedSet: selectedRawIds, visibleIds: list.map(m=>m.id), onRender: renderRawMaterials,
+    onBulkDelete: ()=>{
+      const ids = list.map(m=>m.id).filter(id=>selectedRawIds.has(id));
+      if(!ids.length) return;
+      openBulkConfirm({
+        title: `Delete ${ids.length} raw material line(s)?`,
+        text: `This permanently removes ${ids.length} selected raw material &amp; packaging stock line(s). This can't be undone.`,
+        confirmLabel: "Delete selected",
+        onConfirm: ()=>{
+          rawMaterials = rawMaterials.filter(m=>!ids.includes(m.id));
+          selectedRawIds.clear();
+          closeConfirm();
+          renderAll();
+        }
+      });
+    }
+  });
 }
 document.getElementById("rawSearch").addEventListener("input", e=>{ rawSearchTerm=e.target.value.toLowerCase(); renderRawMaterials(); });
 document.getElementById("rawCatFilter").addEventListener("change", e=>{ rawCatFilterVal=e.target.value; renderRawMaterials(); });
@@ -3086,6 +3506,44 @@ function confirmDeleteRaw(id){
   document.getElementById("confirmOverlay").classList.add("show");
 }
 
+document.getElementById("deleteAllRawBtn").addEventListener("click", ()=>{
+  if(!rawMaterials.length){
+    const body = document.getElementById("confirmBody");
+    const foot = document.getElementById("confirmFoot");
+    body.innerHTML = `<h4 class="confirm-title">Nothing to delete</h4><p class="confirm-text">Raw materials list is already empty.</p>`;
+    foot.innerHTML = `<button class="btn secondary" id="confirmCancelBtn">Close</button>`;
+    document.getElementById("confirmCancelBtn").addEventListener("click", closeConfirm);
+    document.getElementById("confirmOverlay").classList.add("show");
+    return;
+  }
+  const body = document.getElementById("confirmBody");
+  const foot = document.getElementById("confirmFoot");
+  body.innerHTML = `<h4 class="confirm-title">Delete all raw materials?</h4><p class="confirm-text">This permanently removes every raw material &amp; packaging stock line (${rawMaterials.length} item(s)). This can't be undone.</p>`;
+  foot.innerHTML = `<button class="btn secondary" id="confirmCancelBtn">Cancel</button><button class="btn" style="background:var(--red);" id="confirmDeleteBtn">Delete all</button>`;
+  document.getElementById("confirmCancelBtn").addEventListener("click", closeConfirm);
+  document.getElementById("confirmDeleteBtn").addEventListener("click", ()=>{
+    _rawDeletedSnapshot = JSON.parse(JSON.stringify(rawMaterials));
+    rawMaterials.length = 0;
+    selectedRawIds.clear();
+    closeConfirm();
+    renderRawMaterials();
+    renderPackMaterialPicker();
+    persistState();
+    document.getElementById("undoRawBtn").style.display = "inline-block";
+  });
+  document.getElementById("confirmOverlay").classList.add("show");
+});
+document.getElementById("undoRawBtn").addEventListener("click", ()=>{
+  if(!_rawDeletedSnapshot) return;
+  rawMaterials.length = 0;
+  rawMaterials.push(..._rawDeletedSnapshot);
+  _rawDeletedSnapshot = null;
+  document.getElementById("undoRawBtn").style.display = "none";
+  renderRawMaterials();
+  renderPackMaterialPicker();
+  persistState();
+});
+
 /* ===================== RETURNS ===================== */
 let activeReturnTab = "All";
 let returnSearchTerm = "";
@@ -3238,6 +3696,22 @@ function getReverseShipFee(){
    - Other expense: Packing+MISC for a normal sale, packing-only for RTO, packing+reverse-ship for
      Customer Return.
    - Net profit / margin computed off Actual payment received, not the Listing bank figure. */
+/* Resolves the status to use for every Payments-side classification (ledger figures, the
+   Payments tab's success/loss split, and its RTO/Return/Lost counts). Deliberately reads the
+   status straight off the imported Payments file (o.paymentDetails.liveStatus, captured in
+   processMeeshoPaymentRows) rather than o.status — o.status lives on the shared Orders record
+   and can be changed later by a manual edit or a Returns/RTO import, which should never make a
+   Payments-tab figure disagree with what the Payments file itself reported. Falls back to
+   o.status only when there's no payment record yet (nothing to derive from). */
+function getPaymentStatus(o){
+  const pd = o.paymentDetails;
+  let status = o.status;
+  if(pd && pd.liveStatus){
+    const mapped = MEESHO_STATUS_MAP[pd.liveStatus];
+    if(mapped) status = mapped;
+  }
+  return resolveOrderStatus(status, pd ? pd.settlementAmount : null);
+}
 function getOrderLedgerFigures(o){
   const inv = findInventoryByName(o.product);
   const pricePerUnit = inv ? invPerPiece(inv) : (o.cost!=null ? o.cost : 0);
@@ -3245,13 +3719,14 @@ function getOrderLedgerFigures(o){
   const packing = matchedListing ? (Number(matchedListing.packing)||0) : 20;
   const misc = matchedListing ? (Number(matchedListing.misc)||0) : 10;
   const bankSettlement = matchedListing && matchedListing.bank!=null ? matchedListing.bank : null;
-  const isRTO = o.status==="RTO" || o.status==="RTO_LOCKED" || o.status==="Lost";
-  const isCustomerReturn = o.status==="Customer Return";
+  const payStatus = getPaymentStatus(o);
+  const isRTO = payStatus==="RTO" || payStatus==="RTO_LOCKED" || payStatus==="Lost";
+  const isCustomerReturn = payStatus==="Customer Return";
   let otherExpense, returnTypeLabel = "";
   /* RTO, Lost and Customer Return settle with no real sale — Meesho's Final Settlement Amount
      already reflects any reverse-shipping charge on their side, so we don't add packing+misc for
      these; just a flat ₹5 handling cost. Normal sales keep the full packing + misc from Listing. */
-  if(isRTO){ otherExpense = 5; returnTypeLabel = o.status==="Lost" ? "Lost" : "RTO"; }
+  if(isRTO){ otherExpense = 5; returnTypeLabel = payStatus==="Lost" ? "Lost" : "RTO"; }
   else if(isCustomerReturn){ otherExpense = 5; returnTypeLabel = "Customer Return"; }
   else { otherExpense = packing + misc; }
   const actualReceived = o.actualReceived!=null ? o.actualReceived : (o.bank!=null ? o.bank : null);
@@ -3264,7 +3739,8 @@ function getOrderLedgerFigures(o){
    they can never drift out of sync with each other.
    - RTO: Net Profit = Final Settlement Amount − ₹5 flat expense (no product cost, since there
      was never a real sale).
-   - Customer Return: Net Profit = Final Settlement Amount − Price per Unit − ₹5 flat expense.
+   - Customer Return: Net Profit = Final Settlement Amount − ₹5 flat expense (no product cost
+     either, since the item itself came back).
    - Everything else (a genuine delivered/shipped sale): Net Profit = Final Settlement Amount −
      Price per Unit − (packing + misc). */
 /* Total loss across every order that has payment data — sums only the orders where Net Profit
@@ -3284,11 +3760,41 @@ function getPaymentRowFigures(o){
   const fig = getOrderLedgerFigures(o);
   const pricePerUnitTotal = fig.pricePerUnit * qty;
   const otherExpenseVal = fig.otherExpense;
-  const isRTORow = o.status==="RTO" || o.status==="RTO_LOCKED" || o.status==="Lost";
-  const isReturnRow = o.status==="Customer Return";
-  const netProfitVal = isRTORow ? (settlementAmt!=null ? settlementAmt - otherExpenseVal : null) : (settlementAmt!=null ? settlementAmt - pricePerUnitTotal - otherExpenseVal : null);
+  const payStatus = getPaymentStatus(o);
+  const isRTORow = payStatus==="RTO" || payStatus==="RTO_LOCKED" || payStatus==="Lost";
+  const isReturnRow = payStatus==="Customer Return";
+  /* Customer Return, like RTO, never completed as a real sale — the product itself came back, so
+     no product cost (Price per Unit) is deducted, only the flat handling expense. */
+  const netProfitVal = (isRTORow || isReturnRow) ? (settlementAmt!=null ? settlementAmt - otherExpenseVal : null) : (settlementAmt!=null ? settlementAmt - pricePerUnitTotal - otherExpenseVal : null);
   const marginVal = (settlementAmt==null || settlementAmt<=0) ? null : (netProfitVal!=null ? (netProfitVal/settlementAmt*100) : null);
   return {qty, settlementAmt, pricePerUnitTotal, otherExpenseVal, netProfitVal, marginVal, isRTORow, isReturnRow};
+}
+/* Returns the raw value behind one column of the Payment ledger table, for the header's
+   click-to-sort and per-column filter inputs. Mirrors exactly what renderPayments puts in each
+   <td>, so sorting/filtering always matches what's on screen. */
+function getPaymentColValue(o, key){
+  const pd = o.paymentDetails || {};
+  const rf = getPaymentRowFigures(o);
+  switch(key){
+    case "dispatchDate": return pd.dispatchDate || "";
+    case "id": return o.id || "";
+    case "supplierSku": return (pd.supplierSku && pd.supplierSku.trim()) ? pd.supplierSku.trim() : ((o.sku && o.sku.trim()) ? o.sku.trim() : "");
+    case "catalogId": return (pd.catalogId && pd.catalogId.trim()) ? pd.catalogId.trim() : ((o.catalogId && o.catalogId.trim()) ? o.catalogId.trim() : "");
+    case "liveStatus": return pd.liveStatusDisplay || o.status || "";
+    case "qty": return pd.qty!=null ? pd.qty : o.qty;
+    case "listingPrice": return pd.listingPrice;
+    case "shippingCharge": return pd.shippingCharge;
+    case "gstPct": return pd.gstPct;
+    case "tcs": return pd.tcs;
+    case "tds": return pd.tds;
+    case "settlementAmt": return o.bank!=null ? o.bank : pd.settlementAmount;
+    case "paymentDate": return o.paymentDate || "";
+    case "pricePerUnit": return rf.pricePerUnitTotal;
+    case "otherExpense": return rf.otherExpenseVal;
+    case "netProfit": return rf.netProfitVal;
+    case "margin": return rf.marginVal;
+    default: return "";
+  }
 }
 /* ---- Shared Payments summary — the ONE place "Listing Price / Final Settlement / Net Profit /
    Margin %" get totalled. Both the Payments tab KPI strip and the Home dashboard call this, so
@@ -3296,20 +3802,32 @@ function getPaymentRowFigures(o){
    success-vs-loss split used inside renderPayments. ---- */
 function computePaymentsSummary(){
   const paidOrdersAll = orders.filter(o=>o.paymentDetails);
-  const successOrders = paidOrdersAll.filter(o=> o.status!=="RTO" && o.status!=="RTO_LOCKED" && o.status!=="Customer Return" && o.status!=="Lost");
+  const successOrders = paidOrdersAll.filter(o=> !["RTO","RTO_LOCKED","Customer Return","Lost"].includes(getPaymentStatus(o)));
   const totalListingPrice = successOrders.reduce((s,o)=>s+(o.paymentDetails.listingPrice||0),0);
   const successFigures = successOrders.map(o=>getPaymentRowFigures(o));
-  const totalActualReceived = successFigures.reduce((s,rf)=>s+(rf.settlementAmt||0),0);
-  const totalNetProfit = successFigures.reduce((s,rf)=>s+(rf.netProfitVal||0),0);
-  const overallMargin = totalActualReceived>0 ? (totalNetProfit/totalActualReceived*100) : null;
-  return {totalListingPrice, totalActualReceived, totalNetProfit, overallMargin, settledCount: paidOrdersAll.length};
+  const totalActualReceived = successFigures.reduce((s,rf)=> (rf.settlementAmt!=null && rf.settlementAmt>0) ? s+rf.settlementAmt : s, 0);
+  /* Price per Unit (Overall) only counts orders that actually shipped out — Shipped, Delivered or
+     Cancelled — so no other status can inflate the product-cost total. */
+  const pricePerUnitOrders = successOrders.filter(o=> ["Shipped","Delivered","Cancelled"].includes(getPaymentStatus(o)));
+  const totalPricePerUnit = pricePerUnitOrders.reduce((s,o)=>s+(getPaymentRowFigures(o).pricePerUnitTotal||0),0);
+  const totalOtherExpense = successFigures.reduce((s,rf)=>s+(rf.otherExpenseVal||0),0);
+  /* Net Bank Settlement = Final Settlement Amount (Overall) minus Return Settlement (Overall) —
+     Customer Return settlements are money Meesho already paid back out for a return, so they're
+     carved out of the "real" bank inflow figure here. */
+  const returnOrders = paidOrdersAll.filter(o=> getPaymentStatus(o)==="Customer Return");
+  const returnSettlement = returnOrders.reduce((s,o)=>s+(getPaymentRowFigures(o).settlementAmt||0),0);
+  const netBankSettlement = totalActualReceived - Math.abs(returnSettlement);
+  /* Net Profit (Overall) = Net Bank Settlement − Price per Unit − Other Expense. */
+  const totalNetProfit = netBankSettlement - totalPricePerUnit - totalOtherExpense;
+  const overallMargin = netBankSettlement>0 ? (totalNetProfit/netBankSettlement*100) : null;
+  return {totalListingPrice, totalActualReceived, totalPricePerUnit, totalOtherExpense, netBankSettlement, totalNetProfit, overallMargin, settledCount: paidOrdersAll.length};
 }
 function renderPaymentTabs(){
   const wrap = document.getElementById("paymentTabs");
   if(!wrap) return;
   const allPaid = orders.filter(o=>o.paymentDetails);
   wrap.innerHTML = statusTabs.map(s=>{
-    const count = s==="All" ? allPaid.length : allPaid.filter(o=>o.status===s).length;
+    const count = s==="All" ? allPaid.length : allPaid.filter(o=>getPaymentStatus(o)===s).length;
     const meta = STATUS_TAB_META[s] || {icon:"•", color:"var(--ink-soft)", bg:"var(--panel-2)"};
     const isActive = activePaymentStatusTab===s;
     return `<button class="status-card ${isActive?'active':''}" data-tab="${s}" style="--card-color:${meta.color}; --card-color-bg:${meta.bg};">
@@ -3321,6 +3839,7 @@ function renderPaymentTabs(){
   const statusFilterEl = document.getElementById("paymentsStatusFilter");
   if(statusFilterEl) statusFilterEl.value = activePaymentStatusTab;
   populatePaymentsProductFilter();
+  populatePaymentsColFilterSelects();
 }
 function populatePaymentsProductFilter(){
   const sel = document.getElementById("paymentsProductFilter");
@@ -3331,9 +3850,48 @@ function populatePaymentsProductFilter(){
   sel.innerHTML = `<option value="all">All products</option>` + products.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join("");
   if(products.includes(prevVal)){ sel.value = prevVal; } else { sel.value = "all"; paymentsProductFilterVal = "all"; }
 }
+const PAYMENTS_COL_FILTER_NUMERIC_KEYS = ["qty","listingPrice","shippingCharge","gstPct","tcs","tds","settlementAmt","pricePerUnit","otherExpense","netProfit","margin"];
+const PAYMENTS_COL_FILTER_DATE_KEYS = ["dispatchDate","paymentDate"];
+function formatPaymentsColFilterLabel(key, v){
+  switch(key){
+    case "dispatchDate":
+    case "paymentDate": return fmtDateFull(v);
+    case "listingPrice":
+    case "shippingCharge":
+    case "tcs":
+    case "tds":
+    case "settlementAmt":
+    case "pricePerUnit":
+    case "otherExpense":
+    case "netProfit": return fmt(v);
+    case "gstPct": return v+"%";
+    case "margin": return Number(v).toFixed(1)+"%";
+    default: return v.toString();
+  }
+}
+/* Every per-column filter in the payment ledger is a dropdown populated from the actual values
+   present in the data (like a spreadsheet column filter), rather than a free-text box the user
+   has to type an exact match into. Options are built from the full paid-orders universe (not the
+   currently-filtered subset) so picking one filter never hides the options for another. */
+function populatePaymentsColFilterSelects(){
+  const allPaid = orders.filter(o=>o.paymentDetails);
+  document.querySelectorAll("#paymentsColFilterRow select.col-filter-input").forEach(sel=>{
+    const key = sel.dataset.filterKey;
+    const prevVal = paymentsColFilters[key] || "";
+    const rawValues = [...new Set(allPaid.map(o=>getPaymentColValue(o,key)).filter(v=> v!=null && v!==""))];
+    let sorted;
+    if(PAYMENTS_COL_FILTER_NUMERIC_KEYS.includes(key)) sorted = rawValues.slice().sort((a,b)=>Number(a)-Number(b));
+    else if(PAYMENTS_COL_FILTER_DATE_KEYS.includes(key)) sorted = rawValues.slice().sort((a,b)=> a<b?-1:(a>b?1:0));
+    else sorted = rawValues.slice().sort((a,b)=> a.toString().localeCompare(b.toString()));
+    const strValues = sorted.map(v=>v.toString());
+    sel.innerHTML = `<option value="">All</option>` + sorted.map((v,i)=>`<option value="${esc(strValues[i])}">${esc(formatPaymentsColFilterLabel(key,v))}</option>`).join("");
+    sel.value = strValues.includes(prevVal) ? prevVal : "";
+    paymentsColFilters[key] = sel.value;
+  });
+}
 function getFilteredPayments(){
   let list = orders.filter(o=>o.paymentDetails);
-  if(activePaymentStatusTab !== "All") list = list.filter(o=>o.status===activePaymentStatusTab);
+  if(activePaymentStatusTab !== "All") list = list.filter(o=>getPaymentStatus(o)===activePaymentStatusTab);
   if(paymentsPlatformFilterVal !== "all") list = list.filter(o=>o.platform===paymentsPlatformFilterVal);
   if(paymentsProductFilterVal !== "all") list = list.filter(o=>o.product.trim()===paymentsProductFilterVal);
   if(paymentsPaymentFilterVal==="received") list = list.filter(o=>o.bank!=null);
@@ -3341,6 +3899,27 @@ function getFilteredPayments(){
   if(paymentsDateFromVal) list = list.filter(o=>o.date >= paymentsDateFromVal);
   if(paymentsDateToVal) list = list.filter(o=>o.date <= paymentsDateToVal);
   if(paymentsSearchTerm) list = list.filter(o=> o.product.toLowerCase().includes(paymentsSearchTerm) || o.id.toLowerCase().includes(paymentsSearchTerm));
+  Object.keys(paymentsColFilters).forEach(key=>{
+    const filterVal = paymentsColFilters[key];
+    if(!filterVal) return;
+    list = list.filter(o=>{
+      const v = getPaymentColValue(o, key);
+      const vStr = v==null ? "" : v.toString();
+      return vStr === filterVal; // every column filter is now a dropdown, so match the exact value picked
+    });
+  });
+  if(paymentsSort.key){
+    list = list.slice().sort((a,b)=>{
+      let av = getPaymentColValue(a, paymentsSort.key);
+      let bv = getPaymentColValue(b, paymentsSort.key);
+      const aEmpty = av==null || av==="", bEmpty = bv==null || bv==="";
+      if(aEmpty && bEmpty) return 0;
+      if(aEmpty) return 1;
+      if(bEmpty) return -1;
+      if(typeof av === "number" && typeof bv === "number") return (av-bv)*paymentsSort.dir;
+      return av.toString().localeCompare(bv.toString()) * paymentsSort.dir;
+    });
+  }
   return list;
 }
 function renderPayments(){
@@ -3400,28 +3979,34 @@ function renderPayments(){
      separately in the RTO/Return Loss dashboard below, using the exact same row-level figures
      (getPaymentRowFigures) so nothing can drift out of sync between the two dashboards. ---- */
   const paidOrdersAll = orders.filter(o=>o.paymentDetails);
-  const lossOrders = paidOrdersAll.filter(o=> o.status==="RTO" || o.status==="RTO_LOCKED" || o.status==="Customer Return" || o.status==="Lost");
-  const successOrders = paidOrdersAll.filter(o=> o.status!=="RTO" && o.status!=="RTO_LOCKED" && o.status!=="Customer Return" && o.status!=="Lost");
+  const lossOrders = paidOrdersAll.filter(o=> ["RTO","RTO_LOCKED","Customer Return","Lost"].includes(getPaymentStatus(o)));
+  const successOrders = paidOrdersAll.filter(o=> !["RTO","RTO_LOCKED","Customer Return","Lost"].includes(getPaymentStatus(o)));
   const gstRows = successOrders.filter(o=>o.paymentDetails.gstPct!=null);
   const avgGstPct = gstRows.length ? gstRows.reduce((s,o)=>s+o.paymentDetails.gstPct,0)/gstRows.length : 0;
   const totalTcs = successOrders.reduce((s,o)=>s+(o.paymentDetails.tcs||0),0);
   const totalTds = successOrders.reduce((s,o)=>s+(o.paymentDetails.tds||0),0);
   const successFigures = successOrders.map(o=>getPaymentRowFigures(o));
-  const totalPricePerUnit = successFigures.reduce((s,rf)=>s+(rf.pricePerUnitTotal||0),0);
-  const totalOtherExpense = successFigures.reduce((s,rf)=>s+(rf.otherExpenseVal||0),0);
   const paySummary = computePaymentsSummary();
-  const {totalListingPrice, totalActualReceived, totalNetProfit, overallMargin} = paySummary;
+  const {totalListingPrice, totalActualReceived, totalPricePerUnit, totalOtherExpense, netBankSettlement, totalNetProfit, overallMargin} = paySummary;
   /* "Lost" here is just the loss slice of the sales above — sums only the orders where Net
      Profit came out negative, so a few loss-making sales don't hide inside the netted Net
      Profit total. RTO/Return loss is intentionally NOT included here — that's shown in its own
      dashboard below to keep the two loss sources visible separately. */
   const totalLost = successFigures.reduce((s,rf)=> (rf.netProfitVal!=null && rf.netProfitVal<0) ? s+rf.netProfitVal : s, 0);
+  /* Net Bank Settlement = Final Settlement Amount (Overall) minus Return Settlement (Overall).
+     Customer Return settlements are money Meesho already paid out for orders that came back, so
+     they get carved out of the "real" bank inflow figure here. Computed once and reused by the
+     RTO/Return/Lost dashboard below so the two sections never disagree. */
+  const returnOrders = lossOrders.filter(o=> getPaymentStatus(o)==="Customer Return");
+  const returnFigures = returnOrders.map(o=>getPaymentRowFigures(o));
+  const returnSettlement = returnFigures.reduce((s,rf)=>s+(rf.settlementAmt||0),0);
   document.getElementById("paymentsKpiStrip").innerHTML = `
     <div class="summary-stat total"><span class="s-label">Listing Price (Incl. Taxes) (Overall)</span><span class="s-value">${fmt(totalListingPrice)}</span></div>
     <div class="summary-stat amber"><span class="s-label">Product GST % (Overall)</span><span class="s-value">${avgGstPct.toFixed(1)}%</span></div>
     <div class="summary-stat value"><span class="s-label">TCS (Overall)</span><span class="s-value">${fmt(totalTcs)}</span></div>
     <div class="summary-stat sold"><span class="s-label">TDS (Overall)</span><span class="s-value">${fmt(totalTds)}</span></div>
     <div class="summary-stat grandtotal"><span class="s-label">Final Settlement Amount (Overall)</span><span class="s-value">${fmt(totalActualReceived)}</span></div>
+    <div class="summary-stat grandtotal"><span class="s-label">Net Bank Settlement (Overall)</span><span class="s-value">${fmt(netBankSettlement)}</span></div>
     <div class="summary-stat damaged"><span class="s-label">Price per Unit (Overall)</span><span class="s-value">${fmt(totalPricePerUnit)}</span></div>
     <div class="summary-stat remaining"><span class="s-label">Other Expense (Overall)</span><span class="s-value">${fmt(totalOtherExpense)}</span></div>
     <div class="summary-stat damaged"><span class="s-label">Lost (Overall)</span><span class="s-value">${fmt(Math.abs(totalLost))}</span></div>
@@ -3431,15 +4016,12 @@ function renderPayments(){
   /* ---- RTO / Return / Lost Loss dashboard, kept fully separate from the main sales dashboard
      above. Each category is shown as its own set of cards plus a combined total, all derived
      from getPaymentRowFigures so they match the ledger rows exactly. ---- */
-  const rtoOrders = lossOrders.filter(o=> o.status==="RTO" || o.status==="RTO_LOCKED");
-  const returnOrders = lossOrders.filter(o=> o.status==="Customer Return");
-  const lostOrders = lossOrders.filter(o=> o.status==="Lost");
+  const rtoOrders = lossOrders.filter(o=> ["RTO","RTO_LOCKED"].includes(getPaymentStatus(o)));
+  const lostOrders = lossOrders.filter(o=> getPaymentStatus(o)==="Lost");
   const rtoFigures = rtoOrders.map(o=>getPaymentRowFigures(o));
-  const returnFigures = returnOrders.map(o=>getPaymentRowFigures(o));
   const lostFigures = lostOrders.map(o=>getPaymentRowFigures(o));
   const rtoSettlement = rtoFigures.reduce((s,rf)=>s+(rf.settlementAmt||0),0);
   const rtoLoss = rtoFigures.reduce((s,rf)=>s+(rf.netProfitVal||0),0);
-  const returnSettlement = returnFigures.reduce((s,rf)=>s+(rf.settlementAmt||0),0);
   const returnLoss = returnFigures.reduce((s,rf)=>s+(rf.netProfitVal||0),0);
   const lostSettlement = lostFigures.reduce((s,rf)=>s+(rf.settlementAmt||0),0);
   const lostLoss = lostFigures.reduce((s,rf)=>s+(rf.netProfitVal||0),0);
@@ -3508,17 +4090,26 @@ function renderPL(){
   document.getElementById("plMeta").textContent = meta.meta;
   document.querySelectorAll(".pl-tab").forEach(b=> b.classList.toggle("active", b.dataset.period===period));
 
-  const groups = {}; // key -> {displayRev, costedRev, cost, opex}
-  const ensure = (key)=> groups[key] || (groups[key] = {displayRev:0, costedRev:0, cost:0, opex:0});
+  /* Pulls the same per-order ledger figures the Payments tab uses (getPaymentRowFigures) instead
+     of the legacy manual o.cost field — o.cost is rarely set since product cost now comes from
+     Inventory, which used to leave every row here blank. rev = settlement received in the period;
+     returnSettle = the slice of that which was a Customer Return payout (carved out of revenue,
+     same as Net Bank Settlement on the Payments tab); cost = Price per Unit, only for orders that
+     actually shipped out (Shipped/Delivered/Cancelled); otherExp = packing/misc/handling fee. */
+  const groups = {}; // key -> {rev, returnSettle, cost, otherExp, opex}
+  const ensure = (key)=> groups[key] || (groups[key] = {rev:0, returnSettle:0, cost:0, otherExp:0, opex:0});
   orders.forEach(o=>{
     if(!o.paymentDetails) return; // only orders with an actual imported Payments record count as realized revenue
-    const settlementAmt = o.bank!=null ? o.bank : o.paymentDetails.settlementAmount;
-    if(settlementAmt==null) return;
+    const rf = getPaymentRowFigures(o);
+    if(rf.settlementAmt==null) return;
     const payDate = o.paymentDate || o.date;
     if(!payDate) return;
     const g = ensure(plPeriodKey(payDate, period));
-    g.displayRev += settlementAmt;
-    if(o.cost!=null){ g.costedRev += settlementAmt; g.cost += o.cost*o.qty; }
+    const payStatus = getPaymentStatus(o);
+    g.rev += rf.settlementAmt;
+    g.otherExp += rf.otherExpenseVal||0;
+    if(payStatus==="Customer Return") g.returnSettle += rf.settlementAmt||0;
+    if(["Shipped","Delivered","Cancelled"].includes(payStatus)) g.cost += rf.pricePerUnitTotal||0;
   });
   expenses.forEach(e=>{
     if(!e.date) return;
@@ -3537,15 +4128,20 @@ function renderPL(){
   }
   plEmptyEl.style.display = "none"; tableEl.style.display = "";
 
-  let totalDisplayRev=0, totalCostedRev=0, totalCost=0, totalOpex=0, totalNet=0;
+  let totalRev=0, totalCost=0, totalOtherExp=0, totalOpex=0, totalNet=0, totalNetBank=0;
   const rows = keys.map(key=>{
     const g = groups[key];
-    const gross = g.costedRev - g.cost, net = gross - g.opex, margin = g.costedRev ? (net/g.costedRev*100) : 0;
-    totalDisplayRev += g.displayRev; totalCostedRev += g.costedRev; totalCost += g.cost; totalOpex += g.opex; totalNet += net;
-    return `<tr><td>${plPeriodLabel(key, period)}</td><td class="num-cell">${g.displayRev?fmt(g.displayRev):"—"}</td><td class="num-cell">${g.cost?fmt(g.cost):"—"}</td><td class="num-cell">${g.costedRev?fmt(gross):"—"}</td><td class="num-cell">${g.opex?fmt(g.opex):"—"}</td><td class="num-cell" style="${net>0?'color:var(--forest); font-weight:600;':''}">${g.costedRev?fmt(net):"—"}</td><td class="num-cell">${g.costedRev?margin.toFixed(1)+"%":"—"}</td></tr>`;
+    /* Net Bank Settlement (period) = settlement revenue minus Customer Return payouts, mirroring
+       the Payments tab. Net profit = Net Bank Settlement − Price per Unit − Other Expense − Opex. */
+    const netBank = g.rev - Math.abs(g.returnSettle);
+    const gross = netBank - g.cost;
+    const net = gross - g.otherExp - g.opex;
+    const margin = netBank ? (net/netBank*100) : 0;
+    totalRev += netBank; totalCost += g.cost; totalOtherExp += g.otherExp; totalOpex += g.opex; totalNet += net; totalNetBank += netBank;
+    return `<tr><td>${plPeriodLabel(key, period)}</td><td class="num-cell">${netBank?fmt(netBank):"—"}</td><td class="num-cell">${g.cost?fmt(g.cost):"—"}</td><td class="num-cell">${netBank?fmt(gross):"—"}</td><td class="num-cell">${(g.otherExp+g.opex)?fmt(g.otherExp+g.opex):"—"}</td><td class="num-cell" style="${net>0?'color:var(--forest); font-weight:600;':''}">${netBank?fmt(net):"—"}</td><td class="num-cell">${netBank?margin.toFixed(1)+"%":"—"}</td></tr>`;
   }).join("");
   document.getElementById("plBody").innerHTML = rows;
-  document.getElementById("plFoot").innerHTML = `<td>Total</td><td class="num-cell">${fmt(totalDisplayRev)}</td><td class="num-cell">${fmt(totalCost)}</td><td class="num-cell">${fmt(totalCostedRev-totalCost)}</td><td class="num-cell">${fmt(totalOpex)}</td><td class="num-cell">${fmt(totalNet)}</td><td class="num-cell">${totalCostedRev?((totalNet/totalCostedRev*100).toFixed(1)+"%"):"—"}</td>`;
+  document.getElementById("plFoot").innerHTML = `<td>Total</td><td class="num-cell">${fmt(totalNetBank)}</td><td class="num-cell">${fmt(totalCost)}</td><td class="num-cell">${fmt(totalNetBank-totalCost)}</td><td class="num-cell">${fmt(totalOtherExp+totalOpex)}</td><td class="num-cell">${fmt(totalNet)}</td><td class="num-cell">${totalNetBank?((totalNet/totalNetBank*100).toFixed(1)+"%"):"—"}</td>`;
 }
 document.querySelectorAll(".pl-tab").forEach(b=>{
   b.addEventListener("click", ()=>{ activePLPeriod = b.dataset.period; renderPL(); });
@@ -3990,6 +4586,18 @@ const MEESHO_RETURN_TYPE_MAP = {
   "CUSTOMER RETURN":"Customer Return", "CUSTOMER_RETURN":"Customer Return", "RETURN":"Customer Return",
   "DOOR STEP EXCHANGE":"Customer Return", "DOOR_STEP_EXCHANGED":"Customer Return", "EXCHANGE":"Customer Return",
 };
+/* Meesho's own "Live Order Status" can still read SHIPPED even after the final settlement has
+   actually been paid out for that order — settlement is only issued once delivery is confirmed on
+   Meesho's side, so a real settlement amount is stronger, more current evidence than a stale
+   "Shipped" label that Meesho just hasn't refreshed yet. Wherever an order's working status is
+   determined (on import, and when reading it back for Payments/Reports), this promotes such orders
+   to "Delivered" so the Orders tab, Payments tab and Reports never disagree with each other. This
+   only ever upgrades Shipped → Delivered — every other status (RTO, Customer Return, Cancelled,
+   Lost, Pending) is left exactly as-is. */
+function resolveOrderStatus(status, settlementAmt){
+  if(status === "Shipped" && settlementAmt!=null) return "Delivered";
+  return status;
+}
 function getField(row, candidates){
   const keys = Object.keys(row);
   for(const cand of candidates){
@@ -4200,11 +4808,14 @@ function processMeeshoPaymentRows(rows, filename){
     const idx = orders.findIndex(o=>o.id===subOrderNo);
     if(idx>-1){
       const keepStatus = ["Customer Return","RTO","RTO_LOCKED"].includes(orders[idx].status);
+      let nextStatus = (mappedStatus && !keepStatus) ? mappedStatus : orders[idx].status;
+      const effectiveBank = bank!=null ? bank : orders[idx].bank;
+      if(!keepStatus) nextStatus = resolveOrderStatus(nextStatus, effectiveBank);
       orders[idx] = {...orders[idx],
         bank: bank!=null ? bank : orders[idx].bank,
         paymentDate: paymentDate || orders[idx].paymentDate,
         fee: fee!=null ? fee : orders[idx].fee,
-        status: (mappedStatus && !keepStatus) ? mappedStatus : orders[idx].status,
+        status: nextStatus,
         sku: orders[idx].sku || sku || orders[idx].sku,
         catalogId: orders[idx].catalogId || catalogId || orders[idx].catalogId,
         paymentDetails, paymentSource: filename,
@@ -4218,7 +4829,7 @@ function processMeeshoPaymentRows(rows, filename){
       orders.push({
         id: subOrderNo, platform:"Meesho", date: orderDate || paymentDate, product, qty,
         sell: listingPrice!=null ? listingPrice : (saleAmount!=null ? saleAmount : (bank||0)), cost,
-        status: mappedStatus || "Delivered", fee: fee!=null ? fee : 0, bank, paymentDate, sku, catalogId, source: filename,
+        status: resolveOrderStatus(mappedStatus || "Delivered", bank), fee: fee!=null ? fee : 0, bank, paymentDate, sku, catalogId, source: filename,
         paymentDetails, paymentOnly: true, paymentSource: filename,
       });
       created++;
@@ -4525,6 +5136,63 @@ wireImportZone("importZonePayments", "importFilePayments", "payments");
    - "Reset to sample data" (in the Add Order screen) discards your saved data and restores
      the original demo numbers — it does not read from local storage. */
 const STORAGE_KEY = "akmr_trade_point_data_v1";
+
+/* ===================== SHARED CLOUD SYNC (Firebase) =====================
+   Fill in YOUR OWN Firebase project config below (Firebase Console → gear icon
+   → Project settings → scroll to "Your apps" → SDK setup and configuration →
+   "Config"). Once filled in, everyone who opens this page reads/writes the
+   SAME Firestore document — so your daily updates show up for everyone, and
+   they can edit it too. Leave apiKey as "YOUR_API_KEY" to keep the app running
+   in local-only mode (today's behavior) if you haven't set this up yet.
+   AKMR Trade Point needs its OWN Firebase project — it must not share the old
+   company's project/data. Until a new project's config is pasted in here, the
+   app runs in local-only mode (saved to this browser only, no cross-device sync). */
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+let _cloudEnabled = false;
+let _cloudDb = null;
+let _applyingRemoteUpdate = false;
+try{
+  if(firebaseConfig.apiKey !== "YOUR_API_KEY" && typeof firebase !== "undefined"){
+    firebase.initializeApp(firebaseConfig);
+    _cloudDb = firebase.firestore();
+    _cloudEnabled = true;
+  }
+}catch(err){ console.error("AKMR Trade Point: cloud sync could not start — falling back to this browser only.", err); }
+const CLOUD_DOC = ()=> _cloudDb.collection("akmrTradePoint").doc("sharedState");
+
+let _cloudWriteFailed = false;
+function initCloudSync(){
+  if(!_cloudEnabled) return;
+  CLOUD_DOC().onSnapshot(doc=>{
+    if(!doc.exists) return;
+    const data = doc.data();
+    if(!data || !data.json || data.json === _lastSavedJSON) return; // ignore the echo of our own write
+    if(_cloudWriteFailed){
+      /* Our last save to the cloud was rejected (e.g. a Firestore Rules/passcode mismatch), so this
+         incoming snapshot is stale, older data — NOT a real update from someone else. Applying it
+         would silently undo whatever the person just did locally (e.g. a delete "not working").
+         Keep our local version and retry pushing it instead of accepting theirs. */
+      persistState();
+      return;
+    }
+    _applyingRemoteUpdate = true;
+    try{
+      if(applyPersistedJSON(data.json)) renderAll();
+    } finally {
+      _applyingRemoteUpdate = false;
+    }
+  }, err=>{
+    console.error("AKMR Trade Point: lost connection to the shared cloud data.", err);
+    setSaveStatus("error");
+  });
+}
 /* One-time cleanup: earlier versions of this file shipped with 5 sample orders baked in, and
    because autosave ran on first load, some browsers already saved those into local storage.
    If we ever find these exact IDs sitting untouched (no import/payment source of their own),
@@ -4553,7 +5221,6 @@ function showStorageWarning(show){
 function collectPersistedState(){
   return {
     v: 1,
-    savedAt: new Date().toISOString(),
     inventory, nextInvId,
     rawMaterials, nextRawId,
     packingCosts,
@@ -4570,7 +5237,7 @@ function collectPersistedState(){
 let _lastSavedJSON = null;
 let _suspendAutosave = false;
 function persistState(){
-  if(_suspendAutosave) return;
+  if(_suspendAutosave || _applyingRemoteUpdate) return;
   let json;
   try{
     json = JSON.stringify(collectPersistedState());
@@ -4579,24 +5246,32 @@ function persistState(){
     setSaveStatus("error");
     return;
   }
-  if(json === _lastSavedJSON) return; // nothing changed, skip the write
+  if(json === _lastSavedJSON && !_cloudWriteFailed) return; // nothing changed and any previous write already succeeded
   try{
     localStorage.setItem(STORAGE_KEY, json);
     _lastSavedJSON = json;
-    setSaveStatus("saved");
     showStorageWarning(false);
   }catch(err){
     console.error("AKMR Trade Point: could not save to this browser's storage — is it private/incognito mode, or full?", err);
     setSaveStatus("error");
     showStorageWarning(true);
+    return;
+  }
+  if(_cloudEnabled){
+    setSaveStatus("saving");
+    CLOUD_DOC().set({ json, passcode: APP_PASSCODE, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
+      .then(()=>{ _cloudWriteFailed = false; setSaveStatus("saved"); })
+      .catch(err=>{
+        console.error("AKMR Trade Point: could not sync to the shared cloud data — check that your Firestore Rules passcode matches APP_PASSCODE exactly, and that the rule was Published.", err);
+        _cloudWriteFailed = true;
+        setSaveStatus("error");
+      });
+  } else {
+    setSaveStatus("saved");
   }
 }
 
-function loadPersistedState(){
-  let raw;
-  try{ raw = localStorage.getItem(STORAGE_KEY); }
-  catch(err){ console.error("AKMR Trade Point: could not read saved data from this browser.", err); showStorageWarning(true); return false; }
-  if(!raw) return false;
+function applyPersistedJSON(raw){
   let data;
   try{ data = JSON.parse(raw); }
   catch(err){ console.error("AKMR Trade Point: saved data looked corrupted, starting from the built-in sample data instead.", err); return false; }
@@ -4614,6 +5289,15 @@ function loadPersistedState(){
     if(Array.isArray(data.orders)){
       orders = data.orders.filter(o=> !(o && LEGACY_DEMO_ORDER_IDS.has(o.id) && !o.source && !o.paymentSource));
     }
+    /* Retroactively fix orders that were imported before the Shipped→Delivered settlement-based
+       correction existed: if Meesho's live status still says Shipped but a real settlement was
+       already recorded for it, promote it now — no re-import needed. */
+    orders.forEach(o=>{
+      if(o.status==="Shipped"){
+        const settlementAmt = (o.paymentDetails && o.paymentDetails.settlementAmount!=null) ? o.paymentDetails.settlementAmount : (o.bank!=null ? o.bank : null);
+        o.status = resolveOrderStatus("Shipped", settlementAmt);
+      }
+    });
     if(Array.isArray(data.returnRecords)) returnRecords = data.returnRecords;
     if(Array.isArray(data.importLog)) importLog = data.importLog;
     if(typeof data.importLogSeq==="number") importLogSeq = data.importLogSeq;
@@ -4623,11 +5307,20 @@ function loadPersistedState(){
     inventory.forEach(recomputeInvFields);
     rebuildPriceBook();
     _lastSavedJSON = raw;
+    try{ localStorage.setItem(STORAGE_KEY, raw); }catch(err){ /* local cache is best-effort only */ }
     return true;
   }catch(err){
-    console.error("AKMR Trade Point: problem applying your saved data — starting from the built-in sample data instead.", err);
+    console.error("AKMR Trade Point: problem applying the saved data — starting from the built-in sample data instead.", err);
     return false;
   }
+}
+
+function loadPersistedState(){
+  let raw;
+  try{ raw = localStorage.getItem(STORAGE_KEY); }
+  catch(err){ console.error("AKMR Trade Point: could not read saved data from this browser.", err); showStorageWarning(true); return false; }
+  if(!raw) return false;
+  return applyPersistedJSON(raw);
 }
 
 /* ===================== RENDER ALL ===================== */
@@ -4643,15 +5336,82 @@ function renderAll(){
   renderPayments();
   renderPL();
   renderBusinessProfile();
+  renderImportResult();
   persistState();
 }
-loadPersistedState();
-populateProductSelect();
-renderAll();
-window.addEventListener("beforeunload", persistState);
-window.addEventListener("pagehide", persistState);
-document.addEventListener("visibilitychange", ()=>{ if(document.hidden) persistState(); });
-setInterval(persistState, 12000);
+/* ===================== SHARED PASSCODE GATE =====================
+   Set your own team passcode below. Anyone who enters it can view AND edit
+   the shared data — there are no separate per-person accounts. Note: since
+   this is a static site with no server, the passcode lives in this file's
+   source and isn't cryptographically secret; it's a "keep casual visitors
+   out" gate, not bank-grade security. Pair it with the matching Firestore
+   rule (see setup notes) so writes are actually rejected without it too. */
+const APP_PASSCODE = "AkmrTrade2026";
+const PASSCODE_STORAGE_KEY = "akmr_trade_point_unlocked_v1";
+
+function startApp(){
+  /* Suspend saving until we've pulled down the real shared data — otherwise a brand-new browser
+     with no local copy would render blank/default data and immediately autosave that blank state
+     to the cloud, wiping out everyone else's real data before it ever gets a chance to download it. */
+  _suspendAutosave = true;
+  loadPersistedState();
+  populateProductSelect();
+  renderAll(); // fast local paint (from this browser's cache, if any); nothing is saved yet
+
+  const finishBoot = ()=>{
+    _suspendAutosave = false;
+    window.addEventListener("beforeunload", persistState);
+    window.addEventListener("pagehide", persistState);
+    document.addEventListener("visibilitychange", ()=>{ if(document.hidden) persistState(); });
+    setInterval(persistState, 12000);
+  };
+
+  if(_cloudEnabled){
+    CLOUD_DOC().get().then(doc=>{
+      if(doc.exists){
+        const data = doc.data();
+        if(data && data.json && data.json !== _lastSavedJSON){
+          _applyingRemoteUpdate = true;
+          try{ if(applyPersistedJSON(data.json)) renderAll(); }
+          finally{ _applyingRemoteUpdate = false; }
+        }
+      }
+    }).catch(err=>{
+      console.error("AKMR Trade Point: could not load the shared cloud data on startup — showing this device's local copy instead.", err);
+    }).finally(()=>{
+      finishBoot();
+      initCloudSync(); // now listen for live updates from other people going forward
+    });
+  } else {
+    finishBoot();
+  }
+}
+
+function checkPasscode(){
+  const val = document.getElementById("passcodeInput").value;
+  const errEl = document.getElementById("passcodeError");
+  if(val === APP_PASSCODE){
+    try{ localStorage.setItem(PASSCODE_STORAGE_KEY, "1"); }catch(err){ /* ignore */ }
+    document.getElementById("passcodeGateOverlay").style.display = "none";
+    startApp();
+  } else {
+    errEl.style.display = "block";
+  }
+}
+
+(function initGate(){
+  let already = false;
+  try{ already = localStorage.getItem(PASSCODE_STORAGE_KEY) === "1"; }catch(err){ /* ignore */ }
+  if(already){
+    startApp();
+  } else {
+    const overlay = document.getElementById("passcodeGateOverlay");
+    overlay.style.display = "flex";
+    document.getElementById("passcodeSubmitBtn").addEventListener("click", checkPasscode);
+    document.getElementById("passcodeInput").addEventListener("keydown", e=>{ if(e.key==="Enter") checkPasscode(); });
+    document.getElementById("passcodeInput").focus();
+  }
+})();
 </script>
 
 </body>
