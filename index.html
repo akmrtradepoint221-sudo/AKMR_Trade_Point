@@ -3932,7 +3932,12 @@ function renderPayments(){
     const dispatchCell = pd.dispatchDate ? fmtDateFull(pd.dispatchDate) : "—";
     const supplierSku = (pd.supplierSku && pd.supplierSku.trim()) ? pd.supplierSku.trim() : ((o.sku && o.sku.trim()) ? o.sku.trim() : "—");
     const catalogIdCell = (pd.catalogId && pd.catalogId.trim()) ? pd.catalogId.trim() : ((o.catalogId && o.catalogId.trim()) ? o.catalogId.trim() : "—");
-    const statusCell = pd.liveStatusDisplay ? statusPillHTML(pd.liveStatusDisplay) : statusPillHTML(o.status);
+    /* Always show the same normalized status vocabulary the Orders tab uses (via getPaymentStatus,
+       which already backs this row's tab/filter placement above) instead of the raw text straight
+       off the Meesho export — so the pill shown here for a given order no. always matches the pill
+       shown for that same order no. on the Orders tab, rather than two different-looking labels for
+       the same underlying status. */
+    const statusCell = statusPillHTML(getPaymentStatus(o));
     const qtyCell = pd.qty!=null ? pd.qty : o.qty;
     const gstCell = pd.gstPct!=null ? pd.gstPct+"%" : "—";
     const settlementAmt = o.bank!=null ? o.bank : pd.settlementAmount;
