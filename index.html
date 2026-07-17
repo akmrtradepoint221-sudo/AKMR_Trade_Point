@@ -877,6 +877,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
         <div class="card" style="margin-bottom:16px;">
           <div class="status-dash" id="paymentTabs" style="border-bottom:none;"></div>
         </div>
+        <p class="subtle-note" id="paymentsKpiDateNote" style="margin:0 0 8px; font-weight:700; color:var(--maroon); text-transform:uppercase; font-size:11.5px; letter-spacing:.03em;"></p>
         <div class="summary-grid" id="paymentsKpiStrip"></div>
         <p class="subtle-note" style="margin:18px 0 8px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; font-size:11.5px; letter-spacing:.03em;">RTO / Return / Lost Loss — kept separate from the sales figures above</p>
         <div class="summary-grid" id="returnLossKpiStrip" style="margin-bottom:16px;"></div>
@@ -1738,7 +1739,7 @@ function todayISO(){
 }
 
 let homeSelDay = 0; // 0 = whole month, 1-31 = specific day
-let homeSelMonth = new Date().getMonth();
+let homeSelMonth = -1; // -1 = all months, so Home opens showing the whole year's data by default
 let homeSelYear = new Date().getFullYear();
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -3800,8 +3801,8 @@ function getPaymentColValue(o, key){
    Margin %" get totalled. Both the Payments tab KPI strip and the Home dashboard call this, so
    the two views can never show different numbers for the same thing. Mirrors the exact
    success-vs-loss split used inside renderPayments. ---- */
-function computePaymentsSummary(){
-  const paidOrdersAll = orders.filter(o=>o.paymentDetails);
+function computePaymentsSummary(paymentDateFilter){
+  const paidOrdersAll = orders.filter(o=>o.paymentDetails && (!paymentDateFilter || o.paymentDate===paymentDateFilter));
   const successOrders = paidOrdersAll.filter(o=> !["RTO","RTO_LOCKED","Customer Return","Lost"].includes(getPaymentStatus(o)));
   const totalListingPrice = successOrders.reduce((s,o)=>s+(o.paymentDetails.listingPrice||0),0);
   const successFigures = successOrders.map(o=>getPaymentRowFigures(o));
@@ -3978,7 +3979,15 @@ function renderPayments(){
      Net Profit, Margin %) since those never completed as a real sale. Their impact is shown
      separately in the RTO/Return Loss dashboard below, using the exact same row-level figures
      (getPaymentRowFigures) so nothing can drift out of sync between the two dashboards. ---- */
-  const paidOrdersAll = orders.filter(o=>o.paymentDetails);
+  /* ---- The whole dashboard below (both KPI strips) is scoped to whichever single Payment Date
+     is picked in the ledger's "Payment Date" column filter — pick one date, every card above the
+     table recalculates for just that date; leave it on "All" and the cards cover every payment
+     date, exactly like before. This is the ONLY column filter that affects the KPI strips; every
+     other column filter / search box only narrows the ledger table rows underneath. ---- */
+  const paymentDateFilter = paymentsColFilters.paymentDate || "";
+  const paidOrdersAll = orders.filter(o=>o.paymentDetails && (!paymentDateFilter || o.paymentDate===paymentDateFilter));
+  const dateNoteEl = document.getElementById("paymentsKpiDateNote");
+  if(dateNoteEl) dateNoteEl.textContent = paymentDateFilter ? `Showing dashboard for payment date: ${fmtDateFull(paymentDateFilter)}` : "Showing dashboard for all payment dates";
   const lossOrders = paidOrdersAll.filter(o=> ["RTO","RTO_LOCKED","Customer Return","Lost"].includes(getPaymentStatus(o)));
   const successOrders = paidOrdersAll.filter(o=> !["RTO","RTO_LOCKED","Customer Return","Lost"].includes(getPaymentStatus(o)));
   const gstRows = successOrders.filter(o=>o.paymentDetails.gstPct!=null);
@@ -3986,7 +3995,7 @@ function renderPayments(){
   const totalTcs = successOrders.reduce((s,o)=>s+(o.paymentDetails.tcs||0),0);
   const totalTds = successOrders.reduce((s,o)=>s+(o.paymentDetails.tds||0),0);
   const successFigures = successOrders.map(o=>getPaymentRowFigures(o));
-  const paySummary = computePaymentsSummary();
+  const paySummary = computePaymentsSummary(paymentDateFilter);
   const {totalListingPrice, totalActualReceived, totalPricePerUnit, totalOtherExpense, netBankSettlement, totalNetProfit, overallMargin} = paySummary;
   /* "Lost" here is just the loss slice of the sales above — sums only the orders where Net
      Profit came out negative, so a few loss-making sales don't hide inside the netted Net
