@@ -124,6 +124,22 @@ button{font-family:inherit;}
 .action-card .num{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:20px; line-height:1.1;}
 .action-card .lbl{font-size:11.5px; color:var(--ink-soft); margin-top:1px;}
 
+/* ===================== ANNIVERSARY CELEBRATION BANNER ===================== */
+/* Only ever rendered on the exact calendar day a business/platform anniversary falls — see
+   renderAnniversaryBanner(). Hidden (display:none) the other 364 days a year. */
+.anniversary-banner{background:linear-gradient(120deg, #C9A227, #E8CD6F 50%, #C9A227); border-radius:14px; padding:16px 20px; margin-bottom:18px; color:#3A2A05; position:relative; overflow:hidden; box-shadow:0 8px 22px rgba(201,162,39,0.35); animation:annivPop .5s ease;}
+.anniversary-banner .anniv-row{display:flex; align-items:center; gap:14px; position:relative; z-index:1;}
+.anniversary-banner .anniv-row + .anniv-row{margin-top:10px; padding-top:10px; border-top:1px dashed rgba(58,42,5,0.25);}
+.anniversary-banner .anniv-ic{font-size:26px; flex-shrink:0;}
+.anniversary-banner .anniv-text b{font-family:'Marcellus',serif; font-size:15.5px; display:block;}
+.anniversary-banner .anniv-text span{font-size:11.5px; opacity:0.85;}
+.anniversary-banner .anniv-close{position:absolute; top:10px; right:14px; background:none; border:none; font-size:15px; cursor:pointer; color:#3A2A05; opacity:0.6; z-index:2;}
+.anniversary-banner .anniv-close:hover{opacity:1;}
+.anniversary-banner .confetti{position:absolute; inset:0; overflow:hidden; pointer-events:none;}
+.anniversary-banner .confetti span{position:absolute; top:-14px; font-size:16px; animation:annivFall 3.4s linear infinite;}
+@keyframes annivFall{ from{ transform:translateY(-14px) rotate(0deg); opacity:1; } to{ transform:translateY(120px) rotate(360deg); opacity:0; } }
+@keyframes annivPop{ from{ transform:scale(0.97); opacity:0; } to{ transform:scale(1); opacity:1; } }
+
 /* ===================== HOME HERO ===================== */
 .home-hero{background:linear-gradient(120deg, var(--maroon-deep), var(--maroon) 55%, #6b2424); border-radius:14px; padding:22px 26px; margin-bottom:20px; color:#FCF6E8; position:relative; overflow:hidden; box-shadow:0 8px 24px rgba(69,19,19,0.18);}
 .home-hero::before{content:""; position:absolute; top:-60px; right:-60px; width:220px; height:220px; border-radius:50%; background:radial-gradient(circle, rgba(201,162,39,0.25), transparent 70%);}
@@ -638,6 +654,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
 
       <!-- ===================== HOME ===================== -->
       <div class="view active" id="view-home">
+        <div class="anniversary-banner" id="anniversaryBanner" style="display:none;"></div>
         <div class="home-hero" id="homeHero"></div>
 
         <div class="action-strip" id="homeQuickActions"></div>
@@ -1218,6 +1235,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
         <div class="full"><label>Address</label><input type="text" id="p-company-address"></div>
         <div><label>Email <span class="opt">optional</span></label><input type="text" id="p-company-email"></div>
         <div><label>Website <span class="opt">optional</span></label><input type="text" id="p-company-website"></div>
+        <div><label>Business started date <span class="opt">optional</span></label><input type="date" id="p-company-started"></div>
       </div>
 
       <div class="card-head" style="padding:16px 0 8px;"><h3 style="font-size:13.5px;">Tax registration</h3></div>
@@ -1442,13 +1460,13 @@ const expenseCategories = ["Ad Spend / Marketing","Packaging Materials","Shippin
    values from dev tools. Fine for a single-person/trusted-device setup; don't rely on it as your
    only place for shared-computer or multi-person credential storage. */
 const DEFAULT_BUSINESS_PROFILE = {
-  company: { name:"AKMR Trade Point", owner:"", legalType:"", phone:"", address:"", email:"", website:"" },
+  company: { name:"AKMR Trade Point", owner:"", legalType:"", phone:"", address:"", email:"", website:"", startedDate:"" },
   tax: { gstin:"", pan:"", hsn:"", gstType:"", stateCode:"", tan:"" },
   bank: { holder:"", bankName:"", accountNumber:"", ifsc:"", branch:"", accountType:"", upi:"" },
   channels: [
-    {key:"Meesho", status:"Active", sellerId:"", category:"", warehouse:"", returnAddress:"", loginEmail:"", loginPassword:""},
-    {key:"Amazon", status:"Active", sellerId:"", category:"", warehouse:"", returnAddress:"", loginEmail:"", loginPassword:""},
-    {key:"Flipkart", status:"Active", sellerId:"", category:"", warehouse:"", returnAddress:"", loginEmail:"", loginPassword:""},
+    {key:"Meesho", status:"Active", sellerId:"", category:"", warehouse:"", returnAddress:"", loginEmail:"", loginPassword:"", launchDate:""},
+    {key:"Amazon", status:"Active", sellerId:"", category:"", warehouse:"", returnAddress:"", loginEmail:"", loginPassword:"", launchDate:""},
+    {key:"Flipkart", status:"Active", sellerId:"", category:"", warehouse:"", returnAddress:"", loginEmail:"", loginPassword:"", launchDate:""},
   ],
 };
 let businessProfile = JSON.parse(JSON.stringify(DEFAULT_BUSINESS_PROFILE));
@@ -2195,7 +2213,47 @@ document.querySelectorAll("#trendToggle .trend-btn").forEach(btn=>{
   });
 });
 
+/* ---- Anniversary celebration — shows ONLY on the exact calendar day the business (or a selling
+   channel) completes a full year, and every year after that on the same date. Any other day this
+   renders nothing and the banner stays hidden. ---- */
+function yearsCompletedToday(dateStr){
+  if(!dateStr) return null;
+  const start = new Date(dateStr+"T00:00:00");
+  if(isNaN(start.getTime())) return null;
+  const now = new Date();
+  const sameDay = now.getMonth()===start.getMonth() && now.getDate()===start.getDate();
+  if(!sameDay) return null;
+  const years = now.getFullYear() - start.getFullYear();
+  return years>=1 ? years : null;
+}
+function ordinal(n){
+  const s=["th","st","nd","rd"], v=n%100;
+  return n + (s[(v-20)%10] || s[v] || s[0]);
+}
+function renderAnniversaryBanner(){
+  const el = document.getElementById("anniversaryBanner");
+  if(!el) return;
+  const events = [];
+  const bizYears = yearsCompletedToday(businessProfile.company.startedDate);
+  if(bizYears) events.push({icon:"🎉", title:`Happy ${ordinal(bizYears)} Anniversary, ${businessProfile.company.name || "your business"}!`, sub:`${bizYears} year${bizYears===1?"":"s"} in business today ✨`});
+  businessProfile.channels.forEach(ch=>{
+    const chYears = yearsCompletedToday(ch.launchDate);
+    if(chYears) events.push({icon:"🎊", title:`${ch.key} completes ${ordinal(chYears)} year${chYears===1?"":"s"} today!`, sub:`Live on ${ch.key} since ${fmtDateFull(ch.launchDate)}`});
+  });
+  if(!events.length){ el.style.display="none"; el.innerHTML=""; return; }
+  el.style.display="block";
+  const confettiEmojis = ["🎉","✨","🎊","⭐","🎈"];
+  const confetti = Array.from({length:14},(_,i)=>`<span style="left:${(i*7+3)}%; animation-delay:${(i%7)*0.4}s; ">${confettiEmojis[i%confettiEmojis.length]}</span>`).join("");
+  el.innerHTML = `
+    <button class="anniv-close" id="anniversaryDismiss" title="Dismiss">✕</button>
+    <div class="confetti">${confetti}</div>
+    ${events.map(e=>`<div class="anniv-row"><span class="anniv-ic">${e.icon}</span><div class="anniv-text"><b>${e.title}</b><span>${e.sub}</span></div></div>`).join("")}
+  `;
+  document.getElementById("anniversaryDismiss").addEventListener("click", ()=>{ el.style.display="none"; });
+}
+
 function renderHome(){
+  renderAnniversaryBanner();
   renderHomeHero();
   renderHomeQuickActions();
   renderSalesTrend(homeTrendDays);
@@ -4367,6 +4425,28 @@ function maskAccountNumber(num){
   return "•".repeat(s.length-4) + s.slice(-4);
 }
 function valOr(v){ return (v && v.toString().trim()) ? esc(v) : `<span style="color:var(--ink-soft);">— not set —</span>`; }
+function durationSince(dateStr){
+  if(!dateStr) return "";
+  const start = new Date(dateStr+"T00:00:00");
+  if(isNaN(start.getTime())) return "";
+  const now = new Date();
+  let months = (now.getFullYear()-start.getFullYear())*12 + (now.getMonth()-start.getMonth());
+  if(now.getDate() < start.getDate()) months--;
+  if(months < 0) return "starts in the future";
+  if(months < 1){
+    const days = Math.max(1, Math.round((now-start)/86400000));
+    return `${days} day${days===1?"":"s"} in`;
+  }
+  const yrs = Math.floor(months/12), rem = months%12;
+  if(yrs===0) return `${rem} mo in`;
+  if(rem===0) return `${yrs} yr in`;
+  return `${yrs} yr ${rem} mo in`;
+}
+function valDateOr(dateStr){
+  if(!dateStr) return `<span style="color:var(--ink-soft);">— not set —</span>`;
+  const dur = durationSince(dateStr);
+  return `${fmtDateFull(dateStr)}${dur ? ` <span style="color:var(--ink-soft); font-weight:400; font-size:11px;">(${dur})</span>` : ""}`;
+}
 function renderBusinessProfile(){
   const c = businessProfile.company, t = businessProfile.tax, b = businessProfile.bank;
   document.getElementById("profileGrid").innerHTML = `
@@ -4378,6 +4458,7 @@ function renderBusinessProfile(){
       <div class="drawer-row"><span>Phone</span><b>${valOr(c.phone)}</b></div>
       <div class="drawer-row"><span>Email</span><b>${valOr(c.email)}</b></div>
       <div class="drawer-row"><span>Website</span><b>${valOr(c.website)}</b></div>
+      <div class="drawer-row"><span>Business started</span><b>${valDateOr(c.startedDate)}</b></div>
     </div></div>
     <div class="card"><div class="card-head"><h3>Tax registration</h3></div><div style="padding:4px 18px 16px;">
       <div class="drawer-row"><span>GSTIN</span><b>${valOr(t.gstin)}</b></div>
@@ -4405,6 +4486,7 @@ function renderBusinessProfile(){
     const pwDisplay = ch.loginPassword ? (pwRevealed ? esc(ch.loginPassword) : "•".repeat(Math.min(ch.loginPassword.length,14))) : "—";
     return `<div class="card"><div class="card-head"><h3>${ch.key}</h3></div><div style="padding:4px 18px 16px;">
       <div class="drawer-row"><span>Status</span><b style="color:${statusColor};">${valOr(ch.status)}</b></div>
+      <div class="drawer-row"><span>Launched on</span><b>${valDateOr(ch.launchDate)}</b></div>
       <div class="drawer-row"><span>Seller ID</span><b>${valOr(ch.sellerId)}</b></div>
       <div class="drawer-row"><span>Category</span><b>${valOr(ch.category)}</b></div>
       <div class="drawer-row"><span>Warehouse</span><b style="max-width:160px;">${valOr(ch.warehouse)}</b></div>
@@ -4430,6 +4512,7 @@ function buildProfileChannelFields(){
         <div><label>Seller ID <span class="opt">optional</span></label><input type="text" class="p-ch-sellerid" data-idx="${idx}"></div>
         <div><label>Category <span class="opt">optional</span></label><input type="text" class="p-ch-category" data-idx="${idx}"></div>
         <div><label>Warehouse <span class="opt">optional</span></label><input type="text" class="p-ch-warehouse" data-idx="${idx}"></div>
+        <div><label>Launched on <span class="opt">optional</span></label><input type="date" class="p-ch-launchdate" data-idx="${idx}"></div>
         <div class="full"><label>Return address <span class="opt">optional</span></label><input type="text" class="p-ch-returnaddress" data-idx="${idx}"></div>
         <div><label>Login email / username <span class="opt">optional</span></label><input type="text" class="p-ch-loginemail" data-idx="${idx}" placeholder="e.g. seller@yourstore.com" autocomplete="off"></div>
         <div><label>Login password <span class="opt">optional</span></label>
@@ -4458,6 +4541,7 @@ function openProfileModal(){
   document.getElementById("p-company-address").value = c.address||"";
   document.getElementById("p-company-email").value = c.email||"";
   document.getElementById("p-company-website").value = c.website||"";
+  document.getElementById("p-company-started").value = c.startedDate||"";
   document.getElementById("p-tax-gstin").value = t.gstin||"";
   document.getElementById("p-tax-pan").value = t.pan||"";
   document.getElementById("p-tax-hsn").value = t.hsn||"";
@@ -4477,6 +4561,7 @@ function openProfileModal(){
     document.querySelector(`.p-ch-sellerid[data-idx="${idx}"]`).value = ch.sellerId||"";
     document.querySelector(`.p-ch-category[data-idx="${idx}"]`).value = ch.category||"";
     document.querySelector(`.p-ch-warehouse[data-idx="${idx}"]`).value = ch.warehouse||"";
+    document.querySelector(`.p-ch-launchdate[data-idx="${idx}"]`).value = ch.launchDate||"";
     document.querySelector(`.p-ch-returnaddress[data-idx="${idx}"]`).value = ch.returnAddress||"";
     document.querySelector(`.p-ch-loginemail[data-idx="${idx}"]`).value = ch.loginEmail||"";
     document.querySelector(`.p-ch-loginpassword[data-idx="${idx}"]`).value = ch.loginPassword||"";
@@ -4497,6 +4582,7 @@ document.getElementById("profileModalSave").addEventListener("click", ()=>{
     address: document.getElementById("p-company-address").value.trim(),
     email: document.getElementById("p-company-email").value.trim(),
     website: document.getElementById("p-company-website").value.trim(),
+    startedDate: document.getElementById("p-company-started").value,
   };
   businessProfile.tax = {
     gstin: document.getElementById("p-tax-gstin").value.trim(),
@@ -4520,6 +4606,7 @@ document.getElementById("profileModalSave").addEventListener("click", ()=>{
     ch.sellerId = document.querySelector(`.p-ch-sellerid[data-idx="${idx}"]`).value.trim();
     ch.category = document.querySelector(`.p-ch-category[data-idx="${idx}"]`).value.trim();
     ch.warehouse = document.querySelector(`.p-ch-warehouse[data-idx="${idx}"]`).value.trim();
+    ch.launchDate = document.querySelector(`.p-ch-launchdate[data-idx="${idx}"]`).value;
     ch.returnAddress = document.querySelector(`.p-ch-returnaddress[data-idx="${idx}"]`).value.trim();
     ch.loginEmail = document.querySelector(`.p-ch-loginemail[data-idx="${idx}"]`).value.trim();
     ch.loginPassword = document.querySelector(`.p-ch-loginpassword[data-idx="${idx}"]`).value;
