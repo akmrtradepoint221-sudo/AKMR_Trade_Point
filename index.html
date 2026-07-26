@@ -15,8 +15,27 @@
   --amber:#A8721C; --amber-bg:#FBF0DC; --red:#B23A2E; --red-bg:#FBE7E3;
   --blue:#2A5DB0; --blue-bg:#E8EEFA; --purple:#7A3E94; --purple-bg:#F1E7F5;
   --gold-bg:#FBF0DC;
+  --heading:#451313;
   --sidebar-w:230px; --radius:8px;
 }
+/* ===================== DARK MODE =====================
+   Every panel, card, table, input and status color in this app is already built on the CSS
+   variables above — so dark mode just swaps the variable values here, on <html data-theme="dark">,
+   set as early as possible (see the tiny inline script right after <body>) to avoid a flash of
+   the light theme on load. Brand colors (maroon sidebar, gold accents) stay the same in both
+   themes since they're the AKMR brand, not a light/dark choice. */
+html[data-theme="dark"]{
+  --bg:#1B1714; --panel:#242019; --panel-2:#2B241D; --ink:#EDE6D7; --ink-soft:#AFA38C;
+  --line:#3B332A; --line-strong:#4C4237; --forest:#6FCB9C; --forest-bg:#1E332A;
+  --amber:#E3B056; --amber-bg:#3A2C15; --red:#E4756A; --red-bg:#3D211D;
+  --blue:#7FA8EE; --blue-bg:#1E2A40; --purple:#C79AE0; --purple-bg:#332440;
+  --gold-bg:#3A2C15;
+  --heading:#E8CD6F;
+}
+html[data-theme="dark"] .modal{ box-shadow:0 20px 60px rgba(0,0,0,0.6); }
+html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] textarea{ color-scheme:dark; }
+.theme-toggle-btn{background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.18); color:#F3E9CC; width:28px; height:28px; border-radius:7px; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; justify-content:center; line-height:1; transition:background .15s ease;}
+.theme-toggle-btn:hover{background:rgba(255,255,255,0.2);}
 *{box-sizing:border-box;}
 html,body{margin:0; height:100%;}
 body{background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; font-size:14px;}
@@ -82,7 +101,7 @@ button{font-family:inherit;}
 .topbar{background:var(--panel); border-bottom:1px solid var(--line); padding:14px 26px; display:flex; align-items:center; justify-content:space-between; gap:16px; position:sticky; top:41px; z-index:40; flex-wrap:wrap;}
 .topbar-left{display:flex; align-items:center; gap:14px;}
 .menu-toggle{width:34px; height:34px; border-radius:6px; border:1px solid var(--line); background:var(--panel); align-items:center; justify-content:center; cursor:pointer; font-size:16px;}
-.view-title{font-family:'Marcellus',serif; font-size:21px; color:var(--maroon-deep);}
+.view-title{font-family:'Marcellus',serif; font-size:21px; color:var(--heading);}
 .view-sub{font-size:12px; color:var(--ink-soft); margin-top:1px;}
 .topbar-right{display:flex; align-items:center; gap:10px;}
 .gst-chip{font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-soft); background:var(--panel-2); border:1px solid var(--line); padding:6px 10px; border-radius:7px; white-space:nowrap;}
@@ -137,7 +156,7 @@ button{font-family:inherit;}
 .home-split{display:grid; grid-template-columns:1.4fr 1fr; gap:16px; margin-bottom:18px;}
 @media (max-width:980px){.home-split{grid-template-columns:1fr;}}
 .section-title{display:flex; align-items:baseline; justify-content:space-between; margin:6px 2px 12px; flex-wrap:wrap; gap:6px;}
-.section-title h3{font-family:'Marcellus',serif; font-size:16.5px; color:var(--maroon-deep); margin:0;}
+.section-title h3{font-family:'Marcellus',serif; font-size:16.5px; color:var(--heading); margin:0;}
 .section-title .meta{font-size:11.5px; color:var(--ink-soft);}
 
 /* ===================== SALES TREND CHART ===================== */
@@ -255,7 +274,7 @@ button{font-family:inherit;}
 .tab-row{display:flex; gap:4px; padding:0 18px; border-bottom:1px solid var(--line); overflow-x:auto;}
 .tab-btn{border:none; background:none; padding:12px 14px; font-size:13px; font-weight:600; color:var(--ink-soft); cursor:pointer; border-bottom:2.5px solid transparent; white-space:nowrap; display:flex; align-items:center; gap:6px;}
 .tab-btn .ct{font-family:'JetBrains Mono',monospace; font-size:11px; background:var(--bg); padding:1px 6px; border-radius:9px;}
-.tab-btn.active{color:var(--maroon); border-bottom-color:var(--maroon);}
+.tab-btn.active{color:var(--heading); border-bottom-color:var(--heading);}
 .tab-btn.active .ct{background:var(--maroon); color:#fff;}
 
 /* ===================== ORDER STATUS DASHBOARD ===================== */
@@ -291,11 +310,11 @@ select.filter-select{padding:8px 10px; border:1px solid var(--line); border-radi
 table{width:100%; border-collapse:collapse; font-size:12.8px; min-width:680px;}
 thead th{text-align:left; padding:10px 14px; font-size:10.3px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); border-bottom:1px solid var(--line); background:var(--panel-2); font-weight:700; white-space:nowrap; cursor:pointer; user-select:none;}
 thead th .sort-ic{opacity:0.4; margin-left:3px; font-size:10px;}
-thead th.sorted .sort-ic{opacity:1; color:var(--maroon);}
+thead th.sorted .sort-ic{opacity:1; color:var(--heading);}
 #paymentsColFilterRow th{cursor:default; padding:5px 10px; background:var(--panel-2);}
 .col-filter-input{width:100%; box-sizing:border-box; padding:5px 7px; font-size:11px; font-weight:400; text-transform:none; letter-spacing:normal; border:1px solid var(--line); border-radius:5px; background:var(--panel); color:var(--ink);}
 select.col-filter-input{cursor:pointer;}
-.col-filter-input:focus{outline:none; border-color:var(--maroon);}
+.col-filter-input:focus{outline:none; border-color:var(--heading);}
 tbody td{padding:10px 14px; border-bottom:1px solid var(--line); vertical-align:middle;}
 tbody tr:last-child td{border-bottom:none;}
 tbody tr:hover{background:var(--panel-2);}
@@ -307,7 +326,7 @@ tbody tr.clickable{cursor:pointer;}
 .status-pill.delivered{background:var(--forest-bg); color:var(--forest);}
 .status-pill.rto, .status-pill.cancelled{background:var(--red-bg); color:var(--red);}
 .status-pill.rtolocked{background:var(--red-bg); color:var(--red);}
-.status-pill.lost{background:var(--ink); color:#fff;}
+.status-pill.lost{background:var(--maroon-deep); color:#fff;}
 .status-pill.returned, .status-pill.customerreturn{background:var(--purple-bg); color:var(--purple);}
 .status-pill.lowstock{background:var(--red-bg); color:var(--red);}
 .status-pill.instock{background:var(--forest-bg); color:var(--forest);}
@@ -355,7 +374,7 @@ tbody tr.clickable{cursor:pointer;}
 .il-clear-row{text-align:right; padding-bottom:6px;}
 .il-clear-all{background:none; border:none; cursor:pointer; font-size:11px; font-weight:700; color:var(--ink-soft); text-decoration:underline; padding:0;}
 .il-clear-all:hover{color:var(--red);}
-.status-pill.outofstock{background:var(--ink); color:#fff;}
+.status-pill.outofstock{background:var(--maroon-deep); color:#fff;}
 .status-pill.available{background:var(--forest-bg); color:var(--forest);}
 .status-pill.qcerror{background:var(--red-bg); color:var(--red);}
 .status-pill.paused{background:var(--amber-bg); color:var(--amber);}
@@ -366,11 +385,16 @@ tbody tr.clickable{cursor:pointer;}
 .comp-row input{width:72px; flex-shrink:0;}
 .comp-remove{width:28px; height:28px; border-radius:6px; border:1px solid var(--line); background:var(--panel-2); color:var(--ink-soft); cursor:pointer; flex-shrink:0;}
 .comp-remove:hover{border-color:var(--red); color:var(--red); background:var(--red-bg);}
+.seg-toggle{display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; width:fit-content;}
+.seg-btn{border:none; background:var(--panel-2); color:var(--ink-soft); font:inherit; font-weight:600; font-size:13px; padding:8px 16px; cursor:pointer; transition:background .15s, color .15s;}
+.seg-btn+.seg-btn{border-left:1px solid var(--line);}
+.seg-btn.active{background:var(--maroon); color:#fff;}
+.seg-btn:hover:not(.active){background:var(--panel);}
 .comp-add{background:none; border:1px dashed var(--line-strong); color:var(--ink-soft); border-radius:8px; padding:7px 12px; font-size:12px; cursor:pointer; width:100%; margin-top:2px;}
 .comp-add:hover{border-color:var(--gold); color:var(--ink);}
 .listing-preview{background:var(--panel-2); border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-top:14px; font-size:12.5px;}
 .listing-preview .lp-row{display:flex; justify-content:space-between; padding:3px 0;}
-.listing-preview .lp-row.lp-final{border-top:1px solid var(--line); margin-top:6px; padding-top:8px; font-weight:700; font-size:13.5px; color:var(--maroon-deep);}
+.listing-preview .lp-row.lp-final{border-top:1px solid var(--line); margin-top:6px; padding-top:8px; font-weight:700; font-size:13.5px; color:var(--heading);}
 .listing-preview .lp-row span:first-child{color:var(--ink-soft);}
 .stock-warn-tag{font-size:10px; color:var(--red); margin-left:6px;}
 
@@ -415,12 +439,12 @@ input.invalid, select.invalid{border-color:var(--red); background:var(--red-bg);
 
 .btn{background:var(--maroon); color:#fff; border:none; padding:9px 18px; font-size:13px; font-weight:700; cursor:pointer; border-radius:7px; transition:background .15s;}
 .btn:hover{background:var(--maroon-deep);}
-.btn.secondary{background:var(--panel); color:var(--maroon); border:1px solid var(--maroon);}
+.btn.secondary{background:var(--panel); color:var(--heading); border:1px solid var(--heading);}
 .btn.secondary:hover{background:var(--bg);}
 .btn.small{padding:6px 12px; font-size:12px;}
 .pl-tabs{display:flex; gap:6px; margin:2px 18px 14px; flex-wrap:wrap;}
 .pl-tab{padding:7px 16px; border-radius:7px; border:1.5px solid var(--line); background:var(--panel); color:var(--ink-soft); font-size:12.5px; font-weight:700; cursor:pointer; transition:background .15s, border-color .15s, color .15s; font-family:inherit;}
-.pl-tab:hover{border-color:var(--maroon);}
+.pl-tab:hover{border-color:var(--heading);}
 .pl-tab.active{background:var(--maroon); border-color:var(--maroon); color:#fff;}
 label{font-size:10.5px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); display:block; margin-bottom:5px;}
 input[type=number], input[type=text], input[type=date], select.form-select{width:100%; padding:9px 10px; border:1px solid var(--line); background:var(--panel-2); font-size:13px; border-radius:7px; color:var(--ink);}
@@ -451,7 +475,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
 .summary-stat .s-label{font-size:9.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); font-weight:600; white-space:nowrap;}
 .summary-stat .s-value{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:18px; color:var(--ink); line-height:1.2;}
 .summary-stat .s-sub{display:none;}
-.summary-stat.remaining .s-value{color:var(--maroon-deep);}
+.summary-stat.remaining .s-value{color:var(--heading);}
 .summary-stat.damaged .s-value{color:var(--red);}
 .summary-stat.sold .s-value{color:var(--forest);}
 .summary-stat.value .s-value{color:var(--blue);}
@@ -465,7 +489,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
 @media (max-width:560px){ #paymentsKpiStrip{grid-template-columns:repeat(2,1fr);} }
 #returnLossKpiStrip{grid-template-columns:repeat(3,1fr);}
 @media (max-width:560px){ #returnLossKpiStrip{grid-template-columns:repeat(2,1fr);} }
-.summary-stat.grandtotal .s-value{color:var(--maroon-deep); font-weight:800;}
+.summary-stat.grandtotal .s-value{color:var(--heading); font-weight:800;}
 
 /* ---------- damaged stock inline editor ---------- */
 .damaged-cell{display:flex; align-items:center; justify-content:flex-end; gap:6px;}
@@ -525,13 +549,13 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
   padding:14px 14px; font-size:13px;
 }
 @media (max-width:1000px){ .totals-bar{display:flex; flex-wrap:wrap; gap:14px 22px; justify-content:flex-start;} }
-.totals-bar .t-label{font-family:'Marcellus',serif; font-size:14.5px; color:var(--maroon-deep); display:flex; align-items:center; gap:6px;}
+.totals-bar .t-label{font-family:'Marcellus',serif; font-size:14.5px; color:var(--heading); display:flex; align-items:center; gap:6px;}
 .totals-bar .t-cell{display:flex; flex-direction:column; align-items:flex-end; gap:2px; padding-right:14px;}
 .totals-bar .t-cell .t-tag{font-size:9.5px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft);}
 .totals-bar .t-cell .t-num{font-family:'JetBrains Mono',monospace; font-weight:700; font-size:14px; color:var(--ink);}
-.totals-bar .t-cell.highlight .t-num{color:var(--maroon-deep); font-size:15.5px;}
+.totals-bar .t-cell.highlight .t-num{color:var(--heading); font-size:15.5px;}
 .totals-bar .t-cell.highlight{background:var(--gold-light); border-radius:7px; padding:6px 10px; margin:-6px -4px;}
-.tot-row td{font-weight:700; background:var(--panel-2); color:var(--maroon-deep); border-top:2px solid var(--gold);}
+.tot-row td{font-weight:700; background:var(--panel-2); color:var(--heading); border-top:2px solid var(--gold);}
 ::-webkit-scrollbar{height:8px; width:8px;}
 ::-webkit-scrollbar-thumb{background:var(--line-strong); border-radius:4px;}
 .prod-cell{display:flex; align-items:center; gap:10px;}
@@ -541,6 +565,18 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
+<script>
+/* Applied before any content paints, so switching between light/dark never causes a visible
+   flash of the wrong theme. Falls back to the OS/browser's preferred color scheme the very
+   first time, then remembers whatever the person picks via the toggle button from then on. */
+(function(){
+  try{
+    var saved = localStorage.getItem("akmr-theme");
+    var theme = saved || (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  }catch(err){ document.documentElement.setAttribute("data-theme","light"); }
+})();
+</script>
 <div id="passcodeGateOverlay" style="display:none; position:fixed; inset:0; z-index:99999; background:#2A1500; align-items:center; justify-content:center; font-family:inherit;">
   <div style="background:#fff; border-radius:14px; padding:36px 32px; width:min(340px, 88vw); box-shadow:0 20px 60px rgba(0,0,0,.4); text-align:center;">
     <div style="font-size:28px; margin-bottom:6px;">🔒</div>
@@ -559,6 +595,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
     <b>AKMR Trade Point</b>
   </div>
   <div class="brand-strip-right">
+    <button class="theme-toggle-btn" id="themeToggleBtn" title="Switch to dark mode">🌙</button>
     <span class="live-pill"><span class="live-dot" id="saveStatusDot"></span><span id="saveStatusText">All changes saved</span></span>
   </div>
 </div>
@@ -571,7 +608,6 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
       <svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="17" fill="#C9A227" stroke="#451313" stroke-width="1.5"/><circle cx="20" cy="20" r="12" fill="none" stroke="#451313" stroke-width="1.2"/><text x="20" y="24.5" text-anchor="middle" font-family="Marcellus, serif" font-size="10.5" fill="#451313">ATP</text></svg>
       <div><div class="name">AKMR Trade Point</div><div class="sub">Seller Panel</div></div>
     </div>
-    <div style="padding:14px 16px 4px;"><button class="btn" style="width:100%;" id="quickAddBtn" title="Import Meesho orders, returns &amp; payments">+ Import orders</button></div>
     <nav class="side-nav">
       <div class="nav-group-label">Overview</div>
       <button class="nav-item active" data-view="home"><span class="ic">⌂</span> Home</button>
@@ -580,7 +616,6 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
       <button class="nav-item" data-view="inventory"><span class="ic">▣</span> Inventory <span class="nav-badge" id="navInvBadge">0</span></button>
       <button class="nav-item" data-view="rawmat"><span class="ic">◧</span> Raw Materials</button>
       <button class="nav-item" data-view="returns"><span class="ic">↺</span> Returns / RTO</button>
-      <button class="nav-item" data-view="listing"><span class="ic">🏷</span> Listing <span class="nav-badge" id="navListingBadge">0</span></button>
       <div class="nav-group-label">Money</div>
       <button class="nav-item" data-view="payments"><span class="ic">$</span> Payments</button>
       <button class="nav-item" data-view="reports"><span class="ic">▦</span> Reports</button>
@@ -708,7 +743,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
           </div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th style="width:30px;"><input type="checkbox" id="inventorySelectAllCb" title="Select all"></th><th data-sort="name">Product <span class="sort-ic">↕</span></th><th>HSN</th><th data-sort="totalReceived" style="text-align:right;">Total Purchased <span class="sort-ic">↕</span></th><th data-sort="qty" style="text-align:right;">Total In Stock <span class="sort-ic">↕</span></th><th>Stock level</th><th data-sort="sold" style="text-align:right;">Sold <span class="sort-ic">↕</span></th><th data-sort="returned" style="text-align:right;">Returned</th><th style="text-align:right;">Damaged</th><th data-sort="purchasePrice" style="text-align:right;">Purchase price <span class="sort-ic">↕</span></th><th data-sort="gstPaid" style="text-align:right;">GST paid <span class="sort-ic">↕</span></th><th data-sort="totalPurchase" style="text-align:right;">Total purchase <span class="sort-ic">↕</span></th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
+              <thead><tr><th style="width:30px;"><input type="checkbox" id="inventorySelectAllCb" title="Select all"></th><th data-sort="name">Product <span class="sort-ic">↕</span></th><th>HSN</th><th data-sort="purchaseDate">Purchase date <span class="sort-ic">↕</span></th><th data-sort="pricePerUnit" style="text-align:right;">Price per Unit <span class="sort-ic">↕</span></th><th data-sort="totalReceived" style="text-align:right;">Total Purchased <span class="sort-ic">↕</span></th><th data-sort="purchasePrice" style="text-align:right;">Purchase price <span class="sort-ic">↕</span></th><th data-sort="gstPaid" style="text-align:right;">GST paid <span class="sort-ic">↕</span></th><th data-sort="totalPurchase" style="text-align:right;">Total purchase <span class="sort-ic">↕</span></th><th data-sort="qty" style="text-align:right;">Total In Stock <span class="sort-ic">↕</span></th><th>Stock level</th><th data-sort="sold" style="text-align:right;">Sold <span class="sort-ic">↕</span></th><th data-sort="returned" style="text-align:right;">Returned</th><th style="text-align:right;">Damaged</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
               <tbody id="inventoryBody"></tbody>
               <tfoot id="inventoryFootWrap"></tfoot>
             </table>
@@ -877,7 +912,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
         <div class="card" style="margin-bottom:16px;">
           <div class="status-dash" id="paymentTabs" style="border-bottom:none;"></div>
         </div>
-        <p class="subtle-note" id="paymentsKpiDateNote" style="margin:0 0 8px; font-weight:700; color:var(--maroon); text-transform:uppercase; font-size:11.5px; letter-spacing:.03em;"></p>
+        <p class="subtle-note" id="paymentsKpiDateNote" style="margin:0 0 8px; font-weight:700; color:var(--heading); text-transform:uppercase; font-size:11.5px; letter-spacing:.03em;"></p>
         <div class="summary-grid" id="paymentsKpiStrip"></div>
         <p class="subtle-note" style="margin:18px 0 8px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; font-size:11.5px; letter-spacing:.03em;">RTO / Return / Lost Loss — kept separate from the sales figures above</p>
         <div class="summary-grid" id="returnLossKpiStrip" style="margin-bottom:16px;"></div>
@@ -968,7 +1003,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
         <div class="grid-3" id="profileGrid"></div>
         <div class="card-head" style="padding:18px 2px 8px;"><h3>Selling channels</h3><span class="meta">Per-marketplace registration &amp; store details</span></div>
         <div class="grid-3" id="profileChannelsGrid"></div>
-        <p class="subtle-note">This data lives only in this browser tab for the current session — nothing is uploaded anywhere. Reloading the page resets it back to the defaults. Click the ✎ button above to edit any field, including bank details.</p>
+        <p class="subtle-note">This data is saved in this browser's local storage on this device — it survives a reload, but won't follow you to another browser or device, and nothing here is ever uploaded anywhere. Marketplace login passwords are masked by default; click 👁 to reveal one. Click the ✎ button above to edit any field, including bank details and marketplace logins.</p>
       </div>
 
     </div>
@@ -1098,13 +1133,33 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
     </div>
     <div class="modal-body">
       <div class="modal-grid">
-        <div class="full"><label>Item name <span class="req">*</span></label><input type="text" id="m-name" placeholder="e.g. Red Coin Necklace"><div class="field-err" id="err-name"></div></div>
+        <div class="full" id="stockTypeToggleWrap">
+          <label>Listing type</label>
+          <div class="seg-toggle">
+            <button type="button" class="seg-btn active" data-stock-type="single">Single item</button>
+            <button type="button" class="seg-btn" data-stock-type="combo">Combo (from existing items)</button>
+          </div>
+        </div>
+        <div class="full"><label id="m-name-label">Item name <span class="req">*</span></label><input type="text" id="m-name" placeholder="e.g. Red Coin Necklace"><div class="field-err" id="err-name"></div></div>
+      </div>
+      <div class="modal-grid" id="stockSingleFields">
         <div><label>Total Stock Received <span class="req">*</span></label><input type="number" id="m-qty" min="0" step="1" placeholder="0"><div class="field-err" id="err-qty"></div></div>
         <div><label>Purchase price / unit (₹) <span class="req">*</span></label><input type="number" id="m-purchase" min="0" step="0.01" placeholder="0.00"><div class="field-err" id="err-purchase"></div></div>
-        <div><label>GST % <span class="opt">optional · default 0%</span></label><select id="m-gst"><option value="0">0%</option><option value="0.03">3%</option><option value="0.05">5%</option><option value="0.12">12%</option><option value="0.18">18%</option></select></div>
+        <div><label>GST % <span class="opt">optional · default 0%</span></label>
+          <select id="m-gst"><option value="0">0%</option><option value="0.03">3%</option><option value="0.05">5%</option><option value="0.12">12%</option><option value="0.18">18%</option><option value="custom">Custom %…</option></select>
+          <input type="number" id="m-gst-custom" min="0" max="100" step="0.01" placeholder="e.g. 7.5" style="display:none; margin-top:6px;">
+        </div>
         <div><label>HSN code <span class="opt">optional · default 7117</span></label><input type="text" id="m-hsn" placeholder="7117"></div>
+        <div class="full"><label>Purchase date <span class="opt">optional · defaults to today</span></label><input type="date" id="m-purchase-date" style="max-width:220px;"></div>
       </div>
-      <p class="subtle-note" style="padding:0;">Enter the total units received for this item. Remaining stock is calculated automatically as (Total Received − Sold − Damaged). Use the Damaged column on the inventory table to log damaged units.</p>
+      <div id="stockComboFields" style="display:none;">
+        <label>Components <span class="req">*</span> <span class="opt">picked from your existing Inventory items</span></label>
+        <div id="stockComboRows"></div>
+        <button type="button" class="btn small secondary" id="stockComboAddCompBtn">+ Add component</button>
+        <div class="field-err" id="err-stock-combo"></div>
+        <p class="subtle-note" style="padding:12px 0 0;">This creates a listing in <b>Listing Price</b> — it won't add to your Total Inventory count, since it's just an existing item repackaged. When an order for it comes in, stock is deducted from its component item(s) instead. Fine-tune packing/profit/GST pricing for it anytime in the Listing Price tab. <b>Tip:</b> name it close to how it reads in your actual Meesho listing title (not just a short label) — incoming orders are matched by word overlap, same as single Inventory items.</p>
+      </div>
+      <p class="subtle-note" style="padding:8px 0 0;" id="stockSingleNote">Enter the total units received for this item. Remaining stock is calculated automatically as (Total Received − Sold − Damaged). Use the Damaged column on the inventory table to log damaged units.</p>
     </div>
     <div class="modal-foot">
       <button class="btn secondary" id="stockModalCancel">Cancel</button>
@@ -1186,7 +1241,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
         <div><label>UPI ID <span class="opt">optional</span></label><input type="text" id="p-bank-upi"></div>
       </div>
 
-      <div class="card-head" style="padding:16px 0 8px;"><h3 style="font-size:13.5px;">Selling channels</h3></div>
+      <div class="card-head" style="padding:16px 0 8px;"><h3 style="font-size:13.5px;">Selling channels</h3><span class="meta">Login stored in this browser only — not encrypted, not synced anywhere</span></div>
       <div id="profileChannelFields"></div>
     </div>
     <div class="modal-foot">
@@ -1379,19 +1434,26 @@ let expenses = []; // {date, category, description, amount, mode, notes}
 const expenseCategories = ["Ad Spend / Marketing","Packaging Materials","Shipping & Courier","Platform Subscription","Raw Materials","Rent/Utilities"];
 
 /* ---- Business Profile — Company / Tax / Bank / Selling channel details ----
-   Lives only in memory for the current session (same as every other seed value in this file —
-   reload resets to DEFAULT_BUSINESS_PROFILE). Bank account fields are masked on screen by default
-   with a show/hide toggle since they're sensitive; nothing here is ever sent anywhere. */
+   Persisted the same way as every other data set in this app (see the localStorage save/load
+   near the bottom of the file) — it does survive a reload, same browser/device only.
+   Bank account numbers AND marketplace login passwords are masked on screen by default with a
+   show/hide toggle since they're sensitive. IMPORTANT: this is plain localStorage in the
+   browser, not an encrypted vault — anyone with access to this browser/device could read these
+   values from dev tools. Fine for a single-person/trusted-device setup; don't rely on it as your
+   only place for shared-computer or multi-person credential storage. */
 const DEFAULT_BUSINESS_PROFILE = {
   company: { name:"AKMR Trade Point", owner:"", legalType:"", phone:"", address:"", email:"", website:"" },
   tax: { gstin:"", pan:"", hsn:"", gstType:"", stateCode:"", tan:"" },
   bank: { holder:"", bankName:"", accountNumber:"", ifsc:"", branch:"", accountType:"", upi:"" },
   channels: [
-    {key:"Meesho", status:"Active", sellerId:"", category:"", warehouse:"", returnAddress:""},
+    {key:"Meesho", status:"Active", sellerId:"", category:"", warehouse:"", returnAddress:"", loginEmail:"", loginPassword:""},
+    {key:"Amazon", status:"Active", sellerId:"", category:"", warehouse:"", returnAddress:"", loginEmail:"", loginPassword:""},
+    {key:"Flipkart", status:"Active", sellerId:"", category:"", warehouse:"", returnAddress:"", loginEmail:"", loginPassword:""},
   ],
 };
 let businessProfile = JSON.parse(JSON.stringify(DEFAULT_BUSINESS_PROFILE));
 let bankNumberRevealed = false;
+let channelPasswordRevealed = new Set();
 
 /* ---- Orders — combined "Sales Profit" sheet (only real rows; Meesho sheet matches) ---- */
 let orders = [
@@ -1413,8 +1475,31 @@ function unitsSoldFor(name){
    item physically came back, so it was never really sold — those units stay available/in-stock),
    Cancelled (never shipped), Pending (not shipped yet), and plain Shipped-with-no-payment-yet
    (not yet confirmed as a completed sale). */
+/* A combo created via the Inventory "Combo" option (isCombo:true) is never its own Inventory row —
+   selling it should draw down its component items' stock instead. This finds, for a given single
+   Inventory item, how many units were consumed by combo orders (matched by the combo's listing
+   name) that include it as a component, scaled by that component's qty-per-combo. Existing
+   Listing Price combos with no custom name never match a real order's product string, so this is
+   purely additive and changes nothing for setups that don't use the new Combo option. */
+function comboUnitsConsumedFor(name, statuses, requireBank){
+  const nameLower = name.trim().toLowerCase();
+  let total = 0;
+  listing.forEach(l=>{
+    if(!l.isCombo || !l.name || !l.name.trim()) return;
+    const comp = (l.components||[]).find(c=>{
+      const inv = inventory.find(i=>i.id===c.productId);
+      return inv && inv.name.trim().toLowerCase()===nameLower;
+    });
+    if(!comp) return;
+    const comboLower = l.name.trim().toLowerCase();
+    const units = orders.filter(o=> o.product.trim().toLowerCase()===comboLower && statuses.includes(o.status) && (!requireBank || o.bank!=null)).reduce((s,o)=>s+o.qty,0);
+    total += units * (comp.qty||1);
+  });
+  return total;
+}
 function soldUnitsFor(name){
-  return orders.filter(o=> o.product.trim().toLowerCase() === name.trim().toLowerCase() && o.status==="Delivered" && o.bank!=null).reduce((s,o)=>s+o.qty,0);
+  const direct = orders.filter(o=> o.product.trim().toLowerCase() === name.trim().toLowerCase() && o.status==="Delivered" && o.bank!=null).reduce((s,o)=>s+o.qty,0);
+  return direct + comboUnitsConsumedFor(name, ["Delivered"], true);
 }
 /* Units that came back to the seller — RTO, RTO_LOCKED, or a Customer Return — shown as their own
    Inventory column so it's clear how many units of a product have been returned. */
@@ -1424,14 +1509,16 @@ function soldUnitsFor(name){
    available in stock, they just aren't counted as a "Return" since the customer never received them. */
 const RETURNED_STATUSES = ["Customer Return"];
 function returnedUnitsFor(name){
-  return orders.filter(o=> o.product.trim().toLowerCase() === name.trim().toLowerCase() && RETURNED_STATUSES.includes(o.status)).reduce((s,o)=>s+o.qty,0);
+  const direct = orders.filter(o=> o.product.trim().toLowerCase() === name.trim().toLowerCase() && RETURNED_STATUSES.includes(o.status)).reduce((s,o)=>s+o.qty,0);
+  return direct + comboUnitsConsumedFor(name, RETURNED_STATUSES, false);
 }
 /* "Sold" for dashboard/reporting purposes only counts orders that actually left the warehouse or came back
    after leaving it — Shipped, Delivered, RTO, Customer Return, RTO_LOCKED. Pending (not shipped yet) and
    Cancelled (never shipped) are excluded so the count reflects real movement, not raw order volume. */
 const QUALIFYING_SOLD_STATUSES = ["Shipped","Delivered","RTO","Customer Return","RTO_LOCKED"];
 function qualifyingSoldUnitsFor(name){
-  return orders.filter(o=> o.product.trim().toLowerCase() === name.trim().toLowerCase() && QUALIFYING_SOLD_STATUSES.includes(o.status)).reduce((s,o)=>s+o.qty,0);
+  const direct = orders.filter(o=> o.product.trim().toLowerCase() === name.trim().toLowerCase() && QUALIFYING_SOLD_STATUSES.includes(o.status)).reduce((s,o)=>s+o.qty,0);
+  return direct + comboUnitsConsumedFor(name, QUALIFYING_SOLD_STATUSES, false);
 }
 function recomputeInvFields(item){
   const sold = soldUnitsFor(item.name);
@@ -1466,6 +1553,7 @@ function calcListingFigures(item){
   return {basePrice, subtotal, ret, dmg, total, gst, sellingPrice, delivery, meeshoListedPrice};
 }
 function listingName(item){
+  if(item.name && item.name.trim()) return item.name.trim();
   const parts = (item.components||[]).map(c=>{
     const inv = inventory.find(i=>i.id===c.productId);
     const nm = inv ? inv.name.trim() : "Unknown product";
@@ -1629,6 +1717,22 @@ function setView(view){
   }
 }
 document.querySelectorAll(".nav-item").forEach(n=> n.addEventListener("click", ()=> setView(n.dataset.view)));
+
+/* ===================== DARK / LIGHT MODE ===================== */
+function applyTheme(theme){
+  document.documentElement.setAttribute("data-theme", theme);
+  try{ localStorage.setItem("akmr-theme", theme); }catch(err){ /* storage unavailable — theme just won't persist across reloads */ }
+  const btn = document.getElementById("themeToggleBtn");
+  if(btn){
+    btn.textContent = theme==="dark" ? "☀️" : "🌙";
+    btn.title = theme==="dark" ? "Switch to light mode" : "Switch to dark mode";
+  }
+}
+applyTheme(document.documentElement.getAttribute("data-theme") || "light");
+document.getElementById("themeToggleBtn").addEventListener("click", ()=>{
+  const current = document.documentElement.getAttribute("data-theme")==="dark" ? "dark" : "light";
+  applyTheme(current==="dark" ? "light" : "dark");
+});
 function openOrdersImportModal(){ document.getElementById("ordersImportModalOverlay").classList.add("show"); }
 function closeOrdersImportModal(){ document.getElementById("ordersImportModalOverlay").classList.remove("show"); }
 function openReturnsImportModal(){ document.getElementById("returnsImportModalOverlay").classList.add("show"); }
@@ -1642,10 +1746,6 @@ function closeAddOrderModal(){ document.getElementById("addOrderModalOverlay").c
 document.getElementById("openAddOrderBtn").addEventListener("click", openAddOrderModal);
 document.getElementById("addOrderModalClose").addEventListener("click", closeAddOrderModal);
 document.getElementById("addOrderModalOverlay").addEventListener("click", (e)=>{ if(e.target.id==="addOrderModalOverlay") closeAddOrderModal(); });
-document.getElementById("quickAddBtn").addEventListener("click", ()=>{
-  setView("orders");
-  setTimeout(openOrdersImportModal, 80);
-});
 document.getElementById("openOrdersImportBtn").addEventListener("click", openOrdersImportModal);
 document.getElementById("ordersImportModalClose").addEventListener("click", closeOrdersImportModal);
 document.getElementById("ordersImportModalOverlay").addEventListener("click", (e)=>{ if(e.target.id==="ordersImportModalOverlay") closeOrdersImportModal(); });
@@ -2592,9 +2692,9 @@ function renderInventory(){
   if(invSearchTerm) list = list.filter(i=>i.name.toLowerCase().includes(invSearchTerm));
   if(invSort.key){
     list.sort((a,b)=>{
-      const map = {name:"name", totalReceived:"totalReceived", qty:"qty", sold:"sold", returned:"returned", purchasePrice:"purchase", gstPaid:"gstPaid", totalPurchase:"totalPurchase"};
+      const map = {name:"name", purchaseDate:"purchaseDate", totalReceived:"totalReceived", qty:"qty", sold:"sold", returned:"returned", purchasePrice:"purchase", gstPaid:"gstPaid", totalPurchase:"totalPurchase", pricePerUnit:"pricePerP"};
       let av=a[map[invSort.key]], bv=b[map[invSort.key]];
-      if(typeof av === "string") return av.localeCompare(bv) * invSort.dir;
+      if(typeof av === "string" || typeof bv === "string") return (av||"").toString().localeCompare((bv||"").toString()) * invSort.dir;
       return ((av||0)-(bv||0)) * invSort.dir;
     });
   } else list.sort((a,b)=>a.qty-b.qty);
@@ -2614,12 +2714,15 @@ function renderInventory(){
          </div>`
       : `<div class="damaged-cell"><span class="damaged-val">${item.damaged||0}</span><button class="damaged-edit-btn" title="Update damaged stock" data-edit-damaged="${item.id}">✎</button></div>`;
 
-    return `<tr><td><input type="checkbox" class="row-check" data-row-id="${esc(item.id)}"></td><td>${esc(item.name.trim())}</td><td class="num-cell">${esc(item.hsn)}</td><td class="num-cell">${item.totalReceived}</td><td class="num-cell">${item.qty}</td>
+    return `<tr><td><input type="checkbox" class="row-check" data-row-id="${esc(item.id)}"></td><td>${esc(item.name.trim())}</td><td class="num-cell">${esc(item.hsn)}</td><td>${item.purchaseDate||"—"}</td>
+      <td class="num-cell">${fmt(item.pricePerP)}</td>
+      <td class="num-cell">${item.totalReceived}</td>
+      <td class="num-cell">${fmt(item.purchase)}</td><td class="num-cell">${fmt(item.gstPaid)}</td><td class="num-cell">${fmt(item.totalPurchase)}</td>
+      <td class="num-cell">${item.qty}</td>
       <td><div class="stock-bar-bg"><div class="stock-bar-fill" style="width:${pct}%; background:${level};"></div></div></td>
       <td class="num-cell">${item.sold||0}</td>
       <td class="num-cell">${item.returned||0}</td>
       <td>${damagedCell}</td>
-      <td class="num-cell">${fmt(item.purchase)}</td><td class="num-cell">${fmt(item.gstPaid)}</td><td class="num-cell">${fmt(item.totalPurchase)}</td>
       <td>${pill}</td>
       <td><div class="row-actions">
         <button class="icon-btn" title="Edit" data-edit="${item.id}">✎</button>
@@ -2676,7 +2779,7 @@ function renderInventory(){
 
   /* ---- Professional totals bar ---- */
   document.getElementById("inventoryFootWrap").innerHTML = `
-    <tr><td colspan="14" style="padding:0; border:none;">
+    <tr><td colspan="15" style="padding:0; border:none;">
       <div class="totals-bar">
         <div class="t-label">📋 Grand Total — ${inventory.length} item(s)</div>
         <div class="t-cell"><span class="t-tag">Total Purchased</span><span class="t-num">${totalStock}</span></div>
@@ -2746,20 +2849,76 @@ function clearStockModalErrors(){
     document.getElementById("err-"+f).textContent = "";
     document.getElementById("m-"+f).classList.remove("invalid");
   });
+  document.getElementById("m-gst-custom").classList.remove("invalid");
+  document.getElementById("err-stock-combo").textContent = "";
 }
+let stockModalType = "single";
+let currentStockComboComponents = [];
+function renderStockComboRows(){
+  document.getElementById("stockComboRows").innerHTML = currentStockComboComponents.map((c,idx)=> `
+    <div class="comp-row" data-idx="${idx}">
+      <select class="stock-comp-product">${inventoryOptionsHTML(c.productId)}</select>
+      <input type="number" class="stock-comp-qty" min="1" step="1" value="${c.qty||1}" title="Qty in this combo">
+      <button type="button" class="comp-remove" data-remove-stock-comp="${idx}" ${currentStockComboComponents.length<=1?"disabled":""}>✕</button>
+    </div>
+  `).join("");
+  document.querySelectorAll("#stockComboRows [data-remove-stock-comp]").forEach(b=> b.addEventListener("click", ()=>{
+    currentStockComboComponents.splice(Number(b.dataset.removeStockComp),1);
+    renderStockComboRows();
+  }));
+  document.querySelectorAll("#stockComboRows .stock-comp-product").forEach((sel,idx)=> sel.addEventListener("change", ()=>{ currentStockComboComponents[idx].productId = sel.value; }));
+  document.querySelectorAll("#stockComboRows .stock-comp-qty").forEach((inp,idx)=> inp.addEventListener("input", ()=>{ currentStockComboComponents[idx].qty = Math.max(1, parseInt(inp.value)||1); }));
+}
+document.getElementById("stockComboAddCompBtn").addEventListener("click", ()=>{
+  currentStockComboComponents.push({productId: inventory[0]?inventory[0].id:null, qty:1});
+  renderStockComboRows();
+});
+function setStockModalType(type){
+  stockModalType = type;
+  document.querySelectorAll("#stockTypeToggleWrap .seg-btn").forEach(b=> b.classList.toggle("active", b.dataset.stockType===type));
+  document.getElementById("stockSingleFields").style.display = type==="single" ? "" : "none";
+  document.getElementById("stockComboFields").style.display = type==="combo" ? "" : "none";
+  document.getElementById("stockSingleNote").style.display = type==="single" ? "" : "none";
+  document.getElementById("m-name-label").innerHTML = type==="combo" ? `Combo / listing name <span class="req">*</span>` : `Item name <span class="req">*</span>`;
+  document.getElementById("m-name").placeholder = type==="combo" ? "e.g. 3-in-1 Necklace Combo" : "e.g. Red Coin Necklace";
+}
+document.querySelectorAll("#stockTypeToggleWrap .seg-btn").forEach(b=> b.addEventListener("click", ()=> setStockModalType(b.dataset.stockType)));
 function openStockModal(id){
   editingStockId = id || null;
   clearStockModalErrors();
   const item = id ? inventory.find(i=>i.id===id) : null;
   document.getElementById("stockModalTitle").textContent = item ? "Edit Item" : "Add New Item";
+  // Editing is always a single Inventory item — the type toggle only applies when adding new.
+  document.getElementById("stockTypeToggleWrap").style.display = id ? "none" : "";
+  setStockModalType("single");
+  currentStockComboComponents = [{productId: inventory[0]?inventory[0].id:null, qty:1}];
+  renderStockComboRows();
   document.getElementById("m-name").value = item ? item.name.trim() : "";
   document.getElementById("m-qty").value = item ? item.totalReceived : "";
   document.getElementById("m-purchase").value = item ? item.pricePerP : "";
-  document.getElementById("m-gst").value = item ? item.gstPct : "0";
+  const gstSelect = document.getElementById("m-gst");
+  const gstCustom = document.getElementById("m-gst-custom");
+  const presetValues = ["0","0.03","0.05","0.12","0.18"];
+  const gstVal = item ? String(item.gstPct) : "0";
+  if(presetValues.includes(gstVal)){
+    gstSelect.value = gstVal;
+    gstCustom.style.display = "none";
+    gstCustom.value = "";
+  } else {
+    gstSelect.value = "custom";
+    gstCustom.style.display = "";
+    gstCustom.value = item ? +(item.gstPct*100).toFixed(2) : "";
+  }
   document.getElementById("m-hsn").value = item ? item.hsn : "7117";
+  document.getElementById("m-purchase-date").value = item ? (item.purchaseDate || "") : new Date().toISOString().slice(0,10);
   document.getElementById("stockModalOverlay").classList.add("show");
   document.getElementById("m-name").focus();
 }
+document.getElementById("m-gst").addEventListener("change", (e)=>{
+  const custom = document.getElementById("m-gst-custom");
+  custom.style.display = e.target.value==="custom" ? "" : "none";
+  if(e.target.value==="custom") custom.focus();
+});
 function closeStockModal(){ document.getElementById("stockModalOverlay").classList.remove("show"); editingStockId=null; }
 document.getElementById("newStockBtn").addEventListener("click", ()=> openStockModal(null));
 document.getElementById("stockModalClose").addEventListener("click", closeStockModal);
@@ -2769,6 +2928,31 @@ document.getElementById("stockModalOverlay").addEventListener("click", (e)=>{ if
 document.getElementById("stockModalSave").addEventListener("click", ()=>{
   clearStockModalErrors();
   const name = document.getElementById("m-name").value.trim();
+
+  if(stockModalType==="combo"){
+    let hasError = false;
+    if(!name){ document.getElementById("err-name").textContent = "Combo/listing name is required."; document.getElementById("m-name").classList.add("invalid"); hasError = true; }
+    else {
+      const dupInv = inventory.find(i=> i.name.trim().toLowerCase()===name.toLowerCase());
+      const dupListing = listing.find(l=> listingName(l).trim().toLowerCase()===name.toLowerCase());
+      if(dupInv || dupListing){ document.getElementById("err-name").textContent = "An item or combo with this name already exists."; document.getElementById("m-name").classList.add("invalid"); hasError = true; }
+    }
+    const comps = currentStockComboComponents.filter(c=>c.productId);
+    if(comps.length===0){ document.getElementById("err-stock-combo").textContent = "Pick at least one component from Inventory."; hasError = true; }
+    if(hasError) return;
+
+    listing.push({
+      id:"lst"+(nextListingId++),
+      components: comps.map(c=>({productId:c.productId, qty: Math.max(1, parseInt(c.qty)||1)})),
+      name, isCombo:true,
+      packing:20, misc:10, profit:0, retPct:0, dmgPct:0, gstPct:0, status:"Available", bank:null,
+    });
+    closeStockModal();
+    renderAll();
+    populateProductSelect();
+    return;
+  }
+
   const qtyRaw = document.getElementById("m-qty").value;
   const purchaseRaw = document.getElementById("m-purchase").value;
   let hasError = false;
@@ -2784,8 +2968,18 @@ document.getElementById("stockModalSave").addEventListener("click", ()=>{
   if(purchaseRaw===""||isNaN(purchase)||purchase<0){ document.getElementById("err-purchase").textContent = "Enter a valid purchase price (0 or more)."; document.getElementById("m-purchase").classList.add("invalid"); hasError = true; }
   if(hasError) return;
 
-  const gstPct = parseFloat(document.getElementById("m-gst").value)||0;
+  const gstSelectVal = document.getElementById("m-gst").value;
+  let gstPct;
+  if(gstSelectVal==="custom"){
+    const customRaw = document.getElementById("m-gst-custom").value;
+    const customPct = parseFloat(customRaw);
+    if(customRaw===""||isNaN(customPct)||customPct<0){ document.getElementById("m-gst-custom").classList.add("invalid"); return; }
+    gstPct = customPct/100;
+  } else {
+    gstPct = parseFloat(gstSelectVal)||0;
+  }
   const hsn = document.getElementById("m-hsn").value.trim() || 7117;
+  const purchaseDate = document.getElementById("m-purchase-date").value || new Date().toISOString().slice(0,10);
 
   if(editingStockId){
     const item = inventory.find(i=>i.id===editingStockId);
@@ -2795,10 +2989,10 @@ document.getElementById("stockModalSave").addEventListener("click", ()=>{
       document.getElementById("m-qty").classList.add("invalid");
       return;
     }
-    item.name = name; item.totalReceived = totalReceived; item.pricePerP = purchase; item.gstPct = gstPct; item.hsn = hsn;
+    item.name = name; item.totalReceived = totalReceived; item.pricePerP = purchase; item.gstPct = gstPct; item.hsn = hsn; item.purchaseDate = purchaseDate;
     recomputeInvFields(item);
   } else {
-    const item = {id:"inv"+(nextInvId++), name, hsn, totalReceived, damaged:0, pricePerP:purchase, gstPct};
+    const item = {id:"inv"+(nextInvId++), name, hsn, totalReceived, damaged:0, pricePerP:purchase, gstPct, purchaseDate};
     recomputeInvFields(item);
     inventory.push(item);
   }
@@ -2939,8 +3133,10 @@ function renderListing(){
   document.getElementById("listingFootWrap").innerHTML = "";
 
   const badgeEl = document.getElementById("navListingBadge");
-  badgeEl.textContent = qcCount;
-  badgeEl.style.display = qcCount>0 ? "" : "none";
+  if(badgeEl){
+    badgeEl.textContent = qcCount;
+    badgeEl.style.display = qcCount>0 ? "" : "none";
+  }
   wireBulkSelect({
     bodyId:"listingBody", selectAllCbId:"listingSelectAllCb", barId:"listingBulkBar", countId:"listingSelectedCount",
     clearBtnId:"listingClearSelectionBtn", deleteBtnId:"listingBulkDeleteBtn",
@@ -3391,7 +3587,7 @@ function renderPackHistory(){
     return `<tr>
       <td style="font-weight:600;">${esc(item.name.trim())}</td>
       <td><div class="pack-mat-tags">${tags}</div></td>
-      <td class="num-cell" style="font-weight:700; color:var(--maroon-deep);">${fmt(total)}</td>
+      <td class="num-cell" style="font-weight:700; color:var(--heading);">${fmt(total)}</td>
       <td class="num-cell" style="color:var(--ink-soft); font-size:12px;">${dateStr}</td>
       <td style="text-align:right;"><div class="row-actions" style="justify-content:flex-end;">
         <button class="icon-btn" title="Load into calculator" data-pack-load="${id}">✎</button>
@@ -4203,16 +4399,27 @@ function renderBusinessProfile(){
   const revealBtn = document.getElementById("toggleBankRevealBtn");
   if(revealBtn) revealBtn.addEventListener("click", ()=>{ bankNumberRevealed = !bankNumberRevealed; renderBusinessProfile(); });
 
-  document.getElementById("profileChannelsGrid").innerHTML = businessProfile.channels.map(ch=>{
+  document.getElementById("profileChannelsGrid").innerHTML = businessProfile.channels.map((ch,idx)=>{
     const statusColor = ch.status.toLowerCase().includes("active") ? "var(--forest)" : "var(--ink-soft)";
+    const pwRevealed = channelPasswordRevealed.has(idx);
+    const pwDisplay = ch.loginPassword ? (pwRevealed ? esc(ch.loginPassword) : "•".repeat(Math.min(ch.loginPassword.length,14))) : "—";
     return `<div class="card"><div class="card-head"><h3>${ch.key}</h3></div><div style="padding:4px 18px 16px;">
       <div class="drawer-row"><span>Status</span><b style="color:${statusColor};">${valOr(ch.status)}</b></div>
       <div class="drawer-row"><span>Seller ID</span><b>${valOr(ch.sellerId)}</b></div>
       <div class="drawer-row"><span>Category</span><b>${valOr(ch.category)}</b></div>
       <div class="drawer-row"><span>Warehouse</span><b style="max-width:160px;">${valOr(ch.warehouse)}</b></div>
       <div class="drawer-row"><span>Return address</span><b style="max-width:160px;">${valOr(ch.returnAddress)}</b></div>
+      <div class="drawer-row"><span>Login email</span><b>${valOr(ch.loginEmail)}</b></div>
+      <div class="drawer-row"><span>Password</span><b class="mono" style="display:flex; align-items:center; gap:6px;">${pwDisplay}${ch.loginPassword ? `<button class="icon-btn ch-pw-reveal" data-idx="${idx}" title="${pwRevealed?'Hide':'Show'} password" style="width:22px; height:22px; font-size:11px;">${pwRevealed?'🙈':'👁'}</button>` : ""}</b></div>
     </div></div>`;
   }).join("");
+  document.querySelectorAll(".ch-pw-reveal").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const idx = Number(btn.dataset.idx);
+      if(channelPasswordRevealed.has(idx)) channelPasswordRevealed.delete(idx); else channelPasswordRevealed.add(idx);
+      renderBusinessProfile();
+    });
+  });
 }
 function buildProfileChannelFields(){
   document.getElementById("profileChannelFields").innerHTML = businessProfile.channels.map((ch,idx)=>`
@@ -4224,8 +4431,23 @@ function buildProfileChannelFields(){
         <div><label>Category <span class="opt">optional</span></label><input type="text" class="p-ch-category" data-idx="${idx}"></div>
         <div><label>Warehouse <span class="opt">optional</span></label><input type="text" class="p-ch-warehouse" data-idx="${idx}"></div>
         <div class="full"><label>Return address <span class="opt">optional</span></label><input type="text" class="p-ch-returnaddress" data-idx="${idx}"></div>
+        <div><label>Login email / username <span class="opt">optional</span></label><input type="text" class="p-ch-loginemail" data-idx="${idx}" placeholder="e.g. seller@yourstore.com" autocomplete="off"></div>
+        <div><label>Login password <span class="opt">optional</span></label>
+          <div style="display:flex; gap:6px;">
+            <input type="password" class="p-ch-loginpassword" data-idx="${idx}" autocomplete="new-password" style="flex:1;">
+            <button type="button" class="icon-btn p-ch-pw-toggle" data-idx="${idx}" title="Show/hide password" style="width:36px; flex-shrink:0;">👁</button>
+          </div>
+        </div>
       </div>
     </div>`).join("");
+  document.querySelectorAll(".p-ch-pw-toggle").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      const input = document.querySelector(`.p-ch-loginpassword[data-idx="${btn.dataset.idx}"]`);
+      const showing = input.type==="text";
+      input.type = showing ? "password" : "text";
+      btn.textContent = showing ? "👁" : "🙈";
+    });
+  });
 }
 function openProfileModal(){
   const c = businessProfile.company, t = businessProfile.tax, b = businessProfile.bank;
@@ -4256,6 +4478,8 @@ function openProfileModal(){
     document.querySelector(`.p-ch-category[data-idx="${idx}"]`).value = ch.category||"";
     document.querySelector(`.p-ch-warehouse[data-idx="${idx}"]`).value = ch.warehouse||"";
     document.querySelector(`.p-ch-returnaddress[data-idx="${idx}"]`).value = ch.returnAddress||"";
+    document.querySelector(`.p-ch-loginemail[data-idx="${idx}"]`).value = ch.loginEmail||"";
+    document.querySelector(`.p-ch-loginpassword[data-idx="${idx}"]`).value = ch.loginPassword||"";
   });
   document.getElementById("profileModalOverlay").classList.add("show");
 }
@@ -4297,6 +4521,8 @@ document.getElementById("profileModalSave").addEventListener("click", ()=>{
     ch.category = document.querySelector(`.p-ch-category[data-idx="${idx}"]`).value.trim();
     ch.warehouse = document.querySelector(`.p-ch-warehouse[data-idx="${idx}"]`).value.trim();
     ch.returnAddress = document.querySelector(`.p-ch-returnaddress[data-idx="${idx}"]`).value.trim();
+    ch.loginEmail = document.querySelector(`.p-ch-loginemail[data-idx="${idx}"]`).value.trim();
+    ch.loginPassword = document.querySelector(`.p-ch-loginpassword[data-idx="${idx}"]`).value;
   });
   renderBusinessProfile();
   closeProfileModal();
@@ -4409,6 +4635,39 @@ function matchProduct(raw){
     if(score > bestScore){ bestScore = score; best = inv; }
   });
   return bestScore >= 0.6 ? best : null;
+}
+/* Matches a raw Meesho product string against combos created via the Inventory "Combo" option
+   (isCombo:true with a custom name) — same fuzzy token-overlap approach as matchProduct, just
+   searching listing.name instead of inventory.name. Listings without a custom name (plain
+   Listing Price combos, auto-named "A + B") are skipped since a real order would never carry
+   that constructed string anyway. */
+function matchCombo(raw){
+  const rawTokens = tokenizeName(raw);
+  if(!rawTokens.length) return null;
+  const rawSet = new Set(rawTokens);
+  let best=null, bestScore=0;
+  listing.forEach(l=>{
+    if(!l.isCombo || !l.name || !l.name.trim()) return;
+    const tokens = tokenizeName(l.name);
+    if(!tokens.length) return;
+    const matchedCount = tokens.filter(t=>rawSet.has(t)).length;
+    if(matchedCount===0) return;
+    const score = Math.min(matchedCount/tokens.length, matchedCount/rawTokens.length);
+    if(score > bestScore){ bestScore = score; best = l; }
+  });
+  return bestScore >= 0.6 ? best : null;
+}
+/* Single resolver used by both the Orders and Payments importers: tries a real single Inventory
+   item first (unchanged existing behavior), then falls back to a combo listing. Either way it
+   returns the display name to store on the order and the real cost to link for profit — a combo
+   order no longer needs to fall through to "Unmatched product" just because there's no matching
+   single Inventory row for it. */
+function matchProductOrCombo(sku, productNameRaw){
+  const inv = (sku && matchProduct(sku)) || matchProduct(productNameRaw);
+  if(inv) return {matched:true, name: inv.name.trim(), cost: priceBook[inv.name]?.cost ?? null};
+  const combo = (sku && matchCombo(sku)) || matchCombo(productNameRaw);
+  if(combo){ const nm = listingName(combo); return {matched:true, name: nm, cost: priceBook[nm]?.cost ?? calcListingFigures(combo).total}; }
+  return {matched:false, name:null, cost:null};
 }
 let editingOrderId = null;
 function clearOrderModalErrors(){
@@ -4673,10 +4932,10 @@ function processMeeshoRows(rows, filename){
     const listed = parseFloat(getField(row, MEESHO_FIELD_MAP.listedPrice));
     const sell = !isNaN(discounted) ? discounted : (!isNaN(listed) ? listed : 0);
 
-    const matchedInv = matchProduct(sku) || matchProduct(productNameRaw);
-    const product = matchedInv ? matchedInv.name.trim() : (sku || productNameRaw || "Unmatched product");
-    const cost = matchedInv ? (priceBook[matchedInv.name]?.cost ?? null) : null;
-    if(!matchedInv){ unmatched++; unmatchedSet.add(product); }
+    const resolved = matchProductOrCombo(sku, productNameRaw);
+    const product = resolved.matched ? resolved.name : (sku || productNameRaw || "Unmatched product");
+    const cost = resolved.cost;
+    if(!resolved.matched){ unmatched++; unmatchedSet.add(product); }
 
     const orderData = {
       platform:"Meesho", date, product, qty, sell, cost, status, fee:0,
@@ -4836,10 +5095,10 @@ function processMeeshoPaymentRows(rows, filename){
       };
       matched++;
     } else {
-      const matchedInv = (sku && matchProduct(sku)) || matchProduct(productNameRaw);
-      const product = matchedInv ? matchedInv.name.trim() : (productNameRaw || "Unmatched product");
-      const cost = matchedInv ? (priceBook[matchedInv.name]?.cost ?? null) : null;
-      if(!matchedInv){ unmatched++; unmatchedSet.add(product); }
+      const resolved = matchProductOrCombo(sku, productNameRaw);
+      const product = resolved.matched ? resolved.name : (productNameRaw || "Unmatched product");
+      const cost = resolved.cost;
+      if(!resolved.matched){ unmatched++; unmatchedSet.add(product); }
       orders.push({
         id: subOrderNo, platform:"Meesho", date: orderDate || paymentDate, product, qty,
         sell: listingPrice!=null ? listingPrice : (saleAmount!=null ? saleAmount : (bank||0)), cost,
@@ -5298,7 +5557,17 @@ function applyPersistedJSON(raw){
     if(Array.isArray(data.listing)) listing = data.listing;
     if(typeof data.nextListingId==="number") nextListingId = data.nextListingId;
     if(Array.isArray(data.expenses)) expenses = data.expenses;
-    if(data.businessProfile && typeof data.businessProfile==="object") businessProfile = data.businessProfile;
+    if(data.businessProfile && typeof data.businessProfile==="object"){
+      businessProfile = data.businessProfile;
+      if(!Array.isArray(businessProfile.channels)) businessProfile.channels = [];
+      DEFAULT_BUSINESS_PROFILE.channels.forEach(defCh=>{
+        if(!businessProfile.channels.some(ch=>ch.key===defCh.key)) businessProfile.channels.push({...defCh});
+      });
+      businessProfile.channels.forEach(ch=>{
+        if(ch.loginEmail===undefined) ch.loginEmail = "";
+        if(ch.loginPassword===undefined) ch.loginPassword = "";
+      });
+    }
     if(typeof data.bankNumberRevealed==="boolean") bankNumberRevealed = data.bankNumberRevealed;
     if(Array.isArray(data.orders)){
       orders = data.orders.filter(o=> !(o && LEGACY_DEMO_ORDER_IDS.has(o.id) && !o.source && !o.paymentSource));
