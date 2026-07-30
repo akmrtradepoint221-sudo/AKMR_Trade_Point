@@ -506,6 +506,15 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
 #returnLossKpiStrip{grid-template-columns:repeat(3,1fr);}
 @media (max-width:560px){ #returnLossKpiStrip{grid-template-columns:repeat(2,1fr);} }
 .summary-stat.grandtotal .s-value{color:var(--heading); font-weight:800;}
+/* ---------- hover-to-reveal "how is this calculated" tooltip on KPI/summary cards ----------
+   The box is position:fixed (not absolute) and its on-screen spot is calculated in JS on hover —
+   this is what lets it float above every card even though the summary-grid container around it
+   uses overflow:hidden for its rounded corners; an absolutely-positioned box would get clipped
+   by that, a fixed one (placed via JS coordinates) escapes it entirely. */
+.stat-tip{position:relative; display:inline-flex; align-items:center; justify-content:center; width:13px; height:13px; margin-left:5px; border-radius:50%; background:var(--panel-2); border:1px solid var(--line); color:var(--ink-soft); font-size:9px; font-weight:700; font-style:normal; text-transform:none; letter-spacing:normal; cursor:help; vertical-align:middle;}
+.stat-tip-box{position:fixed; top:0; left:0; width:230px; max-width:80vw; background:var(--ink,#2b1c14); color:#fff; padding:9px 11px; border-radius:8px; font-size:11.5px; line-height:1.45; font-weight:500; text-transform:none; letter-spacing:normal; white-space:normal; opacity:0; visibility:hidden; pointer-events:none; transition:opacity .12s ease; z-index:9999; box-shadow:0 8px 22px rgba(0,0,0,.28); transform:translateY(-100%);}
+.stat-tip-box::after{content:""; position:absolute; top:100%; left:var(--arrow-left,50%); transform:translateX(-50%); border:6px solid transparent; border-top-color:var(--ink,#2b1c14);}
+.stat-tip:hover .stat-tip-box, .stat-tip:focus .stat-tip-box{opacity:1; visibility:visible;}
 
 /* ---------- damaged stock inline editor ---------- */
 .damaged-cell{display:flex; align-items:center; justify-content:flex-end; gap:6px;}
@@ -575,7 +584,16 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
 ::-webkit-scrollbar{height:8px; width:8px;}
 ::-webkit-scrollbar-thumb{background:var(--line-strong); border-radius:4px;}
 .prod-cell{display:flex; align-items:center; gap:10px;}
-.prod-thumb{width:30px; height:30px; border-radius:7px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-family:'Marcellus',serif; font-size:12px; color:#fff; font-weight:600;}
+.prod-thumb{width:30px; height:30px; border-radius:7px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-family:'Marcellus',serif; font-size:12px; color:#fff; font-weight:600; overflow:hidden;}
+.prod-thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+.inv-photo-cell{width:44px;}
+.inv-photo-thumb{width:34px; height:34px; border-radius:7px; object-fit:cover; display:block; border:1px solid var(--line-strong);}
+.photo-upload-row{display:flex; align-items:center; gap:12px;}
+.photo-upload-preview{width:64px; height:64px; border-radius:10px; border:1px dashed var(--line-strong); display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; background:var(--panel-soft, rgba(255,255,255,0.03)); font-size:11px; color:var(--muted); text-align:center;}
+.photo-upload-preview img{width:100%; height:100%; object-fit:cover;}
+.photo-upload-actions{display:flex; flex-direction:column; gap:6px;}
+.photo-remove-btn{font-size:12px; color:var(--red); background:none; border:none; cursor:pointer; text-align:left; padding:0;}
+.photo-remove-btn:disabled{color:var(--muted); cursor:default;}
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -760,7 +778,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
           </div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th style="width:30px;"><input type="checkbox" id="inventorySelectAllCb" title="Select all"></th><th data-sort="name">Product <span class="sort-ic">↕</span></th><th>HSN</th><th data-sort="purchaseDate">Purchase date <span class="sort-ic">↕</span></th><th data-sort="pricePerUnit" style="text-align:right;">Price per Unit <span class="sort-ic">↕</span></th><th data-sort="totalReceived" style="text-align:right;">Total Purchased <span class="sort-ic">↕</span></th><th data-sort="purchasePrice" style="text-align:right;">Purchase price <span class="sort-ic">↕</span></th><th data-sort="gstPaid" style="text-align:right;">GST paid <span class="sort-ic">↕</span></th><th data-sort="totalPurchase" style="text-align:right;">Total purchase <span class="sort-ic">↕</span></th><th data-sort="qty" style="text-align:right;">Total In Stock <span class="sort-ic">↕</span></th><th>Stock level</th><th data-sort="sold" style="text-align:right;">Sold <span class="sort-ic">↕</span></th><th data-sort="returned" style="text-align:right;">Returned</th><th style="text-align:right;">Damaged</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
+              <thead><tr><th style="width:30px;"><input type="checkbox" id="inventorySelectAllCb" title="Select all"></th><th class="inv-photo-cell">Photo</th><th data-sort="name">Product <span class="sort-ic">↕</span></th><th>HSN</th><th data-sort="purchaseDate">Purchase date <span class="sort-ic">↕</span></th><th data-sort="pricePerUnit" style="text-align:right;">Price per Unit <span class="sort-ic">↕</span></th><th data-sort="totalReceived" style="text-align:right;">Total Purchased <span class="sort-ic">↕</span></th><th data-sort="purchasePrice" style="text-align:right;">Purchase price <span class="sort-ic">↕</span></th><th data-sort="gstPaid" style="text-align:right;">GST paid <span class="sort-ic">↕</span></th><th data-sort="totalPurchase" style="text-align:right;">Total purchase <span class="sort-ic">↕</span></th><th data-sort="qty" style="text-align:right;">Total In Stock <span class="sort-ic">↕</span></th><th>Stock level</th><th data-sort="sold" style="text-align:right;">Sold <span class="sort-ic">↕</span></th><th data-sort="returned" style="text-align:right;">Returned</th><th style="text-align:right;">Damaged</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
               <tbody id="inventoryBody"></tbody>
               <tfoot id="inventoryFootWrap"></tfoot>
             </table>
@@ -1168,6 +1186,16 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
         </div>
         <div><label>HSN code <span class="opt">optional · default 7117</span></label><input type="text" id="m-hsn" placeholder="7117"></div>
         <div class="full"><label>Purchase date <span class="opt">optional · defaults to today</span></label><input type="date" id="m-purchase-date" style="max-width:220px;"></div>
+        <div class="full">
+          <label>Item photo <span class="opt">optional</span></label>
+          <div class="photo-upload-row">
+            <div class="photo-upload-preview" id="m-photo-preview">No photo</div>
+            <div class="photo-upload-actions">
+              <input type="file" id="m-photo" accept="image/*">
+              <button type="button" class="photo-remove-btn" id="m-photo-remove" disabled>Remove photo</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div id="stockComboFields" style="display:none;">
         <label>Components <span class="req">*</span> <span class="opt">picked from your existing Inventory items</span></label>
@@ -1689,6 +1717,33 @@ function openBulkConfirm({title, text, confirmLabel, onConfirm}){
 }
 
 function esc(s){ return String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+/* Small "ⓘ" icon that, on mouse hover (or tap/focus on touch), pops up a box explaining how a
+   KPI card's number was calculated, and hides again the moment the cursor leaves — pure CSS
+   :hover, no JS needed to show/hide it. Drop this right after a card's <span class="s-label">. */
+function tip(text){ return `<span class="stat-tip" tabindex="0">i<span class="stat-tip-box">${esc(text)}</span></span>`; }
+/* Positions a .stat-tip-box (position:fixed) just above its "i" icon, clamped so it never runs
+   off the left/right edge of the viewport, and points the little arrow back at the icon even
+   after that clamping shifts the box sideways. Runs on hover-start and on keyboard focus. */
+function positionStatTip(icon){
+  const box = icon.querySelector(".stat-tip-box");
+  if(!box) return;
+  const ir = icon.getBoundingClientRect();
+  const bw = box.offsetWidth || 230;
+  let left = ir.left + ir.width/2 - bw/2;
+  left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+  const top = ir.top - 9;
+  box.style.left = left + "px";
+  box.style.top = top + "px";
+  const arrowLeft = (ir.left + ir.width/2) - left;
+  box.style.setProperty("--arrow-left", arrowLeft + "px");
+}
+document.addEventListener("mouseover", e=>{
+  const icon = e.target.closest && e.target.closest(".stat-tip");
+  if(icon) positionStatTip(icon);
+});
+document.addEventListener("focus", e=>{
+  if(e.target.classList && e.target.classList.contains("stat-tip")) positionStatTip(e.target);
+}, true);
 function fmt(n){ return "₹" + Number(n||0).toLocaleString("en-IN", {maximumFractionDigits:2}); }
 function fmtDate(iso){ const d=new Date(iso+"T00:00:00"); return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short"}); }
 function fmtDateFull(iso){ const d=new Date(iso+"T00:00:00"); const dd=String(d.getDate()).padStart(2,"0"); const mm=String(d.getMonth()+1).padStart(2,"0"); return `${dd}-${mm}-${d.getFullYear()}`; }
@@ -2772,7 +2827,11 @@ function renderInventory(){
          </div>`
       : `<div class="damaged-cell"><span class="damaged-val">${item.damaged||0}</span><button class="damaged-edit-btn" title="Update damaged stock" data-edit-damaged="${item.id}">✎</button></div>`;
 
-    return `<tr><td><input type="checkbox" class="row-check" data-row-id="${esc(item.id)}"></td><td>${esc(item.name.trim())}</td><td class="num-cell">${esc(item.hsn)}</td><td>${item.purchaseDate||"—"}</td>
+    const photoCell = item.photo
+      ? `<img class="inv-photo-thumb" src="${item.photo}" alt="${esc(item.name.trim())}">`
+      : `<div class="prod-thumb" style="background:${thumbColor(item.name)};">${esc(item.name.trim().charAt(0).toUpperCase())}</div>`;
+
+    return `<tr><td><input type="checkbox" class="row-check" data-row-id="${esc(item.id)}"></td><td class="inv-photo-cell">${photoCell}</td><td>${esc(item.name.trim())}</td><td class="num-cell">${esc(item.hsn)}</td><td>${item.purchaseDate||"—"}</td>
       <td class="num-cell">${fmt(item.pricePerP)}</td>
       <td class="num-cell">${item.totalReceived}</td>
       <td class="num-cell">${fmt(item.purchase)}</td><td class="num-cell">${fmt(item.gstPaid)}</td><td class="num-cell">${fmt(item.totalPurchase)}</td>
@@ -2902,6 +2961,53 @@ document.querySelectorAll("#view-inventory thead th[data-sort]").forEach(th=>{
 
 /* ---------- Add / Edit / Delete stock item ---------- */
 let editingStockId = null;
+let currentStockPhotoData = null;
+function renderStockPhotoPreview(){
+  const preview = document.getElementById("m-photo-preview");
+  const removeBtn = document.getElementById("m-photo-remove");
+  if(currentStockPhotoData){
+    preview.innerHTML = `<img src="${currentStockPhotoData}" alt="Item photo preview">`;
+    removeBtn.disabled = false;
+  } else {
+    preview.textContent = "No photo";
+    removeBtn.disabled = true;
+  }
+}
+function resizeImageToDataURL(file, maxDim, quality){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > h){ if(w > maxDim){ h = Math.round(h * (maxDim/w)); w = maxDim; } }
+        else { if(h > maxDim){ w = Math.round(w * (maxDim/h)); h = maxDim; } }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+document.getElementById("m-photo").addEventListener("change", (e)=>{
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+  if(!file.type.startsWith("image/")) return;
+  resizeImageToDataURL(file, 400, 0.8).then(dataUrl=>{
+    currentStockPhotoData = dataUrl;
+    renderStockPhotoPreview();
+  }).catch(()=>{ /* if resize fails, leave photo unset rather than storing an oversized image */ });
+});
+document.getElementById("m-photo-remove").addEventListener("click", ()=>{
+  currentStockPhotoData = null;
+  document.getElementById("m-photo").value = "";
+  renderStockPhotoPreview();
+});
 function clearStockModalErrors(){
   ["name","qty","purchase"].forEach(f=>{
     document.getElementById("err-"+f).textContent = "";
@@ -2969,6 +3075,9 @@ function openStockModal(id){
   }
   document.getElementById("m-hsn").value = item ? item.hsn : "7117";
   document.getElementById("m-purchase-date").value = item ? (item.purchaseDate || "") : new Date().toISOString().slice(0,10);
+  currentStockPhotoData = item ? (item.photo || null) : null;
+  document.getElementById("m-photo").value = "";
+  renderStockPhotoPreview();
   document.getElementById("stockModalOverlay").classList.add("show");
   document.getElementById("m-name").focus();
 }
@@ -3047,10 +3156,10 @@ document.getElementById("stockModalSave").addEventListener("click", ()=>{
       document.getElementById("m-qty").classList.add("invalid");
       return;
     }
-    item.name = name; item.totalReceived = totalReceived; item.pricePerP = purchase; item.gstPct = gstPct; item.hsn = hsn; item.purchaseDate = purchaseDate;
+    item.name = name; item.totalReceived = totalReceived; item.pricePerP = purchase; item.gstPct = gstPct; item.hsn = hsn; item.purchaseDate = purchaseDate; item.photo = currentStockPhotoData || null;
     recomputeInvFields(item);
   } else {
-    const item = {id:"inv"+(nextInvId++), name, hsn, totalReceived, damaged:0, pricePerP:purchase, gstPct, purchaseDate};
+    const item = {id:"inv"+(nextInvId++), name, hsn, totalReceived, damaged:0, pricePerP:purchase, gstPct, purchaseDate, photo: currentStockPhotoData || null};
     recomputeInvFields(item);
     inventory.push(item);
   }
@@ -4249,8 +4358,18 @@ function renderPayments(){
   if(dateNoteEl) dateNoteEl.textContent = paymentDateFilter ? `Showing dashboard for payment date: ${fmtDateFull(paymentDateFilter)}` : "Showing dashboard for all payment dates";
   const lossOrders = paidOrdersAll.filter(o=> ["RTO","RTO_LOCKED","Customer Return","Lost"].includes(getPaymentStatus(o)));
   const successOrders = paidOrdersAll.filter(o=> !["RTO","RTO_LOCKED","Customer Return","Lost"].includes(getPaymentStatus(o)));
-  const gstRows = successOrders.filter(o=>o.paymentDetails.gstPct!=null);
-  const avgGstPct = gstRows.length ? gstRows.reduce((s,o)=>s+o.paymentDetails.gstPct,0)/gstRows.length : 0;
+  /* GST Collected (Overall) — the actual ₹ GST built into each order's tax-inclusive Listing
+     Price, using THAT order's own GST% (since every product can carry a different rate: 3%,
+     5%, 12%, 18%...). Listing Price already includes GST, so the GST portion is extracted with
+     the standard "tax-inclusive → tax amount" formula: GST = Listing Price − Listing Price÷(1+GST%).
+     Summing this per order (instead of averaging the GST% column) gives the real rupee amount
+     collected from customers, not a meaningless average of different products' rates. */
+  const gstRows = successOrders.filter(o=>o.paymentDetails.gstPct!=null && o.paymentDetails.listingPrice!=null);
+  const totalGstCollected = gstRows.reduce((s,o)=>{
+    const rate = o.paymentDetails.gstPct/100;
+    const lp = o.paymentDetails.listingPrice;
+    return s + (rate>0 ? lp - (lp/(1+rate)) : 0);
+  },0);
   const totalTcs = successOrders.reduce((s,o)=>s+(o.paymentDetails.tcs||0),0);
   const totalTds = successOrders.reduce((s,o)=>s+(o.paymentDetails.tds||0),0);
   const successFigures = successOrders.map(o=>getPaymentRowFigures(o));
@@ -4269,17 +4388,17 @@ function renderPayments(){
   const returnFigures = returnOrders.map(o=>getPaymentRowFigures(o));
   const returnSettlement = returnFigures.reduce((s,rf)=>s+(rf.settlementAmt||0),0);
   document.getElementById("paymentsKpiStrip").innerHTML = `
-    <div class="summary-stat total"><span class="s-label">Listing Price (Incl. Taxes) (Overall)</span><span class="s-value">${fmt(totalListingPrice)}</span></div>
-    <div class="summary-stat amber"><span class="s-label">Product GST % (Overall)</span><span class="s-value">${avgGstPct.toFixed(1)}%</span></div>
-    <div class="summary-stat value"><span class="s-label">TCS (Overall)</span><span class="s-value">${fmt(totalTcs)}</span></div>
-    <div class="summary-stat sold"><span class="s-label">TDS (Overall)</span><span class="s-value">${fmt(totalTds)}</span></div>
-    <div class="summary-stat grandtotal"><span class="s-label">Final Settlement Amount (Overall)</span><span class="s-value">${fmt(totalActualReceived)}</span></div>
-    <div class="summary-stat grandtotal"><span class="s-label">Net Bank Settlement (Overall)</span><span class="s-value">${fmt(netBankSettlement)}</span></div>
-    <div class="summary-stat damaged"><span class="s-label">Price per Unit (Overall)</span><span class="s-value">${fmt(totalPricePerUnit)}</span></div>
-    <div class="summary-stat remaining"><span class="s-label">Other Expense (Overall)</span><span class="s-value">${fmt(totalOtherExpense)}</span></div>
-    <div class="summary-stat damaged"><span class="s-label">Lost (Overall)</span><span class="s-value">${fmt(Math.abs(totalLost))}</span></div>
-    <div class="summary-stat grandtotal"><span class="s-label">Net Profit (Overall)</span><span class="s-value">${fmt(totalNetProfit)}</span></div>
-    <div class="summary-stat gst"><span class="s-label">Margin % (Overall)</span><span class="s-value">${overallMargin!=null ? overallMargin.toFixed(1)+"%" : "—"}</span></div>
+    <div class="summary-stat total"><span class="s-label">Listing Price (Incl. Taxes) (Overall)${tip("Sum of 'Listing Price (Incl. Taxes)' across every Shipped, Delivered or Cancelled order. RTO, Customer Return and Lost orders are left out since they never completed as a real sale.")}</span><span class="s-value">${fmt(totalListingPrice)}</span></div>
+    <div class="summary-stat amber"><span class="s-label">GST Collected (Overall)${tip("Each order's Listing Price already includes GST, and every product can carry a different GST% (3%, 5%, 12%, 18%...). For every order: GST amount = Listing Price − Listing Price ÷ (1 + that order's GST%). This card adds up that ₹ amount across all orders — the real GST collected from customers, not an average %.")}</span><span class="s-value">${fmt(totalGstCollected)}</span></div>
+    <div class="summary-stat value"><span class="s-label">TCS (Overall)${tip("Sum of the Tax Collected at Source (TCS) the platform deducted from each order's settlement.")}</span><span class="s-value">${fmt(totalTcs)}</span></div>
+    <div class="summary-stat sold"><span class="s-label">TDS (Overall)${tip("Sum of the Tax Deducted at Source (TDS) the platform deducted from each order's settlement.")}</span><span class="s-value">${fmt(totalTds)}</span></div>
+    <div class="summary-stat grandtotal"><span class="s-label">Final Settlement Amount (Overall)${tip("Sum of the Final Settlement Amount the platform actually recorded for each Shipped/Delivered/Cancelled order (only positive settlements are added).")}</span><span class="s-value">${fmt(totalActualReceived)}</span></div>
+    <div class="summary-stat grandtotal"><span class="s-label">Net Bank Settlement (Overall)${tip("Final Settlement Amount (Overall) − money already paid out for Customer Return orders. This is what actually lands in your bank account.")}</span><span class="s-value">${fmt(netBankSettlement)}</span></div>
+    <div class="summary-stat damaged"><span class="s-label">Price per Unit (Overall)${tip("Sum of your own product cost (cost per unit × quantity) for every Shipped/Delivered/Cancelled order — what the items actually cost you to buy, not what the customer paid.")}</span><span class="s-value">${fmt(totalPricePerUnit)}</span></div>
+    <div class="summary-stat remaining"><span class="s-label">Other Expense (Overall)${tip("Sum of packing, misc and other per-order handling expense recorded against each order.")}</span><span class="s-value">${fmt(totalOtherExpense)}</span></div>
+    <div class="summary-stat damaged"><span class="s-label">Lost (Overall)${tip("Adds up Net Profit only from the orders where it came out negative — i.e. sales that lost money after settlement. This is separate from the RTO / Return / Lost-order loss shown in the section below.")}</span><span class="s-value">${fmt(Math.abs(totalLost))}</span></div>
+    <div class="summary-stat grandtotal"><span class="s-label">Net Profit (Overall)${tip("Net Bank Settlement (Overall) − Price per Unit (Overall) − Other Expense (Overall).")}</span><span class="s-value">${fmt(totalNetProfit)}</span></div>
+    <div class="summary-stat gst"><span class="s-label">Margin % (Overall)${tip("Net Profit (Overall) ÷ Net Bank Settlement (Overall) × 100.")}</span><span class="s-value">${overallMargin!=null ? overallMargin.toFixed(1)+"%" : "—"}</span></div>
   `;
   /* ---- RTO / Return / Lost Loss dashboard, kept fully separate from the main sales dashboard
      above. Each category is shown as its own set of cards plus a combined total, all derived
@@ -4298,16 +4417,16 @@ function renderPayments(){
   const returnLossStrip = document.getElementById("returnLossKpiStrip");
   if(returnLossStrip){
     returnLossStrip.innerHTML = `
-      <div class="summary-stat remaining"><span class="s-label">RTO Orders</span><span class="s-value">${rtoOrders.length}</span></div>
-      <div class="summary-stat value"><span class="s-label">RTO Settlement (Overall)</span><span class="s-value">${fmt(rtoSettlement)}</span></div>
-      <div class="summary-stat grandtotal"><span class="s-label">RTO Loss (Overall)</span><span class="s-value" style="${lossStyle(rtoLoss)}">${fmt(rtoLoss)}</span></div>
-      <div class="summary-stat remaining"><span class="s-label">Customer Return Orders</span><span class="s-value">${returnOrders.length}</span></div>
-      <div class="summary-stat value"><span class="s-label">Return Settlement (Overall)</span><span class="s-value">${fmt(returnSettlement)}</span></div>
-      <div class="summary-stat grandtotal"><span class="s-label">Customer Return Loss (Overall)</span><span class="s-value" style="${lossStyle(returnLoss)}">${fmt(returnLoss)}</span></div>
-      <div class="summary-stat remaining"><span class="s-label">Lost Orders</span><span class="s-value">${lostOrders.length}</span></div>
-      <div class="summary-stat value"><span class="s-label">Lost Settlement (Overall)</span><span class="s-value">${fmt(lostSettlement)}</span></div>
-      <div class="summary-stat grandtotal"><span class="s-label">Lost Order Loss (Overall)</span><span class="s-value" style="${lossStyle(lostLoss)}">${fmt(lostLoss)}</span></div>
-      <div class="summary-stat amber" style="grid-column:1 / -1;"><span class="s-label">Total RTO + Return + Lost Loss (Overall)</span><span class="s-value" style="${lossStyle(combinedLoss)}">${fmt(combinedLoss)}</span></div>
+      <div class="summary-stat remaining"><span class="s-label">RTO Orders${tip("Count of orders currently in RTO or RTO_LOCKED status.")}</span><span class="s-value">${rtoOrders.length}</span></div>
+      <div class="summary-stat value"><span class="s-label">RTO Settlement (Overall)${tip("Sum of the Final Settlement Amount the platform recorded for RTO / RTO_LOCKED orders.")}</span><span class="s-value">${fmt(rtoSettlement)}</span></div>
+      <div class="summary-stat grandtotal"><span class="s-label">RTO Loss (Overall)${tip("Sum of Net Profit for RTO orders. Since the product itself never sold, no product cost is deducted here — only RTO Settlement minus the flat handling expense.")}</span><span class="s-value" style="${lossStyle(rtoLoss)}">${fmt(rtoLoss)}</span></div>
+      <div class="summary-stat remaining"><span class="s-label">Customer Return Orders${tip("Count of orders currently in Customer Return status.")}</span><span class="s-value">${returnOrders.length}</span></div>
+      <div class="summary-stat value"><span class="s-label">Return Settlement (Overall)${tip("Sum of the Final Settlement Amount the platform recorded for Customer Return orders.")}</span><span class="s-value">${fmt(returnSettlement)}</span></div>
+      <div class="summary-stat grandtotal"><span class="s-label">Customer Return Loss (Overall)${tip("Sum of Net Profit for Customer Return orders. The product came back, so no product cost is deducted — only Return Settlement minus the flat handling expense.")}</span><span class="s-value" style="${lossStyle(returnLoss)}">${fmt(returnLoss)}</span></div>
+      <div class="summary-stat remaining"><span class="s-label">Lost Orders${tip("Count of orders currently marked Lost (missing/undelivered with no RTO or return recorded).")}</span><span class="s-value">${lostOrders.length}</span></div>
+      <div class="summary-stat value"><span class="s-label">Lost Settlement (Overall)${tip("Sum of the Final Settlement Amount the platform recorded for Lost orders.")}</span><span class="s-value">${fmt(lostSettlement)}</span></div>
+      <div class="summary-stat grandtotal"><span class="s-label">Lost Order Loss (Overall)${tip("Sum of Net Profit for Lost orders — Lost Settlement minus the flat handling expense, with no product cost deducted.")}</span><span class="s-value" style="${lossStyle(lostLoss)}">${fmt(lostLoss)}</span></div>
+      <div class="summary-stat amber" style="grid-column:1 / -1;"><span class="s-label">Total RTO + Return + Lost Loss (Overall)${tip("RTO Loss (Overall) + Customer Return Loss (Overall) + Lost Order Loss (Overall) added together.")}</span><span class="s-value" style="${lossStyle(combinedLoss)}">${fmt(combinedLoss)}</span></div>
     `;
   }
 }
