@@ -9,32 +9,34 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
-  --maroon:#5C1A1A; --maroon-deep:#451313; --gold:#C9A227; --gold-light:#E8CD6F;
-  --bg:#F3F1EC; --panel:#FFFFFF; --panel-2:#FAFAF8; --ink:#23201B; --ink-soft:#6B6258;
-  --line:#E4E0D8; --line-strong:#D2CCC0; --forest:#2F6B4F; --forest-bg:#E6F2EC;
-  --amber:#A8721C; --amber-bg:#FBF0DC; --red:#B23A2E; --red-bg:#FBE7E3;
-  --blue:#2A5DB0; --blue-bg:#E8EEFA; --purple:#7A3E94; --purple-bg:#F1E7F5;
-  --gold-bg:#FBF0DC;
-  --heading:#451313;
+  --maroon:#5B21B6; --maroon-deep:#3B0F91; --gold:#FF7A1A; --gold-light:#FFBB80;
+  --bg:#F5F3FC; --panel:#FFFFFF; --panel-2:#F0ECFB; --ink:#241B3D; --ink-soft:#6E6690;
+  --line:#E3DDF6; --line-strong:#CDC2EE; --forest:#16A34A; --forest-bg:#E1FAE8;
+  --amber:#D97706; --amber-bg:#FEF0D6; --red:#E11D48; --red-bg:#FDE1E9;
+  --blue:#2563EB; --blue-bg:#E0EAFF; --purple:#9333EA; --purple-bg:#F3E3FC;
+  --teal:#0D9488; --teal-bg:#D9F5F0; --pink:#DB2777; --pink-bg:#FCE1EE;
+  --gold-bg:#FFEBD9;
+  --heading:#3B0F91;
   --sidebar-w:230px; --radius:8px;
 }
 /* ===================== DARK MODE =====================
    Every panel, card, table, input and status color in this app is already built on the CSS
    variables above — so dark mode just swaps the variable values here, on <html data-theme="dark">,
    set as early as possible (see the tiny inline script right after <body>) to avoid a flash of
-   the light theme on load. Brand colors (maroon sidebar, gold accents) stay the same in both
-   themes since they're the AKMR brand, not a light/dark choice. */
+   the light theme on load. Brand colors (sidebar, accent) stay vivid in both themes — just lifted
+   in lightness so they read clearly against a dark background. */
 html[data-theme="dark"]{
-  --bg:#1B1714; --panel:#242019; --panel-2:#2B241D; --ink:#EDE6D7; --ink-soft:#AFA38C;
-  --line:#3B332A; --line-strong:#4C4237; --forest:#6FCB9C; --forest-bg:#1E332A;
-  --amber:#E3B056; --amber-bg:#3A2C15; --red:#E4756A; --red-bg:#3D211D;
-  --blue:#7FA8EE; --blue-bg:#1E2A40; --purple:#C79AE0; --purple-bg:#332440;
-  --gold-bg:#3A2C15;
-  --heading:#E8CD6F;
+  --bg:#140F22; --panel:#1E1732; --panel-2:#251C3D; --ink:#EDE9FB; --ink-soft:#A79FC9;
+  --line:#332A50; --line-strong:#453A68; --forest:#4ADE80; --forest-bg:#123322;
+  --amber:#FBBF24; --amber-bg:#3A2A0C; --red:#FB7185; --red-bg:#3D1520;
+  --blue:#60A5FA; --blue-bg:#1B2A4C; --purple:#C084FC; --purple-bg:#341C4C;
+  --teal:#2DD4BF; --teal-bg:#0F3B37; --pink:#F472B6; --pink-bg:#3D1830;
+  --gold-bg:#3A2410;
+  --heading:#C4B5FD;
 }
 html[data-theme="dark"] .modal{ box-shadow:0 20px 60px rgba(0,0,0,0.6); }
 html[data-theme="dark"] input, html[data-theme="dark"] select, html[data-theme="dark"] textarea{ color-scheme:dark; }
-.theme-toggle-btn{background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.18); color:#F3E9CC; width:28px; height:28px; border-radius:7px; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; justify-content:center; line-height:1; transition:background .15s ease;}
+.theme-toggle-btn{background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.18); color:#EDE6FF; width:28px; height:28px; border-radius:7px; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; justify-content:center; line-height:1; transition:background .15s ease;}
 .theme-toggle-btn:hover{background:rgba(255,255,255,0.2);}
 *{box-sizing:border-box;}
 html,body{margin:0; height:100%;}
@@ -44,25 +46,25 @@ button{font-family:inherit;}
 *:focus-visible{outline:2px solid var(--gold); outline-offset:1px;}
 
 /* ===================== BRAND STRIP ===================== */
-.brand-strip{background:linear-gradient(90deg, var(--maroon-deep), var(--maroon) 60%, #6b2424); color:#FCF6E8; padding:10px 22px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:70; border-bottom:2px solid var(--gold);}
+.brand-strip{background:linear-gradient(90deg, var(--maroon-deep), var(--maroon) 60%, #C026D3); color:#F5F1FF; padding:10px 22px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:70; border-bottom:2px solid var(--gold);}
 .brand-strip-left{display:flex; align-items:center; gap:10px;}
 .brand-strip-left svg{width:26px;height:26px;}
-.brand-strip-left b{font-family:'Marcellus',serif; font-size:16px; color:#FCF6E8;}
+.brand-strip-left b{font-family:'Marcellus',serif; font-size:16px; color:#F5F1FF;}
 .brand-strip-left .brand-sub{display:none;}
-.brand-strip-right{display:flex; align-items:center; gap:14px; font-size:11.5px; color:#E7DBC4;}
-.brand-strip-right .live-pill{display:inline-flex; align-items:center; background:none; color:#E7DBC4; padding:0; border-radius:0; font-weight:400; font-size:11.5px;}
-.brand-strip-right .live-dot{width:7px;height:7px;border-radius:50%; background:#7BD68C; display:inline-block; margin-right:5px; box-shadow:0 0 0 3px rgba(123,214,140,0.25);}
+.brand-strip-right{display:flex; align-items:center; gap:14px; font-size:11.5px; color:#C9BEEA;}
+.brand-strip-right .live-pill{display:inline-flex; align-items:center; background:none; color:#C9BEEA; padding:0; border-radius:0; font-weight:400; font-size:11.5px;}
+.brand-strip-right .live-dot{width:7px;height:7px;border-radius:50%; background:#4ADE80; display:inline-block; margin-right:5px; box-shadow:0 0 0 3px rgba(74,222,128,0.25);}
 .brand-strip-right .device-pill{display:none;}
-.brand-strip-right .btn{background:var(--gold); color:#3A2400;}
+.brand-strip-right .btn{background:var(--gold); color:#241B3D;}
 @media (max-width:680px){ .brand-strip-right span:not(.live-pill){display:none;} }
 
 /* ===================== CONNECTION STATUS BAR (hidden, not part of original) ===================== */
 .status-bar{display:none;}
 
 /* ===================== SAVE STATUS + STORAGE WARNING ===================== */
-.brand-strip-right .live-dot.saving{background:#E8CD6F; box-shadow:0 0 0 3px rgba(232,205,111,0.25);}
-.brand-strip-right .live-dot.error{background:#E4685C; box-shadow:0 0 0 3px rgba(228,104,92,0.25);}
-.storage-warning{display:none; background:var(--red-bg); color:var(--red); border-bottom:1px solid #E9C5BE; padding:9px 22px; font-size:12.5px; text-align:center; position:sticky; top:41px; z-index:65;}
+.brand-strip-right .live-dot.saving{background:#FFBB80; box-shadow:0 0 0 3px rgba(255,187,128,0.25);}
+.brand-strip-right .live-dot.error{background:#FB7185; box-shadow:0 0 0 3px rgba(251,113,133,0.25);}
+.storage-warning{display:none; background:var(--red-bg); color:var(--red); border-bottom:1px solid #F6C9D6; padding:9px 22px; font-size:12.5px; text-align:center; position:sticky; top:41px; z-index:65;}
 .storage-warning.show{display:block;}
 .storage-warning b{font-weight:700;}
 
@@ -72,22 +74,30 @@ button{font-family:inherit;}
 
 
 /* ===================== SIDEBAR ===================== */
-.sidebar{width:var(--sidebar-w); flex-shrink:0; background:var(--maroon-deep); color:#EFE3D0; display:flex; flex-direction:column; position:fixed; top:41px; left:0; bottom:0; z-index:60; transition:transform .25s ease;}
+.sidebar{width:var(--sidebar-w); flex-shrink:0; background:var(--maroon-deep); color:#D9D0F0; display:flex; flex-direction:column; position:fixed; top:41px; left:0; bottom:0; z-index:60; transition:transform .25s ease;}
 .side-brand{display:flex; align-items:center; gap:10px; padding:18px 18px 14px; border-bottom:1px solid rgba(255,255,255,0.08);}
 .side-brand svg{width:32px;height:32px;flex-shrink:0;}
-.side-brand .name{font-family:'Marcellus',serif; font-size:15px; color:#FCF6E8; line-height:1.15;}
+.side-brand .name{font-family:'Marcellus',serif; font-size:15px; color:#F5F1FF; line-height:1.15;}
 .side-brand .sub{font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--gold-light); opacity:0.85;}
 .side-nav{flex:1; padding:10px 10px; overflow-y:auto; display:block; border-bottom:none; background:none;}
-.nav-group-label{display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.09em; color:#B6A88C; padding:13px 12px 6px;}
-.nav-item{display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:6px; cursor:pointer; color:#E7DBC4; font-size:13px; font-weight:500; margin-bottom:2px; transition:background .15s, color .15s; border:none; background:none; width:100%; text-align:left;}
+.nav-group-label{display:block; font-size:10px; text-transform:uppercase; letter-spacing:0.09em; color:#8F84B8; padding:13px 12px 6px;}
+.nav-item{display:flex; align-items:center; gap:11px; padding:9px 12px; border-radius:6px; cursor:pointer; color:#C9BEEA; font-size:13px; font-weight:500; margin-bottom:2px; transition:background .15s, color .15s; border:none; background:none; width:100%; text-align:left;}
 .nav-item .ic{width:17px; text-align:center; flex-shrink:0; opacity:0.85; font-size:14px;}
 .nav-item:hover{background:rgba(255,255,255,0.07);}
-.nav-item.active{background:var(--gold); color:#3A2400; font-weight:700;}
-.nav-item.active .ic{opacity:1;}
+.nav-item.active{background:var(--gold); color:#241B3D; font-weight:700;}
+.nav-item.active .ic{opacity:1; color:#241B3D !important;}
+.nav-item[data-view="home"] .ic{color:var(--gold-light);}
+.nav-item[data-view="orders"] .ic{color:var(--blue);}
+.nav-item[data-view="inventory"] .ic{color:var(--forest);}
+.nav-item[data-view="rawmat"] .ic{color:var(--teal);}
+.nav-item[data-view="returns"] .ic{color:var(--pink);}
+.nav-item[data-view="payments"] .ic{color:var(--gold);}
+.nav-item[data-view="reports"] .ic{color:var(--purple);}
+.nav-item[data-view="account"] .ic{color:var(--amber);}
 .nav-badge{margin-left:auto; background:var(--red); color:#fff; font-size:10px; font-weight:700; border-radius:10px; padding:1px 7px; font-family:'JetBrains Mono',monospace; border:none;}
-.nav-item.active .nav-badge{background:#3A2400; color:var(--gold-light);}
-.side-foot{display:block; padding:12px 18px; border-top:1px solid rgba(255,255,255,0.08); font-size:10.5px; color:#B6A88C;}
-.side-foot b{color:#E7DBC4; display:block; font-size:11.5px; margin-bottom:2px;}
+.nav-item.active .nav-badge{background:#241B3D; color:var(--gold-light);}
+.side-foot{display:block; padding:12px 18px; border-top:1px solid rgba(255,255,255,0.08); font-size:10.5px; color:#8F84B8;}
+.side-foot b{color:#C9BEEA; display:block; font-size:11.5px; margin-bottom:2px;}
 .sidebar-overlay{display:none;} .menu-toggle{display:none;}
 @media (max-width:920px){
   .sidebar{transform:translateX(-100%);} .sidebar.open{transform:translateX(0);}
@@ -127,7 +137,7 @@ button{font-family:inherit;}
 /* ===================== ANNIVERSARY CELEBRATION BANNER ===================== */
 /* Only ever rendered on the exact calendar day a business/platform anniversary falls — see
    renderAnniversaryBanner(). Hidden (display:none) the other 364 days a year. */
-.anniversary-banner{background:linear-gradient(120deg, #C9A227, #E8CD6F 50%, #C9A227); border-radius:14px; padding:16px 20px; margin-bottom:18px; color:#3A2A05; position:relative; overflow:hidden; box-shadow:0 8px 22px rgba(201,162,39,0.35); animation:annivPop .5s ease;}
+.anniversary-banner{background:linear-gradient(120deg, #FF7A1A, #FFBB80 50%, #FF7A1A); border-radius:14px; padding:16px 20px; margin-bottom:18px; color:#3A2A05; position:relative; overflow:hidden; box-shadow:0 8px 22px rgba(255,122,26,0.35); animation:annivPop .5s ease;}
 .anniversary-banner .anniv-row{display:flex; align-items:center; gap:14px; position:relative; z-index:1;}
 .anniversary-banner .anniv-row + .anniv-row{margin-top:10px; padding-top:10px; border-top:1px dashed rgba(58,42,5,0.25);}
 .anniversary-banner .anniv-ic{font-size:26px; flex-shrink:0;}
@@ -141,16 +151,16 @@ button{font-family:inherit;}
 @keyframes annivPop{ from{ transform:scale(0.97); opacity:0; } to{ transform:scale(1); opacity:1; } }
 
 /* ===================== HOME HERO ===================== */
-.home-hero{background:linear-gradient(120deg, var(--maroon-deep), var(--maroon) 55%, #6b2424); border-radius:14px; padding:22px 26px; margin-bottom:20px; color:#FCF6E8; position:relative; overflow:hidden; box-shadow:0 8px 24px rgba(69,19,19,0.18);}
-.home-hero::before{content:""; position:absolute; top:-60px; right:-60px; width:220px; height:220px; border-radius:50%; background:radial-gradient(circle, rgba(201,162,39,0.25), transparent 70%);}
+.home-hero{background:linear-gradient(120deg, var(--maroon-deep), var(--maroon) 55%, #C026D3); border-radius:14px; padding:22px 26px; margin-bottom:20px; color:#F5F1FF; position:relative; overflow:hidden; box-shadow:0 8px 24px rgba(59,15,145,0.18);}
+.home-hero::before{content:""; position:absolute; top:-60px; right:-60px; width:220px; height:220px; border-radius:50%; background:radial-gradient(circle, rgba(255,122,26,0.25), transparent 70%);}
 .hero-top{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; position:relative; z-index:1;}
 .hero-greet .eyebrow{font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--gold-light); opacity:0.9; margin-bottom:4px;}
-.hero-greet h2{font-family:'Marcellus',serif; font-size:24px; margin:0 0 3px; color:#FCF6E8;}
-.hero-greet .hero-sub{font-size:12.5px; color:#E7DBC4; opacity:0.9;}
+.hero-greet h2{font-family:'Marcellus',serif; font-size:24px; margin:0 0 3px; color:#F5F1FF;}
+.hero-greet .hero-sub{font-size:12.5px; color:#C9BEEA; opacity:0.9;}
 .hero-right{display:flex; align-items:center; gap:10px; flex-wrap:wrap; position:relative; z-index:1;}
-.hero-date{font-family:'JetBrains Mono',monospace; font-size:11.5px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.18); padding:7px 12px; border-radius:8px; color:#F3E9CE; white-space:nowrap;}
+.hero-date{font-family:'JetBrains Mono',monospace; font-size:11.5px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.18); padding:7px 12px; border-radius:8px; color:#EDE6FF; white-space:nowrap;}
 .hero-range{display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.18); padding:6px 10px; border-radius:8px; position:relative; z-index:1;}
-.hero-range select{font-family:'JetBrains Mono',monospace; font-size:11.5px; background:transparent; color:#F3E9CE; border:none; cursor:pointer; outline:none; appearance:none; -webkit-appearance:none; padding:2px 4px;}
+.hero-range select{font-family:'JetBrains Mono',monospace; font-size:11.5px; background:transparent; color:#EDE6FF; border:none; cursor:pointer; outline:none; appearance:none; -webkit-appearance:none; padding:2px 4px;}
 .hero-range select option{color:var(--ink); background:#fff;}
 .hero-range .hr-ic{font-size:12px;}
 .hero-stats{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:20px; position:relative; z-index:1;}
@@ -158,9 +168,9 @@ button{font-family:inherit;}
 .hero-stat{background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.14); border-radius:10px; padding:12px 14px; backdrop-filter:blur(2px); cursor:pointer; transition:background .15s, transform .15s;}
 .hero-stat:hover{background:rgba(255,255,255,0.14); transform:translateY(-2px);}
 .hero-stat .hs-label{font-size:10.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--gold-light); opacity:0.9; display:flex; align-items:center; gap:5px;}
-.hero-stat .hs-value{font-family:'JetBrains Mono',monospace; font-weight:800; font-size:20px; color:#FCF6E8; margin-top:5px;}
+.hero-stat .hs-value{font-family:'JetBrains Mono',monospace; font-weight:800; font-size:20px; color:#F5F1FF; margin-top:5px;}
 .hero-stat .hs-value.attn{color:#FFD7A8;}
-.hero-stat .hs-sub{font-size:10.5px; color:#E7DBC4; opacity:0.75; margin-top:2px;}
+.hero-stat .hs-sub{font-size:10.5px; color:#C9BEEA; opacity:0.75; margin-top:2px;}
 
 /* ===================== QUICK ACTIONS ===================== */
 .action-card.quick{flex-direction:column; align-items:flex-start; gap:8px; min-width:150px;}
@@ -199,8 +209,8 @@ button{font-family:inherit;}
 .top-products-list{padding:8px 18px 16px; display:flex; flex-direction:column; gap:10px;}
 .tp-row{display:flex; align-items:center; gap:12px;}
 .tp-rank{width:24px; height:24px; border-radius:50%; background:var(--panel-2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:var(--ink-soft); flex-shrink:0;}
-.tp-rank.top1{background:var(--gold); color:#3A2400; border-color:var(--gold);}
-.tp-rank.top2{background:#E4E0D8; color:var(--ink);}
+.tp-rank.top1{background:var(--gold); color:#241B3D; border-color:var(--gold);}
+.tp-rank.top2{background:#E3DDF6; color:var(--ink);}
 .tp-rank.top3{background:#EBD9B8; color:#5C3B0E;}
 .tp-info{flex:1; min-width:0;}
 .tp-name{font-size:12.5px; font-weight:600; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
@@ -310,7 +320,7 @@ button{font-family:inherit;}
 .info-tip{position:relative; display:inline-flex; align-items:center; justify-content:center; width:21px; height:21px; border-radius:50%; background:var(--gold-bg); color:var(--amber); border:1px solid var(--line-strong); font-size:12px; font-weight:800; font-style:italic; font-family:'Marcellus',serif; cursor:default; flex-shrink:0; user-select:none;}
 .info-tip:hover, .info-tip:focus-visible{background:var(--amber); color:#fff; border-color:var(--amber);}
 .info-tip:hover .info-tip-bubble, .info-tip:focus-visible .info-tip-bubble{opacity:1; visibility:visible; transform:translateY(0);}
-.info-tip-bubble{position:absolute; top:calc(100% + 9px); right:-6px; width:230px; background:var(--maroon-deep); color:#FCF6E8; font-size:11.5px; font-weight:500; font-style:normal; font-family:'Inter',sans-serif; line-height:1.45; padding:10px 12px; border-radius:8px; box-shadow:0 10px 24px rgba(0,0,0,0.22); opacity:0; visibility:hidden; transform:translateY(-4px); transition:opacity .15s ease, transform .15s ease; z-index:30; text-align:left;}
+.info-tip-bubble{position:absolute; top:calc(100% + 9px); right:-6px; width:230px; background:var(--maroon-deep); color:#F5F1FF; font-size:11.5px; font-weight:500; font-style:normal; font-family:'Inter',sans-serif; line-height:1.45; padding:10px 12px; border-radius:8px; box-shadow:0 10px 24px rgba(0,0,0,0.22); opacity:0; visibility:hidden; transform:translateY(-4px); transition:opacity .15s ease, transform .15s ease; z-index:30; text-align:left;}
 .info-tip-bubble::after{content:""; position:absolute; bottom:100%; right:11px; border:5px solid transparent; border-bottom-color:var(--maroon-deep);}
 
 .toolbar{display:flex; gap:10px; padding:14px 18px; flex-wrap:wrap; align-items:center;}
@@ -340,9 +350,10 @@ tbody tr.clickable{cursor:pointer;}
 .status-pill.pending{background:var(--amber-bg); color:var(--amber);}
 .status-pill.shipped{background:var(--blue-bg); color:var(--blue);}
 .status-pill.delivered{background:var(--forest-bg); color:var(--forest);}
-.status-pill.rto, .status-pill.cancelled{background:var(--red-bg); color:var(--red);}
-.status-pill.rtolocked{background:var(--red-bg); color:var(--red);}
-.status-pill.lost{background:var(--maroon-deep); color:#fff;}
+.status-pill.rto{background:var(--red-bg); color:var(--red);}
+.status-pill.cancelled{background:var(--amber-bg); color:var(--amber);}
+.status-pill.rtolocked{background:var(--pink-bg); color:var(--pink);}
+.status-pill.lost{background:var(--red); color:#fff;}
 .status-pill.returned, .status-pill.customerreturn{background:var(--purple-bg); color:var(--purple);}
 .status-pill.lowstock{background:var(--red-bg); color:var(--red);}
 .status-pill.instock{background:var(--forest-bg); color:var(--forest);}
@@ -512,8 +523,8 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
    uses overflow:hidden for its rounded corners; an absolutely-positioned box would get clipped
    by that, a fixed one (placed via JS coordinates) escapes it entirely. */
 .stat-tip{position:relative; display:inline-flex; align-items:center; justify-content:center; width:13px; height:13px; margin-left:5px; border-radius:50%; background:var(--panel-2); border:1px solid var(--line); color:var(--ink-soft); font-size:9px; font-weight:700; font-style:normal; text-transform:none; letter-spacing:normal; cursor:help; vertical-align:middle;}
-.stat-tip-box{position:fixed; top:0; left:0; width:230px; max-width:80vw; background:var(--ink,#2b1c14); color:#fff; padding:9px 11px; border-radius:8px; font-size:11.5px; line-height:1.45; font-weight:500; text-transform:none; letter-spacing:normal; white-space:normal; opacity:0; visibility:hidden; pointer-events:none; transition:opacity .12s ease; z-index:9999; box-shadow:0 8px 22px rgba(0,0,0,.28); transform:translateY(-100%);}
-.stat-tip-box::after{content:""; position:absolute; top:100%; left:var(--arrow-left,50%); transform:translateX(-50%); border:6px solid transparent; border-top-color:var(--ink,#2b1c14);}
+.stat-tip-box{position:fixed; top:0; left:0; width:230px; max-width:80vw; background:var(--ink,#241B3D); color:#fff; padding:9px 11px; border-radius:8px; font-size:11.5px; line-height:1.45; font-weight:500; text-transform:none; letter-spacing:normal; white-space:normal; opacity:0; visibility:hidden; pointer-events:none; transition:opacity .12s ease; z-index:9999; box-shadow:0 8px 22px rgba(0,0,0,.28); transform:translateY(-100%);}
+.stat-tip-box::after{content:""; position:absolute; top:100%; left:var(--arrow-left,50%); transform:translateX(-50%); border:6px solid transparent; border-top-color:var(--ink,#241B3D);}
 .stat-tip:hover .stat-tip-box, .stat-tip:focus .stat-tip-box{opacity:1; visibility:visible;}
 
 /* ---------- damaged stock inline editor ---------- */
@@ -560,7 +571,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
 .pc-empty-row{padding:18px 4px; text-align:center; color:var(--ink-soft); font-size:12.5px;}
 .pc-total-row{
   display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding:12px 14px;
-  background:var(--maroon-deep); color:#FCF6E8; border-radius:8px; font-weight:700; font-size:15px;
+  background:var(--maroon-deep); color:#F5F1FF; border-radius:8px; font-weight:700; font-size:15px;
 }
 .pc-total-row #pcTotalValue{font-family:'JetBrains Mono',monospace; font-size:18px; color:var(--gold-light);}
 .pc-actions{display:flex; gap:10px; justify-content:flex-end; margin-top:14px;}
@@ -611,21 +622,21 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
   }catch(err){ document.documentElement.setAttribute("data-theme","light"); }
 })();
 </script>
-<div id="passcodeGateOverlay" style="display:none; position:fixed; inset:0; z-index:99999; background:#2A1500; align-items:center; justify-content:center; font-family:inherit;">
+<div id="passcodeGateOverlay" style="display:none; position:fixed; inset:0; z-index:99999; background:#140F22; align-items:center; justify-content:center; font-family:inherit;">
   <div style="background:#fff; border-radius:14px; padding:36px 32px; width:min(340px, 88vw); box-shadow:0 20px 60px rgba(0,0,0,.4); text-align:center;">
     <div style="font-size:28px; margin-bottom:6px;">🔒</div>
-    <h2 style="margin:0 0 6px; font-size:18px; color:#2A1500;">AKMR Trade Point</h2>
-    <p style="margin:0 0 18px; font-size:13px; color:#7a6a55;">Enter the shared passcode to open the dashboard.</p>
+    <h2 style="margin:0 0 6px; font-size:18px; color:#3B0F91;">AKMR Trade Point</h2>
+    <p style="margin:0 0 18px; font-size:13px; color:#6E6690;">Enter the shared passcode to open the dashboard.</p>
     <input id="passcodeInput" type="password" placeholder="Passcode" autocomplete="off"
-      style="width:100%; box-sizing:border-box; padding:10px 12px; border-radius:8px; border:1.5px solid #d8cdb8; font-size:14px; margin-bottom:10px; text-align:center;">
-    <div id="passcodeError" style="display:none; color:#b3261e; font-size:12.5px; margin-bottom:10px;">Incorrect passcode — try again.</div>
-    <button id="passcodeSubmitBtn" style="width:100%; padding:10px 12px; border-radius:8px; border:none; background:#7A1F1F; color:#fff; font-weight:700; font-size:14px; cursor:pointer;">Unlock</button>
+      style="width:100%; box-sizing:border-box; padding:10px 12px; border-radius:8px; border:1.5px solid #CDC2EE; font-size:14px; margin-bottom:10px; text-align:center;">
+    <div id="passcodeError" style="display:none; color:#E11D48; font-size:12.5px; margin-bottom:10px;">Incorrect passcode — try again.</div>
+    <button id="passcodeSubmitBtn" style="width:100%; padding:10px 12px; border-radius:8px; border:none; background:#5B21B6; color:#fff; font-weight:700; font-size:14px; cursor:pointer;">Unlock</button>
   </div>
 </div>
 
 <div class="brand-strip">
   <div class="brand-strip-left">
-    <svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="17" fill="#C9A227" stroke="#FCF6E8" stroke-width="1.3"/><circle cx="20" cy="20" r="12" fill="none" stroke="#451313" stroke-width="1.1"/><text x="20" y="24.5" text-anchor="middle" font-family="Marcellus, serif" font-size="10.5" fill="#451313">ATP</text></svg>
+    <svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="17" fill="#FF7A1A" stroke="#F5F1FF" stroke-width="1.3"/><circle cx="20" cy="20" r="12" fill="none" stroke="#3B0F91" stroke-width="1.1"/><text x="20" y="24.5" text-anchor="middle" font-family="Marcellus, serif" font-size="10.5" fill="#3B0F91">ATP</text></svg>
     <b>AKMR Trade Point</b>
   </div>
   <div class="brand-strip-right">
@@ -639,7 +650,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
   <aside class="sidebar" id="sidebar">
     <div class="side-brand">
-      <svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="17" fill="#C9A227" stroke="#451313" stroke-width="1.5"/><circle cx="20" cy="20" r="12" fill="none" stroke="#451313" stroke-width="1.2"/><text x="20" y="24.5" text-anchor="middle" font-family="Marcellus, serif" font-size="10.5" fill="#451313">ATP</text></svg>
+      <svg viewBox="0 0 40 40" fill="none"><circle cx="20" cy="20" r="17" fill="#FF7A1A" stroke="#3B0F91" stroke-width="1.5"/><circle cx="20" cy="20" r="12" fill="none" stroke="#3B0F91" stroke-width="1.2"/><text x="20" y="24.5" text-anchor="middle" font-family="Marcellus, serif" font-size="10.5" fill="#3B0F91">ATP</text></svg>
       <div><div class="name">AKMR Trade Point</div><div class="sub">Seller Panel</div></div>
     </div>
     <nav class="side-nav">
@@ -1028,6 +1039,65 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
           </div>
           <div class="empty-state" id="plEmpty" style="display:none;"><div class="ic">📊</div><b>No payments imported yet</b>Import your Meesho payments file (Payments tab) to see profit &amp; loss here — this report is driven by actual settlement amounts, not order-time estimates.</div>
         </div>
+
+        <div class="card" style="margin-top:18px;">
+          <div class="card-head">
+            <h3>Inventory purchase report</h3>
+            <span class="meta">Every stock purchase — by supplier and date, month-wise</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:14px 18px 0;">
+            <label for="purchReportMonth" style="font-size:11.5px; font-weight:700; color:var(--ink-soft);">Month:</label>
+            <select id="purchReportMonth" style="font:inherit; font-size:12.5px; padding:5px 8px; border:1px solid var(--line); border-radius:6px; background:var(--panel);"></select>
+            <button class="btn small secondary" id="purchReportExportBtn" style="margin-left:auto;">⬇ Download Excel</button>
+          </div>
+          <div class="summary-grid" id="purchReportSummary" style="margin:14px 18px 0; width:auto;"></div>
+          <div class="card-head" style="padding-top:18px;"><h3 style="font-size:13.5px;">By supplier</h3></div>
+          <div class="table-scroll">
+            <table><thead><tr><th>Supplier</th><th style="text-align:right;">Line items</th><th style="text-align:right;">Units</th><th style="text-align:right;">Purchase value</th><th style="text-align:right;">GST paid</th><th style="text-align:right;">Shipping paid</th><th style="text-align:right;">Total paid</th></tr></thead>
+            <tbody id="purchReportSupplierBody"></tbody></table>
+          </div>
+          <div class="card-head" style="padding-top:18px;"><h3 style="font-size:13.5px;">All purchases this month</h3></div>
+          <div class="table-scroll">
+            <table><thead><tr><th>Date</th><th>Supplier</th><th>Item</th><th style="text-align:right;">Qty</th><th style="text-align:right;">Price/unit</th><th style="text-align:right;">GST%</th><th style="text-align:right;">GST paid</th><th style="text-align:right;">Shipping</th><th style="text-align:right;">Total</th><th>HSN</th></tr></thead>
+            <tbody id="purchReportDetailBody"></tbody></table>
+          </div>
+          <div class="empty-state" id="purchReportEmpty" style="display:none;"><div class="ic">📦</div><b>No purchases in this month</b>Add items in Inventory with a purchase date to see them here.</div>
+        </div>
+
+        <div class="card" style="margin-top:18px;">
+          <div class="card-head">
+            <h3>Monthly sales &amp; business report</h3>
+            <span class="meta">Sales, GST collected, every kind of loss, and the bottom line — month by month</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:14px 18px 0;">
+            <label for="salesReportMonth" style="font-size:11.5px; font-weight:700; color:var(--ink-soft);">Month:</label>
+            <select id="salesReportMonth" style="font:inherit; font-size:12.5px; padding:5px 8px; border:1px solid var(--line); border-radius:6px; background:var(--panel);"></select>
+            <button class="btn small secondary" id="salesReportExportBtn" style="margin-left:auto;">⬇ Download Excel</button>
+          </div>
+
+          <div class="card-head" style="padding-top:16px;"><h3 style="font-size:13.5px;">Sales — completed &amp; paid only</h3></div>
+          <div class="summary-grid" id="salesReportSalesGrid" style="margin:0 18px; width:auto;"></div>
+
+          <div class="card-head" style="padding-top:18px;"><h3 style="font-size:13.5px;">Losses — RTO, customer return, lost &amp; damaged stock</h3></div>
+          <div class="summary-grid" id="salesReportLossGrid" style="margin:0 18px; width:auto;"></div>
+
+          <div class="card-head" style="padding-top:18px;"><h3 style="font-size:13.5px;">Bottom line</h3></div>
+          <div class="summary-grid" id="salesReportBottomGrid" style="margin:0 18px; width:auto;"></div>
+
+          <div class="card-head" style="padding-top:18px;"><h3 style="font-size:13.5px;">Top products sold this month</h3></div>
+          <div class="table-scroll">
+            <table><thead><tr><th>Product</th><th style="text-align:right;">Orders</th><th style="text-align:right;">Qty Sold</th><th style="text-align:right;">Revenue (Bank Received)</th></tr></thead>
+            <tbody id="salesReportTopProductsBody"></tbody></table>
+          </div>
+
+          <div class="card-head" style="padding-top:18px;"><h3 style="font-size:13.5px;">Damaged stock logged this month</h3></div>
+          <div class="table-scroll">
+            <table><thead><tr><th>Date</th><th>Item</th><th style="text-align:right;">Qty</th><th style="text-align:right;">Cost/Unit</th><th style="text-align:right;">Loss</th></tr></thead>
+            <tbody id="salesReportDamageBody"></tbody></table>
+          </div>
+
+          <div class="empty-state" id="salesReportEmpty" style="display:none;"><div class="ic">🧾</div><b>No paid orders in this month</b>Import your Meesho payments file (Payments tab) to see this month's sales &amp; loss report.</div>
+        </div>
       </div>
 
       <!-- ===================== ACCOUNT ===================== -->
@@ -1180,6 +1250,8 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
       <div class="modal-grid" id="stockSingleFields">
         <div><label>Total Stock Received <span class="req">*</span></label><input type="number" id="m-qty" min="0" step="1" placeholder="0"><div class="field-err" id="err-qty"></div></div>
         <div><label>Purchase price / unit (₹) <span class="req">*</span></label><input type="number" id="m-purchase" min="0" step="0.01" placeholder="0.00"><div class="field-err" id="err-purchase"></div></div>
+        <div><label>Supplier name <span class="opt">optional</span></label><input type="text" id="m-supplier" placeholder="e.g. Sharma Traders"></div>
+        <div><label>Shipping cost for this purchase (₹) <span class="opt">optional · default 0</span></label><input type="number" id="m-shipping" min="0" step="0.01" placeholder="0.00"></div>
         <div><label>GST % <span class="opt">optional · default 0%</span></label>
           <select id="m-gst"><option value="0">0%</option><option value="0.03">3%</option><option value="0.05">5%</option><option value="0.12">12%</option><option value="0.18">18%</option><option value="custom">Custom %…</option></select>
           <input type="number" id="m-gst-custom" min="0" max="100" step="0.01" placeholder="e.g. 7.5" style="display:none; margin-top:6px;">
@@ -1509,6 +1581,8 @@ let orders = [
    never inferred from an order's own status column. This array is populated exclusively inside
    processMeeshoReturnRows(); nothing else writes to it. */
 let returnRecords = [];
+let damageLog = []; // {id, invId, itemName, date, qty, costPerUnit, loss} — one entry per Damaged-count edit, dated the day it was logged
+let nextDamageLogId = 1;
 const ORIGINAL_ORDERS = JSON.parse(JSON.stringify(orders));
 const ORIGINAL_EXPENSES = JSON.parse(JSON.stringify(expenses));
 
@@ -1625,7 +1699,7 @@ function rebuildPriceBook(){
 }
 rebuildPriceBook();
 
-const colors = {low:"#B23A2E", mid:"#C9A227", ok:"#2F6B4F"};
+const colors = {low:"#E11D48", mid:"#FF7A1A", ok:"#16A34A"};
 let orderSort = {key:null, dir:1};
 let activeStatusTab = "All";
 let orderSearchTerm = "";
@@ -1787,6 +1861,8 @@ function setView(view){
   }
   if(view==="reports"){
     renderPL();
+    renderPurchaseReport();
+    renderSalesReport();
   }
 }
 document.querySelectorAll(".nav-item").forEach(n=> n.addEventListener("click", ()=> setView(n.dataset.view)));
@@ -2545,7 +2621,7 @@ function getFilteredOrders(){
 function statusSlug(status){ return String(status).toLowerCase().replace(/[^a-z0-9]+/g,""); }
 function statusPillHTML(status){ return `<span class="status-pill ${statusSlug(status)}">${status}</span>`; }
 function thumbColor(name){
-  const palette = ["#5C1A1A","#2F6B4F","#A8721C","#2A5DB0","#7A3E94","#B23A2E","#3C6E5E"];
+  const palette = ["#5B21B6","#16A34A","#D97706","#2563EB","#9333EA","#E11D48","#0D9488","#DB2777"];
   let hash=0; for(let i=0;i<name.length;i++) hash = (hash*31 + name.charCodeAt(i)) % palette.length;
   return palette[Math.abs(hash)];
 }
@@ -2863,7 +2939,13 @@ function renderInventory(){
       input.title = `Can't exceed available stock — only ${item.totalReceived - sold} unit(s) not yet sold.`;
       return;
     }
+    const prevDamaged = item.damaged||0;
     item.damaged = val;
+    const delta = val - prevDamaged;
+    if(delta !== 0){
+      const costPerUnit = invPerPiece(item); // purchase price + GST already paid on that unit
+      damageLog.push({id:"dmg"+(nextDamageLogId++), invId:item.id, itemName:item.name.trim(), date:new Date().toISOString().slice(0,10), qty:delta, costPerUnit, loss:+(delta*costPerUnit).toFixed(2)});
+    }
     editingDamagedId = null;
     recomputeInvFields(item);
     renderAll();
@@ -3060,6 +3142,8 @@ function openStockModal(id){
   document.getElementById("m-name").value = item ? item.name.trim() : "";
   document.getElementById("m-qty").value = item ? item.totalReceived : "";
   document.getElementById("m-purchase").value = item ? item.pricePerP : "";
+  document.getElementById("m-supplier").value = item ? (item.supplier || "") : "";
+  document.getElementById("m-shipping").value = item ? (item.shippingCost || "") : "";
   const gstSelect = document.getElementById("m-gst");
   const gstCustom = document.getElementById("m-gst-custom");
   const presetValues = ["0","0.03","0.05","0.12","0.18"];
@@ -3147,6 +3231,9 @@ document.getElementById("stockModalSave").addEventListener("click", ()=>{
   }
   const hsn = document.getElementById("m-hsn").value.trim() || 7117;
   const purchaseDate = document.getElementById("m-purchase-date").value || new Date().toISOString().slice(0,10);
+  const supplier = document.getElementById("m-supplier").value.trim();
+  const shippingRaw = document.getElementById("m-shipping").value;
+  const shippingCost = shippingRaw==="" ? 0 : (parseFloat(shippingRaw)||0);
 
   if(editingStockId){
     const item = inventory.find(i=>i.id===editingStockId);
@@ -3156,10 +3243,10 @@ document.getElementById("stockModalSave").addEventListener("click", ()=>{
       document.getElementById("m-qty").classList.add("invalid");
       return;
     }
-    item.name = name; item.totalReceived = totalReceived; item.pricePerP = purchase; item.gstPct = gstPct; item.hsn = hsn; item.purchaseDate = purchaseDate; item.photo = currentStockPhotoData || null;
+    item.name = name; item.totalReceived = totalReceived; item.pricePerP = purchase; item.gstPct = gstPct; item.hsn = hsn; item.purchaseDate = purchaseDate; item.photo = currentStockPhotoData || null; item.supplier = supplier; item.shippingCost = shippingCost;
     recomputeInvFields(item);
   } else {
-    const item = {id:"inv"+(nextInvId++), name, hsn, totalReceived, damaged:0, pricePerP:purchase, gstPct, purchaseDate, photo: currentStockPhotoData || null};
+    const item = {id:"inv"+(nextInvId++), name, hsn, totalReceived, damaged:0, pricePerP:purchase, gstPct, purchaseDate, photo: currentStockPhotoData || null, supplier, shippingCost};
     recomputeInvFields(item);
     inventory.push(item);
   }
@@ -4530,8 +4617,323 @@ function renderPL(){
   document.getElementById("plBody").innerHTML = rows;
   document.getElementById("plFoot").innerHTML = `<td>Total</td><td class="num-cell">${fmt(totalNetBank)}</td><td class="num-cell">${fmt(totalCost)}</td><td class="num-cell">${fmt(totalNetBank-totalCost)}</td><td class="num-cell">${fmt(totalOtherExp+totalOpex)}</td><td class="num-cell">${fmt(totalNet)}</td><td class="num-cell">${totalNetBank?((totalNet/totalNetBank*100).toFixed(1)+"%"):"—"}</td>`;
 }
+
+/* ===================== INVENTORY PURCHASE REPORT ===================== */
+let purchReportMonth = "all";
+function monthKeyOf(dateStr){ return (dateStr||"").slice(0,7); } // "2026-07-15" -> "2026-07"
+function monthLabelOf(key){
+  if(key==="all") return "All time";
+  const [y,m] = key.split("-");
+  return new Date(+y, +m-1, 1).toLocaleDateString("en-IN", {month:"long", year:"numeric"});
+}
+function getPurchaseReportRows(){
+  return inventory.filter(i=> i.purchaseDate && (purchReportMonth==="all" || monthKeyOf(i.purchaseDate)===purchReportMonth));
+}
+function renderPurchaseReport(){
+  const sel = document.getElementById("purchReportMonth");
+  const allMonths = [...new Set(inventory.filter(i=>i.purchaseDate).map(i=>monthKeyOf(i.purchaseDate)))].sort().reverse();
+  if(!allMonths.includes(purchReportMonth) && purchReportMonth!=="all") purchReportMonth = allMonths[0] || "all";
+  sel.innerHTML = `<option value="all">All time</option>` + allMonths.map(k=>`<option value="${k}">${monthLabelOf(k)}</option>`).join("");
+  sel.value = purchReportMonth;
+
+  const rows = getPurchaseReportRows();
+  const lineItems = rows.length;
+  const totalUnits = rows.reduce((s,i)=>s+(i.totalReceived||0),0);
+  const totalPurchase = rows.reduce((s,i)=>s+(i.purchase||0),0);
+  const totalGst = rows.reduce((s,i)=>s+(i.gstPaid||0),0);
+  const totalShipping = rows.reduce((s,i)=>s+(i.shippingCost||0),0);
+  const grandTotal = totalPurchase + totalGst + totalShipping;
+
+  document.getElementById("purchReportSummary").innerHTML = `
+    <div class="summary-stat total"><span class="s-label">Line Items</span><span class="s-value">${lineItems}</span></div>
+    <div class="summary-stat value"><span class="s-label">Total Units</span><span class="s-value">${totalUnits}</span></div>
+    <div class="summary-stat sold"><span class="s-label">Purchase Value</span><span class="s-value">${fmt(totalPurchase)}</span></div>
+    <div class="summary-stat gst"><span class="s-label">GST Paid</span><span class="s-value">${fmt(totalGst)}</span></div>
+    <div class="summary-stat amber"><span class="s-label">Shipping Paid</span><span class="s-value">${fmt(totalShipping)}</span></div>
+    <div class="summary-stat grandtotal"><span class="s-label">Grand Total</span><span class="s-value">${fmt(grandTotal)}</span></div>
+  `;
+
+  document.getElementById("purchReportEmpty").style.display = rows.length ? "none" : "";
+
+  // ---- By supplier ----
+  const bySupplier = {};
+  rows.forEach(i=>{
+    const key = (i.supplier && i.supplier.trim()) ? i.supplier.trim() : "Unspecified";
+    if(!bySupplier[key]) bySupplier[key] = {items:0, units:0, purchase:0, gst:0, shipping:0};
+    const b = bySupplier[key];
+    b.items++; b.units += i.totalReceived||0; b.purchase += i.purchase||0; b.gst += i.gstPaid||0; b.shipping += i.shippingCost||0;
+  });
+  const supplierNames = Object.keys(bySupplier).sort((a,b)=> bySupplier[b].purchase+bySupplier[b].gst+bySupplier[b].shipping - (bySupplier[a].purchase+bySupplier[a].gst+bySupplier[a].shipping));
+  document.getElementById("purchReportSupplierBody").innerHTML = supplierNames.map(name=>{
+    const b = bySupplier[name];
+    const total = b.purchase+b.gst+b.shipping;
+    return `<tr><td>${esc(name)}</td><td class="num-cell">${b.items}</td><td class="num-cell">${b.units}</td><td class="num-cell">${fmt(b.purchase)}</td><td class="num-cell">${fmt(b.gst)}</td><td class="num-cell">${fmt(b.shipping)}</td><td class="num-cell" style="font-weight:600;">${fmt(total)}</td></tr>`;
+  }).join("") || `<tr><td colspan="7" style="text-align:center; color:var(--ink-soft); padding:18px;">No data for this month</td></tr>`;
+
+  // ---- Detail lines, most recent first ----
+  const sortedRows = rows.slice().sort((a,b)=> (b.purchaseDate||"").localeCompare(a.purchaseDate||""));
+  document.getElementById("purchReportDetailBody").innerHTML = sortedRows.map(i=>{
+    const total = (i.purchase||0) + (i.gstPaid||0) + (i.shippingCost||0);
+    return `<tr>
+      <td>${fmtDateFull(i.purchaseDate)}</td>
+      <td>${esc((i.supplier&&i.supplier.trim())||"—")}</td>
+      <td>${esc(i.name.trim())}</td>
+      <td class="num-cell">${i.totalReceived}</td>
+      <td class="num-cell">${fmt(i.pricePerP)}</td>
+      <td class="num-cell">${+(i.gstPct*100).toFixed(2)}%</td>
+      <td class="num-cell">${fmt(i.gstPaid)}</td>
+      <td class="num-cell">${fmt(i.shippingCost||0)}</td>
+      <td class="num-cell" style="font-weight:600;">${fmt(total)}</td>
+      <td>${esc(i.hsn)}</td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="10" style="text-align:center; color:var(--ink-soft); padding:18px;">No purchases in this month</td></tr>`;
+}
+document.getElementById("purchReportMonth").addEventListener("change", (e)=>{ purchReportMonth = e.target.value; renderPurchaseReport(); });
+document.getElementById("purchReportExportBtn").addEventListener("click", ()=>{
+  const rows = getPurchaseReportRows().slice().sort((a,b)=> (a.purchaseDate||"").localeCompare(b.purchaseDate||""));
+  const aoa = [["Date","Supplier","Item","HSN","Qty","Price/Unit (₹)","GST %","GST Paid (₹)","Shipping (₹)","Total (₹)"]];
+  rows.forEach(i=>{
+    const total = (i.purchase||0) + (i.gstPaid||0) + (i.shippingCost||0);
+    aoa.push([i.purchaseDate||"", (i.supplier&&i.supplier.trim())||"Unspecified", i.name.trim(), i.hsn, i.totalReceived, i.pricePerP, +(i.gstPct*100).toFixed(2), +i.gstPaid.toFixed(2), +(i.shippingCost||0).toFixed(2), +total.toFixed(2)]);
+  });
+  const totalPurchase = rows.reduce((s,i)=>s+(i.purchase||0),0);
+  const totalGst = rows.reduce((s,i)=>s+(i.gstPaid||0),0);
+  const totalShipping = rows.reduce((s,i)=>s+(i.shippingCost||0),0);
+  aoa.push([]);
+  aoa.push(["","","","","Totals","","", +totalGst.toFixed(2), +totalShipping.toFixed(2), +(totalPurchase+totalGst+totalShipping).toFixed(2)]);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = [{wch:12},{wch:20},{wch:28},{wch:8},{wch:8},{wch:12},{wch:8},{wch:12},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws, "Purchases");
+
+  // Supplier summary as a second sheet
+  const bySupplier = {};
+  rows.forEach(i=>{
+    const key = (i.supplier && i.supplier.trim()) ? i.supplier.trim() : "Unspecified";
+    if(!bySupplier[key]) bySupplier[key] = {items:0, units:0, purchase:0, gst:0, shipping:0};
+    const b = bySupplier[key];
+    b.items++; b.units += i.totalReceived||0; b.purchase += i.purchase||0; b.gst += i.gstPaid||0; b.shipping += i.shippingCost||0;
+  });
+  const aoa2 = [["Supplier","Line Items","Units","Purchase Value (₹)","GST Paid (₹)","Shipping Paid (₹)","Total Paid (₹)"]];
+  Object.keys(bySupplier).forEach(name=>{
+    const b = bySupplier[name];
+    aoa2.push([name, b.items, b.units, +b.purchase.toFixed(2), +b.gst.toFixed(2), +b.shipping.toFixed(2), +(b.purchase+b.gst+b.shipping).toFixed(2)]);
+  });
+  const ws2 = XLSX.utils.aoa_to_sheet(aoa2);
+  ws2["!cols"] = [{wch:20},{wch:10},{wch:8},{wch:16},{wch:12},{wch:14},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, ws2, "By Supplier");
+
+  const label = monthLabelOf(purchReportMonth).replace(/\s+/g,"_");
+  XLSX.writeFile(wb, `Inventory_Purchase_Report_${label}.xlsx`);
+});
 document.querySelectorAll(".pl-tab").forEach(b=>{
   b.addEventListener("click", ()=>{ activePLPeriod = b.dataset.period; renderPL(); });
+});
+
+/* ===================== MONTHLY SALES & BUSINESS REPORT ===================== */
+/* Loss statuses mirror the Payments tab exactly, so this report can never disagree with it. */
+const SALES_REPORT_LOSS_STATUSES = ["RTO","RTO_LOCKED","Customer Return","Lost"];
+let salesReportMonth = "all";
+function salesReportAllMonths(){
+  const keys = new Set();
+  orders.forEach(o=>{ if(o.paymentDetails){ const d = o.paymentDate || o.date; if(d) keys.add(monthKeyOf(d)); } });
+  damageLog.forEach(d=>{ if(d.date) keys.add(monthKeyOf(d.date)); });
+  expenses.forEach(e=>{ if(e.date) keys.add(monthKeyOf(e.date)); });
+  return [...keys].sort().reverse();
+}
+/* Every paid order whose settlement falls in the picked month (or every paid order, for "all"). */
+function salesReportOrdersInMonth(){
+  return orders.filter(o=>{
+    if(!o.paymentDetails) return false;
+    const payDate = o.paymentDate || o.date;
+    if(!payDate) return false;
+    return salesReportMonth==="all" || monthKeyOf(payDate)===salesReportMonth;
+  });
+}
+function salesReportDamageInMonth(){
+  return damageLog.filter(d=> d.date && (salesReportMonth==="all" || monthKeyOf(d.date)===salesReportMonth));
+}
+function salesReportExpensesInMonth(){
+  return expenses.filter(e=> e.date && (salesReportMonth==="all" || monthKeyOf(e.date)===salesReportMonth));
+}
+/* One place computing every number the report shows, reused by both the on-screen render and the
+   Excel export so the two can never drift apart. */
+function computeSalesReportFigures(){
+  const monthOrders = salesReportOrdersInMonth();
+  /* "Sales" = paid orders that are a real, completed sale — RTO/RTO_LOCKED/Customer Return/Lost are
+     never sales, and a settlement must actually exist (payment done to the seller's bank). */
+  const salesOrders = monthOrders.filter(o=> !SALES_REPORT_LOSS_STATUSES.includes(getPaymentStatus(o)) && getPaymentRowFigures(o).settlementAmt!=null);
+  const salesFigures = salesOrders.map(o=>({o, rf:getPaymentRowFigures(o), pd:o.paymentDetails||{}}));
+  const itemsSold = salesFigures.reduce((s,f)=>s+(f.rf.qty||0),0);
+  const bankReceived = salesFigures.reduce((s,f)=>s+(f.rf.settlementAmt||0),0);
+  const gstCollected = salesFigures.reduce((s,f)=>{
+    const lp = f.pd.listingPrice, g = f.pd.gstPct;
+    if(lp==null || g==null) return s;
+    return s + (lp - lp/(1+g/100));
+  },0);
+  const productCost = salesFigures.reduce((s,f)=>s+(f.rf.pricePerUnitTotal||0),0);
+  const otherExpenseSales = salesFigures.reduce((s,f)=>s+(f.rf.otherExpenseVal||0),0);
+  const netProfitSales = salesFigures.reduce((s,f)=>s+(f.rf.netProfitVal||0),0);
+  const salesMargin = bankReceived>0 ? (netProfitSales/bankReceived*100) : null;
+
+  const byStatusLoss = (status)=>{
+    const list = monthOrders.filter(o=>getPaymentStatus(o)===status).map(o=>getPaymentRowFigures(o));
+    return {count:list.length, settlement:list.reduce((s,rf)=>s+(rf.settlementAmt||0),0), loss:list.reduce((s,rf)=>s+(rf.netProfitVal||0),0)};
+  };
+  const rtoA = byStatusLoss("RTO"), rtoB = byStatusLoss("RTO_LOCKED");
+  const rto = {count:rtoA.count+rtoB.count, settlement:rtoA.settlement+rtoB.settlement, loss:rtoA.loss+rtoB.loss};
+  const custReturn = byStatusLoss("Customer Return");
+  const lostStat = byStatusLoss("Lost");
+
+  const damageRows = salesReportDamageInMonth();
+  const damagedUnits = damageRows.reduce((s,d)=>s+(d.qty||0),0);
+  const damageLoss = damageRows.reduce((s,d)=>s+(d.loss||0),0);
+
+  const totalLossAmt = -(rto.loss) - (custReturn.loss) - (lostStat.loss) + Math.max(damageLoss,0);
+  const operatingExpense = salesReportExpensesInMonth().reduce((s,e)=>s+(e.amount||0),0);
+  const bottomLine = netProfitSales - totalLossAmt - operatingExpense;
+  const bottomMargin = bankReceived>0 ? (bottomLine/bankReceived*100) : null;
+
+  // ---- Top products, by revenue (bank received) ----
+  const byProduct = {};
+  salesFigures.forEach(f=>{
+    const key = (f.o.product||"Unspecified").trim() || "Unspecified";
+    if(!byProduct[key]) byProduct[key] = {orders:0, qty:0, revenue:0};
+    byProduct[key].orders++; byProduct[key].qty += f.rf.qty||0; byProduct[key].revenue += f.rf.settlementAmt||0;
+  });
+  const topProducts = Object.keys(byProduct).map(name=>({name, ...byProduct[name]})).sort((a,b)=>b.revenue-a.revenue);
+
+  return {
+    monthOrders, salesFigures, itemsSold, salesOrdersCount:salesOrders.length, bankReceived, gstCollected,
+    productCost, otherExpenseSales, netProfitSales, salesMargin,
+    rto, custReturn, lost:lostStat, damagedUnits, damageLoss, damageRows,
+    totalLossAmt, operatingExpense, bottomLine, bottomMargin, topProducts,
+  };
+}
+function renderSalesReport(){
+  const sel = document.getElementById("salesReportMonth");
+  const allMonths = salesReportAllMonths();
+  if(!allMonths.includes(salesReportMonth) && salesReportMonth!=="all") salesReportMonth = allMonths[0] || "all";
+  sel.innerHTML = `<option value="all">All time</option>` + allMonths.map(k=>`<option value="${k}">${monthLabelOf(k)}</option>`).join("");
+  sel.value = salesReportMonth;
+
+  const f = computeSalesReportFigures();
+  document.getElementById("salesReportEmpty").style.display = f.monthOrders.length ? "none" : "";
+
+  const lossStyle = (v)=> v>=0 ? "color:var(--forest); font-weight:600;" : "color:var(--red); font-weight:600;";
+
+  document.getElementById("salesReportSalesGrid").innerHTML = `
+    <div class="summary-stat total"><span class="s-label">Orders (Sales)${tip("Count of paid orders this month that are a real completed sale — RTO, RTO_LOCKED, Customer Return and Lost are excluded, and the order must have an actual bank settlement recorded.")}</span><span class="s-value">${f.salesOrdersCount}</span></div>
+    <div class="summary-stat value"><span class="s-label">Items Sold${tip("Total quantity across every order counted as a sale above.")}</span><span class="s-value">${f.itemsSold}</span></div>
+    <div class="summary-stat grandtotal"><span class="s-label">Bank Received (Sales)${tip("Sum of the settlement amount Meesho actually paid you for these sales — RTO/Return/Lost payouts are never included here.")}</span><span class="s-value">${fmt(f.bankReceived)}</span></div>
+    <div class="summary-stat amber"><span class="s-label">GST Collected${tip("Each sale's Listing Price already includes GST, and different products can carry a different GST%. For every sale: GST = Listing Price − Listing Price ÷ (1 + that order's GST%), summed across all sales this month.")}</span><span class="s-value">${fmt(f.gstCollected)}</span></div>
+    <div class="summary-stat damaged"><span class="s-label">Product Cost (COGS)${tip("Your purchase price per unit (from Inventory) × quantity sold, for these sales — what the goods themselves cost you.")}</span><span class="s-value">${fmt(f.productCost)}</span></div>
+    <div class="summary-stat remaining"><span class="s-label">Other Expense${tip("Packing, MISC and other flat handling costs on these sale orders.")}</span><span class="s-value">${fmt(f.otherExpenseSales)}</span></div>
+    <div class="summary-stat sold"><span class="s-label">Net Profit (Sales only)${tip("Bank Received − Product Cost − Other Expense, for sales only — before any RTO/Return/Lost/Damage loss or operating expenses are factored in.")}</span><span class="s-value" style="${lossStyle(f.netProfitSales)}">${fmt(f.netProfitSales)}</span></div>
+    <div class="summary-stat gst"><span class="s-label">Profit Margin (Sales)${tip("Net Profit (Sales only) ÷ Bank Received (Sales) × 100.")}</span><span class="s-value">${f.salesMargin!=null ? f.salesMargin.toFixed(1)+"%" : "—"}</span></div>
+  `;
+
+  document.getElementById("salesReportLossGrid").innerHTML = `
+    <div class="summary-stat remaining"><span class="s-label">RTO Orders${tip("Count of orders that came back as RTO (RTO + RTO_LOCKED) this month.")}</span><span class="s-value">${f.rto.count}</span></div>
+    <div class="summary-stat grandtotal"><span class="s-label">RTO Loss${tip("For RTO orders the product itself isn't lost, only the packing/handling cost and reverse shipping are — this is Settlement Received minus that Other Expense, summed across this month's RTO orders.")}</span><span class="s-value" style="${lossStyle(f.rto.loss)}">${fmt(f.rto.loss)}</span></div>
+    <div class="summary-stat remaining"><span class="s-label">Customer Return Orders${tip("Count of orders the customer returned this month.")}</span><span class="s-value">${f.custReturn.count}</span></div>
+    <div class="summary-stat grandtotal"><span class="s-label">Customer Return Loss${tip("Same idea as RTO Loss — Settlement Received minus packing/handling Other Expense, for this month's Customer Return orders.")}</span><span class="s-value" style="${lossStyle(f.custReturn.loss)}">${fmt(f.custReturn.loss)}</span></div>
+    <div class="summary-stat remaining"><span class="s-label">Lost Orders${tip("Count of orders marked Lost (missing in transit / never settled properly) this month.")}</span><span class="s-value">${f.lost.count}</span></div>
+    <div class="summary-stat grandtotal"><span class="s-label">Lost Order Loss${tip("Settlement Received minus Other Expense, for this month's Lost orders.")}</span><span class="s-value" style="${lossStyle(f.lost.loss)}">${fmt(f.lost.loss)}</span></div>
+    <div class="summary-stat damaged"><span class="s-label">Item Damage Loss${tip("Every time the Damaged count on an Inventory item is increased, it's logged with that day's date and valued at (purchase price + GST paid) per unit. This totals every damage entry logged inside this month — see the table below for each entry.")}</span><span class="s-value">${fmt(Math.max(f.damageLoss,0))}</span></div>
+    <div class="summary-stat amber" style="grid-column:1 / -1;"><span class="s-label">Total Loss (RTO + Return + Lost + Damage)${tip("−RTO Loss −Customer Return Loss −Lost Order Loss +Item Damage Loss — every rupee this month's returns, lost parcels and damaged stock cost the business, combined into one number.")}</span><span class="s-value" style="${lossStyle(-f.totalLossAmt)}">${fmt(f.totalLossAmt)}</span></div>
+  `;
+
+  document.getElementById("salesReportBottomGrid").innerHTML = `
+    <div class="summary-stat remaining"><span class="s-label">Operating Expenses${tip("Every expense logged in the Expenses tab with a date inside this month (rent, salaries, ads, etc.).")}</span><span class="s-value">${fmt(f.operatingExpense)}</span></div>
+    <div class="summary-stat grandtotal"><span class="s-label">Net Business Result — this month${tip("Net Profit (Sales only) − Total Loss (RTO+Return+Lost+Damage) − Operating Expenses. Positive means the business made money this month overall; negative means it lost money overall, once every kind of loss and every expense is counted.")}</span><span class="s-value" style="${lossStyle(f.bottomLine)}; font-size:16px;">${fmt(f.bottomLine)}</span></div>
+    <div class="summary-stat gst"><span class="s-label">Overall Margin %${tip("Net Business Result ÷ Bank Received (Sales) × 100.")}</span><span class="s-value">${f.bottomMargin!=null ? f.bottomMargin.toFixed(1)+"%" : "—"}</span></div>
+  `;
+
+  document.getElementById("salesReportTopProductsBody").innerHTML = f.topProducts.map(p=>
+    `<tr><td>${esc(p.name)}</td><td class="num-cell">${p.orders}</td><td class="num-cell">${p.qty}</td><td class="num-cell">${fmt(p.revenue)}</td></tr>`
+  ).join("") || `<tr><td colspan="4" style="text-align:center; color:var(--ink-soft); padding:18px;">No sales in this month</td></tr>`;
+
+  const sortedDamage = f.damageRows.slice().sort((a,b)=> (b.date||"").localeCompare(a.date||""));
+  document.getElementById("salesReportDamageBody").innerHTML = sortedDamage.map(d=>
+    `<tr><td>${fmtDateFull(d.date)}</td><td>${esc(d.itemName)}</td><td class="num-cell">${d.qty}</td><td class="num-cell">${fmt(d.costPerUnit)}</td><td class="num-cell" style="${d.loss>=0?'color:var(--red); font-weight:600;':''}">${fmt(d.loss)}</td></tr>`
+  ).join("") || `<tr><td colspan="5" style="text-align:center; color:var(--ink-soft); padding:18px;">No damaged stock logged in this month</td></tr>`;
+}
+document.getElementById("salesReportMonth").addEventListener("change", (e)=>{ salesReportMonth = e.target.value; renderSalesReport(); });
+document.getElementById("salesReportExportBtn").addEventListener("click", ()=>{
+  const f = computeSalesReportFigures();
+  const label = monthLabelOf(salesReportMonth).replace(/\s+/g,"_");
+  const wb = XLSX.utils.book_new();
+
+  // ---- Sheet 1: Summary ----
+  const aoaSummary = [
+    [`Monthly Sales & Business Report — ${monthLabelOf(salesReportMonth)}`],
+    [],
+    ["SALES (completed & paid only)"],
+    ["Orders (Sales)", f.salesOrdersCount],
+    ["Items Sold", f.itemsSold],
+    ["Bank Received (Sales) (₹)", +f.bankReceived.toFixed(2)],
+    ["GST Collected (₹)", +f.gstCollected.toFixed(2)],
+    ["Product Cost / COGS (₹)", +f.productCost.toFixed(2)],
+    ["Other Expense (₹)", +f.otherExpenseSales.toFixed(2)],
+    ["Net Profit — Sales only (₹)", +f.netProfitSales.toFixed(2)],
+    ["Profit Margin — Sales (%)", f.salesMargin!=null ? +f.salesMargin.toFixed(2) : ""],
+    [],
+    ["LOSSES"],
+    ["RTO Orders", f.rto.count],
+    ["RTO Settlement (₹)", +f.rto.settlement.toFixed(2)],
+    ["RTO Loss (₹)", +f.rto.loss.toFixed(2)],
+    ["Customer Return Orders", f.custReturn.count],
+    ["Customer Return Settlement (₹)", +f.custReturn.settlement.toFixed(2)],
+    ["Customer Return Loss (₹)", +f.custReturn.loss.toFixed(2)],
+    ["Lost Orders", f.lost.count],
+    ["Lost Settlement (₹)", +f.lost.settlement.toFixed(2)],
+    ["Lost Order Loss (₹)", +f.lost.loss.toFixed(2)],
+    ["Damaged Units", f.damagedUnits],
+    ["Item Damage Loss (₹)", +Math.max(f.damageLoss,0).toFixed(2)],
+    ["Total Loss — RTO + Return + Lost + Damage (₹)", +f.totalLossAmt.toFixed(2)],
+    [],
+    ["BOTTOM LINE"],
+    ["Operating Expenses (₹)", +f.operatingExpense.toFixed(2)],
+    ["Net Business Result — this month (₹)", +f.bottomLine.toFixed(2)],
+    ["Overall Margin (%)", f.bottomMargin!=null ? +f.bottomMargin.toFixed(2) : ""],
+  ];
+  const wsSummary = XLSX.utils.aoa_to_sheet(aoaSummary);
+  wsSummary["!cols"] = [{wch:42},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+
+  // ---- Sheet 2: Sale orders (detail) ----
+  const aoaSales = [["Dispatch Date","Order No.","Product","Qty","Listing Price (₹)","GST %","GST Amount (₹)","Settlement (₹)","Product Cost (₹)","Other Expense (₹)","Net Profit (₹)"]];
+  f.salesFigures.slice().sort((a,b)=> (a.pd.dispatchDate||"").localeCompare(b.pd.dispatchDate||"")).forEach(sf=>{
+    const lp = sf.pd.listingPrice, g = sf.pd.gstPct;
+    const gstAmt = (lp!=null && g!=null) ? (lp - lp/(1+g/100)) : "";
+    aoaSales.push([sf.pd.dispatchDate||"", sf.o.id, sf.o.product.trim(), sf.rf.qty, lp!=null?lp:"", g!=null?g:"", gstAmt!==""?+gstAmt.toFixed(2):"", +(sf.rf.settlementAmt||0).toFixed(2), +(sf.rf.pricePerUnitTotal||0).toFixed(2), +(sf.rf.otherExpenseVal||0).toFixed(2), +(sf.rf.netProfitVal||0).toFixed(2)]);
+  });
+  const wsSales = XLSX.utils.aoa_to_sheet(aoaSales);
+  wsSales["!cols"] = [{wch:12},{wch:16},{wch:26},{wch:6},{wch:12},{wch:7},{wch:12},{wch:12},{wch:12},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, wsSales, "Sales");
+
+  // ---- Sheet 3: Losses (RTO / Return / Lost order-level, + damage log) ----
+  const aoaLoss = [["Type","Order No. / Item","Product","Qty","Settlement / Cost (₹)","Loss (₹)","Date"]];
+  f.monthOrders.filter(o=>SALES_REPORT_LOSS_STATUSES.includes(getPaymentStatus(o))).forEach(o=>{
+    const rf = getPaymentRowFigures(o);
+    aoaLoss.push([getPaymentStatus(o), o.id, o.product.trim(), rf.qty, +(rf.settlementAmt||0).toFixed(2), +(rf.netProfitVal||0).toFixed(2), o.paymentDate||o.date||""]);
+  });
+  f.damageRows.forEach(d=>{
+    aoaLoss.push(["Damaged Stock", d.invId, d.itemName, d.qty, +d.costPerUnit.toFixed(2), +d.loss.toFixed(2), d.date]);
+  });
+  const wsLoss = XLSX.utils.aoa_to_sheet(aoaLoss);
+  wsLoss["!cols"] = [{wch:16},{wch:16},{wch:26},{wch:6},{wch:16},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, wsLoss, "Losses");
+
+  // ---- Sheet 4: Top products ----
+  const aoaTop = [["Product","Orders","Qty Sold","Revenue (₹)"]];
+  f.topProducts.forEach(p=> aoaTop.push([p.name, p.orders, p.qty, +p.revenue.toFixed(2)]));
+  const wsTop = XLSX.utils.aoa_to_sheet(aoaTop);
+  wsTop["!cols"] = [{wch:28},{wch:8},{wch:10},{wch:14}];
+  XLSX.utils.book_append_sheet(wb, wsTop, "Top Products");
+
+  XLSX.writeFile(wb, `Monthly_Sales_Report_${label}.xlsx`);
 });
 
 /* ===================== LOG ORDER FORM ===================== */
@@ -5706,7 +6108,7 @@ function collectPersistedState(){
     listing, nextListingId,
     expenses,
     businessProfile, bankNumberRevealed,
-    orders, returnRecords,
+    orders, returnRecords, damageLog, nextDamageLogId,
     importLog, importLogSeq,
     seenOrdersCount, seenLowStockIds: Array.from(seenLowStockIds),
     defaultWeightBucketIdx,
@@ -5788,6 +6190,8 @@ function applyPersistedJSON(raw){
       }
     });
     if(Array.isArray(data.returnRecords)) returnRecords = data.returnRecords;
+    if(Array.isArray(data.damageLog)) damageLog = data.damageLog;
+    if(typeof data.nextDamageLogId==="number") nextDamageLogId = data.nextDamageLogId;
     if(Array.isArray(data.importLog)) importLog = data.importLog;
     if(typeof data.importLogSeq==="number") importLogSeq = data.importLogSeq;
     if(typeof data.seenOrdersCount==="number") seenOrdersCount = data.seenOrdersCount;
@@ -5824,6 +6228,8 @@ function renderAll(){
   renderReturns();
   renderPayments();
   renderPL();
+  renderPurchaseReport();
+  renderSalesReport();
   renderBusinessProfile();
   renderImportResult();
   persistState();
