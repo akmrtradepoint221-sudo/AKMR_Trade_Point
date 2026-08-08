@@ -401,6 +401,7 @@ tbody tr.clickable{cursor:pointer;}
 .il-clear-row{text-align:right; padding-bottom:6px;}
 .il-clear-all{background:none; border:none; cursor:pointer; font-size:11px; font-weight:700; color:var(--ink-soft); text-decoration:underline; padding:0;}
 .il-clear-all:hover{color:var(--red);}
+.il-clear-all.confirm{color:var(--red); text-decoration:none; background:var(--red-bg); padding:4px 8px; border-radius:5px;}
 .status-pill.outofstock{background:var(--maroon-deep); color:#fff;}
 .status-pill.available{background:var(--forest-bg); color:var(--forest);}
 .status-pill.qcerror{background:var(--red-bg); color:var(--red);}
@@ -5854,20 +5855,15 @@ function logImportResult(entry){
    after a few seconds) rather than window.confirm() — native dialogs are silently blocked in
    sandboxed/preview environments, which made the button look broken there. */
 let pendingDeleteIds = new Set();
-function deleteImportLogEntry(id){
-  const entry = importLog.find(e=>e.id===id);
+/* Performs the actual data-undo for one import-log entry (removing/reverting the orders,
+   return records, or payment fields it created/touched) — shared by both the single-row delete
+   button and "Clear all history" below, so bulk-clearing can no longer leave stale data behind
+   the way it used to. Returns a stats object describing what happened; callers are responsible
+   for removing the entry from importLog and re-rendering. */
+function applyImportEntryDeletion(entry){
   const isOrdersDelete = entry && !entry.error && entry.kind==="orders" && entry.stats && entry.stats.orderIds && entry.stats.orderIds.length;
   const isReturnsDelete = entry && !entry.error && entry.kind==="returns" && entry.stats && entry.stats.recordIds && entry.stats.recordIds.length;
   const isPaymentsDelete = entry && !entry.error && entry.kind==="payments" && entry.stats && entry.stats.orderIds && entry.stats.orderIds.length;
-  const isDestructive = isOrdersDelete || isReturnsDelete || isPaymentsDelete;
-
-  if(isDestructive && !pendingDeleteIds.has(id)){
-    pendingDeleteIds.add(id);
-    renderImportResult();
-    setTimeout(()=>{ if(pendingDeleteIds.has(id)){ pendingDeleteIds.delete(id); renderImportResult(); } }, 4000);
-    return;
-  }
-  pendingDeleteIds.delete(id);
 
   if(isOrdersDelete){
     let removed=0, kept=0;
@@ -5878,10 +5874,7 @@ function deleteImportLogEntry(id){
         else kept++;
       }
     });
-    inventory.forEach(recomputeInvFields);
-    renderAll();
-    populateProductSelect();
-    lastDeleteNotice = {kind:"orders", filename:entry.filename, removed, kept};
+    return {kind:"orders", filename:entry.filename, removed, kept};
   } else if(isReturnsDelete){
     let removed=0, kept=0;
     entry.stats.recordIds.forEach(rid=>{
@@ -5891,8 +5884,7 @@ function deleteImportLogEntry(id){
         else kept++;
       }
     });
-    renderAll();
-    lastDeleteNotice = {kind:"returns", filename:entry.filename, removed, kept};
+    return {kind:"returns", filename:entry.filename, removed, kept};
   } else if(isPaymentsDelete){
     let removed=0, reverted=0, kept=0;
     entry.stats.orderIds.forEach(oid=>{
@@ -5906,13 +5898,65 @@ function deleteImportLogEntry(id){
         }
       } else if(idx>-1){ kept++; }
     });
+    return {kind:"payments", filename:entry.filename, removed, reverted, kept};
+  }
+  return null;
+}
+function deleteImportLogEntry(id){
+  const entry = importLog.find(e=>e.id===id);
+  const isDestructive = entry && !entry.error && (
+    (entry.kind==="orders" && entry.stats && entry.stats.orderIds && entry.stats.orderIds.length) ||
+    (entry.kind==="returns" && entry.stats && entry.stats.recordIds && entry.stats.recordIds.length) ||
+    (entry.kind==="payments" && entry.stats && entry.stats.orderIds && entry.stats.orderIds.length)
+  );
+
+  if(isDestructive && !pendingDeleteIds.has(id)){
+    pendingDeleteIds.add(id);
+    renderImportResult();
+    setTimeout(()=>{ if(pendingDeleteIds.has(id)){ pendingDeleteIds.delete(id); renderImportResult(); } }, 4000);
+    return;
+  }
+  pendingDeleteIds.delete(id);
+
+  const result = applyImportEntryDeletion(entry);
+  if(result){
     inventory.forEach(recomputeInvFields);
     renderAll();
     populateProductSelect();
-    lastDeleteNotice = {kind:"payments", filename:entry.filename, removed, reverted, kept};
+    lastDeleteNotice = result;
   }
 
   importLog = importLog.filter(e=>e.id!==id);
+  renderImportResult();
+  persistState();
+}
+/* "Clear all history" for a tab used to only clear the log lines, silently leaving the imported
+   data behind — that's the bug being fixed here. It now runs the same real undo as the per-row
+   delete button for every entry of that kind, with its own click-again-to-confirm state since
+   clearing several files' worth of data at once is even more consequential than deleting one. */
+let pendingClearAllKinds = new Set();
+function clearAllImportHistory(kind){
+  const entries = importLog.filter(e=> e.intendedKind===kind);
+  if(!pendingClearAllKinds.has(kind)){
+    pendingClearAllKinds.add(kind);
+    renderImportResult();
+    setTimeout(()=>{ if(pendingClearAllKinds.has(kind)){ pendingClearAllKinds.delete(kind); renderImportResult(); } }, 4000);
+    return;
+  }
+  pendingClearAllKinds.delete(kind);
+
+  let removed=0, reverted=0, kept=0;
+  entries.forEach(entry=>{
+    const result = applyImportEntryDeletion(entry);
+    if(result){ removed += result.removed||0; reverted += result.reverted||0; kept += result.kept||0; }
+  });
+  if(removed || reverted || kept){
+    inventory.forEach(recomputeInvFields);
+    renderAll();
+    populateProductSelect();
+    lastDeleteNotice = {kind, filename: entries.length>1 ? `${entries.length} files` : (entries[0]?.filename||""), removed, reverted, kept};
+  }
+  importLog = importLog.filter(e=> e.intendedKind!==kind);
   renderImportResult();
   persistState();
 }
@@ -5970,17 +6014,16 @@ function renderImportResult(){
       return;
     }
     el.classList.add("show");
-    const clearBtn = entries.length>1 ? `<div class="il-clear-row"><button class="il-clear-all" data-clear-kind="${kind}">Clear all history</button></div>` : "";
+    const clearPending = pendingClearAllKinds.has(kind);
+    const clearBtn = entries.length>1
+      ? `<div class="il-clear-row"><button class="il-clear-all ${clearPending?'confirm':''}" data-clear-kind="${kind}">${clearPending ? "⚠ Click again to confirm — removes the data too" : "Clear all history"}</button></div>`
+      : "";
     el.innerHTML = noticeHtml + clearBtn + entries.slice(0,8).map(buildImportLogRow).join("");
     el.querySelectorAll(".il-delete").forEach(btn=>{
       btn.addEventListener("click", ()=> deleteImportLogEntry(Number(btn.dataset.logId)));
     });
     const clearAllBtn = el.querySelector(".il-clear-all");
-    if(clearAllBtn) clearAllBtn.addEventListener("click", ()=>{
-      importLog = importLog.filter(e=> e.intendedKind!==kind);
-      renderImportResult();
-      persistState();
-    });
+    if(clearAllBtn) clearAllBtn.addEventListener("click", ()=> clearAllImportHistory(kind));
   };
   renderInto("importResult", ordersOnly, "orders");
   renderInto("importResultPayments", paymentsOnly, "payments");
