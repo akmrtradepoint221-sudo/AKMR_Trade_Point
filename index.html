@@ -437,6 +437,16 @@ tbody tr.clickable{cursor:pointer;}
 .modal-foot{display:flex; justify-content:flex-end; gap:10px; padding:16px 22px; border-top:1px solid var(--line);}
 .modal-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
 .modal-grid .full{grid-column:1 / -1;}
+.combo{position:relative;}
+.combo-input{width:100%; padding-right:30px !important;}
+.combo-arrow{position:absolute; right:11px; top:50%; transform:translateY(-50%); pointer-events:none; color:var(--ink-soft); font-size:10px;}
+.combo-panel{position:absolute; z-index:60; top:calc(100% + 4px); left:0; right:0; max-height:230px; overflow-y:auto; background:var(--panel); border:1px solid var(--line-strong); border-radius:8px; box-shadow:0 12px 30px rgba(0,0,0,0.16); display:none;}
+.combo-panel.show{display:block;}
+.combo-option{padding:9px 12px; font-size:13px; cursor:pointer; display:flex; flex-direction:column; gap:1px;}
+.combo-option:hover, .combo-option.active{background:var(--panel-2);}
+.combo-option .co-main{font-weight:600; color:var(--ink);}
+.combo-option .co-sub{font-size:11px; color:var(--ink-soft);}
+.combo-empty{padding:11px 12px; font-size:12.5px; color:var(--ink-soft); text-align:center;}
 @media (max-width:520px){ .modal-grid{grid-template-columns:1fr;} .modal{width:100%;} }
 .req{color:var(--red); font-weight:700;}
 .opt{color:var(--ink-soft); font-weight:400; text-transform:none; letter-spacing:0; font-size:10.5px;}
@@ -953,7 +963,8 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
 
       <!-- ===================== PAYMENTS ===================== -->
       <div class="view" id="view-payments">
-        <div style="display:flex; justify-content:flex-end; margin-bottom:10px;">
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
+          <button class="icon-btn" id="openAddPaymentBtn" title="Add a payment manually" style="width:34px; height:34px; font-size:16px;">➕</button>
           <button class="icon-btn" id="openPaymentsImportBtn" title="Import Meesho payments" style="width:34px; height:34px; font-size:16px;">💰</button>
         </div>
         <div class="card" style="margin-bottom:16px;">
@@ -1139,6 +1150,46 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
         <input type="file" id="importFilePayments" accept=".csv,.xlsx,.xls">
       </label>
       <div class="import-result" id="importResultPayments"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ADD PAYMENT MANUALLY MODAL ===================== -->
+<div class="modal-overlay" id="addPaymentModalOverlay">
+  <div class="modal" id="addPaymentModal" role="dialog" aria-modal="true" aria-labelledby="addPaymentModalTitle">
+    <div class="modal-head">
+      <h4 id="addPaymentModalTitle">Add payment manually</h4>
+      <button class="drawer-close" id="addPaymentModalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="subtle-note" style="padding:0 0 12px;">For a single order — has the same effect as importing the Payments file, just for one order at a time. If the Sub Order No isn't in your Orders list yet, this creates it.</p>
+      <div class="modal-grid">
+        <div class="full">
+          <label>Sub Order No <span class="req">*</span></label>
+          <div class="combo" id="ap-orderid-combo">
+            <input type="text" id="ap-orderid" class="combo-input" placeholder="Type or pick an order" autocomplete="off">
+            <span class="combo-arrow">▾</span>
+            <div class="combo-panel" id="ap-orderid-panel"></div>
+          </div>
+          <div class="field-err" id="err-ap-orderid"></div>
+        </div>
+        <div class="full" id="ap-product-wrap" style="display:none;">
+          <label>Product name <span class="req">*</span> <span class="opt">— this Sub Order No isn't in your Orders list yet</span></label>
+          <input type="text" id="ap-product" placeholder="e.g. Green Lakshmi Choker">
+          <div class="field-err" id="err-ap-product"></div>
+        </div>
+        <div id="ap-qty-wrap" style="display:none;"><label>Qty <span class="opt">for the new order</span></label><input type="number" id="ap-qty" min="1" step="1" value="1"></div>
+        <div><label>Payment date <span class="opt">defaults to today</span></label><input type="date" id="ap-date"></div>
+        <div><label>Final Settlement Amount (₹) <span class="req">*</span></label><input type="number" id="ap-settlement" min="0" step="0.01" placeholder="0.00"><div class="field-err" id="err-ap-settlement"></div></div>
+        <div><label>Total Sale Amount (₹) <span class="opt">optional</span></label><input type="number" id="ap-saleamount" min="0" step="0.01" placeholder="0.00"></div>
+        <div><label>Product GST % <span class="opt">optional</span></label><input type="number" id="ap-gstpct" min="0" step="0.01" placeholder="e.g. 3"></div>
+        <div><label>TCS (₹) <span class="opt">optional</span></label><input type="number" id="ap-tcs" step="0.01" placeholder="0.00"></div>
+        <div><label>TDS (₹) <span class="opt">optional</span></label><input type="number" id="ap-tds" step="0.01" placeholder="0.00"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn secondary" id="addPaymentCancel">Cancel</button>
+      <button class="btn" id="addPaymentSave">Save payment</button>
     </div>
   </div>
 </div>
@@ -1388,7 +1439,13 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
     <div class="modal-body">
       <div class="modal-grid">
         <div class="full"><label>Material name <span class="req">*</span></label><input type="text" id="r-name" placeholder="e.g. Bubble wrap (9m)"><div class="field-err" id="rerr-name"></div></div>
-        <div><label>Category <span class="opt">optional</span></label><input type="text" id="r-category" list="rawCatList" placeholder="e.g. Packaging"><datalist id="rawCatList"></datalist></div>
+        <div><label>Category <span class="opt">optional</span></label>
+          <div class="combo" id="r-category-combo">
+            <input type="text" id="r-category" class="combo-input" placeholder="e.g. Packaging" autocomplete="off">
+            <span class="combo-arrow">▾</span>
+            <div class="combo-panel" id="r-category-panel"></div>
+          </div>
+        </div>
         <div><label>Quantity <span class="req">*</span></label><input type="number" id="r-qty" min="0" step="any" placeholder="0"><div class="field-err" id="rerr-qty"></div></div>
         <div><label>Unit <span class="req">*</span></label><select id="r-unit"><option value="pcs">pcs</option><option value="kg">kg</option><option value="g">g</option><option value="m">meter</option><option value="l">litre</option><option value="ml">ml</option><option value="box">box</option><option value="roll">roll</option></select></div>
         <div><label>Cost / unit (₹) <span class="req">*</span></label><input type="number" id="r-cost" min="0" step="0.01" placeholder="0.00"><div class="field-err" id="rerr-cost"></div></div>
@@ -1417,7 +1474,14 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
         <div><label>Platform</label><select id="o-platform" class="form-select"><option>Meesho</option></select></div>
         <div><label>Order date <span class="req">*</span></label><input type="date" id="o-date"><div class="field-err" id="oerr-date"></div></div>
         <div><label>Status</label><select id="o-status" class="form-select"><option>Pending</option><option>Shipped</option><option>Delivered</option><option>RTO</option><option>RTO_LOCKED</option><option>Customer Return</option><option>Cancelled</option></select></div>
-        <div class="full"><label>Product <span class="req">*</span></label><input type="text" id="o-product" list="orderProductList" placeholder="Type, or pick a catalog item to auto-link cost"><datalist id="orderProductList"></datalist><div class="field-err" id="oerr-product"></div></div>
+        <div class="full"><label>Product <span class="req">*</span></label>
+          <div class="combo" id="o-product-combo">
+            <input type="text" id="o-product" class="combo-input" placeholder="Type, or pick a catalog item to auto-link cost" autocomplete="off">
+            <span class="combo-arrow">▾</span>
+            <div class="combo-panel" id="o-product-panel"></div>
+          </div>
+          <div class="field-err" id="oerr-product"></div>
+        </div>
         <div><label>Quantity <span class="req">*</span></label><input type="number" id="o-qty" min="1" step="1"><div class="field-err" id="oerr-qty"></div></div>
         <div><label>Selling price (₹) <span class="req">*</span></label><input type="number" id="o-sell" min="0" step="0.01"><div class="field-err" id="oerr-sell"></div></div>
         <div><label>Cost / unit (₹) <span class="opt">optional — auto-fills from catalog</span></label><input type="number" id="o-cost" min="0" step="0.01" placeholder="Leave blank if unknown"></div>
@@ -1796,6 +1860,55 @@ function esc(s){ return String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"
    KPI card's number was calculated, and hides again the moment the cursor leaves — pure CSS
    :hover, no JS needed to show/hide it. Drop this right after a card's <span class="s-label">. */
 function tip(text){ return `<span class="stat-tip" tabindex="0">i<span class="stat-tip-box">${esc(text)}</span></span>`; }
+/* Reusable dropdown for a "type or pick" text field — replaces the native <input list> + <datalist>
+   combo, which has no visible arrow/affordance and is unreliable on mobile browsers (iOS Safari in
+   particular often shows no suggestions at all). getOptions(query) must return an array of
+   {value, label?} and is re-run on every keystroke and every time the field is focused/clicked, so
+   it can look at live data (orders, inventory, etc.) rather than a snapshot. Selecting an option, or
+   typing, fires a normal "input" event on the field so any existing listener on it keeps working
+   unchanged. */
+function setupCombobox(inputId, panelId, getOptions){
+  const input = document.getElementById(inputId);
+  const panel = document.getElementById(panelId);
+  if(!input || !panel) return;
+  let activeIdx = -1;
+  function renderOptions(){
+    const opts = getOptions(input.value.trim()) || [];
+    if(!opts.length){
+      panel.innerHTML = `<div class="combo-empty">No matches — you can still type your own value</div>`;
+    } else {
+      panel.innerHTML = opts.map((o,i)=>`<div class="combo-option" data-idx="${i}" data-value="${esc(o.value)}"><span class="co-main">${esc(o.value)}</span>${o.label?`<span class="co-sub">${esc(o.label)}</span>`:""}</div>`).join("");
+    }
+    activeIdx = -1;
+  }
+  function open(){ renderOptions(); panel.classList.add("show"); }
+  function close(){ panel.classList.remove("show"); }
+  function setActive(idx){
+    const items = [...panel.querySelectorAll(".combo-option")];
+    activeIdx = Math.max(0, Math.min(idx, items.length-1));
+    items.forEach((it,i)=> it.classList.toggle("active", i===activeIdx));
+    items[activeIdx] && items[activeIdx].scrollIntoView({block:"nearest"});
+  }
+  input.addEventListener("focus", open);
+  input.addEventListener("click", open);
+  input.addEventListener("input", open);
+  input.addEventListener("keydown", (e)=>{
+    if(e.key==="ArrowDown"){ e.preventDefault(); if(!panel.classList.contains("show")) open(); setActive(activeIdx+1); }
+    else if(e.key==="ArrowUp"){ e.preventDefault(); setActive(activeIdx-1); }
+    else if(e.key==="Enter"){ const items=[...panel.querySelectorAll(".combo-option")]; if(panel.classList.contains("show") && activeIdx>-1 && items[activeIdx]){ e.preventDefault(); items[activeIdx].dispatchEvent(new MouseEvent("mousedown")); } }
+    else if(e.key==="Escape"){ close(); }
+  });
+  panel.addEventListener("mousedown", (e)=>{
+    const opt = e.target.closest(".combo-option");
+    if(!opt) return;
+    e.preventDefault();
+    input.value = opt.dataset.value;
+    input.dispatchEvent(new Event("input", {bubbles:true}));
+    close();
+    input.focus();
+  });
+  document.addEventListener("click", (e)=>{ if(e.target!==input && !panel.contains(e.target)) close(); });
+}
 /* Positions a .stat-tip-box (position:fixed) just above its "i" icon, clamped so it never runs
    off the left/right edge of the viewport, and points the little arrow back at the icon even
    after that clamping shifts the box sideways. Runs on hover-start and on keyboard focus. */
@@ -1891,6 +2004,90 @@ function openReverseFeeModal(){ document.getElementById("reverseFeeModalOverlay"
 function closeReverseFeeModal(){ document.getElementById("reverseFeeModalOverlay").classList.remove("show"); }
 function openPaymentsImportModal(){ document.getElementById("paymentsImportModalOverlay").classList.add("show"); }
 function closePaymentsImportModal(){ document.getElementById("paymentsImportModalOverlay").classList.remove("show"); }
+
+/* ---- Add Payment Manually — the single-order equivalent of importing the Payments file. Reuses
+   the exact same fields/effects processMeeshoPaymentRows applies per row (bank, paymentDate, fee,
+   paymentDetails, paymentSource, status resolution), just entered by hand for one order instead
+   of a whole spreadsheet. If the Sub Order No doesn't already exist, it creates a payment-only
+   stub order (paymentOnly:true) exactly like an unmatched row in the bulk import would. ---- */
+function clearAddPaymentErrors(){
+  ["orderid","product","settlement"].forEach(f=>{
+    const err = document.getElementById("err-ap-"+f);
+    if(err) err.textContent = "";
+    const el = document.getElementById("ap-"+f);
+    if(el) el.classList.remove("invalid");
+  });
+}
+function openAddPaymentModal(){
+  clearAddPaymentErrors();
+  document.getElementById("ap-orderid").value = "";
+  document.getElementById("ap-product").value = "";
+  document.getElementById("ap-qty").value = 1;
+  document.getElementById("ap-date").value = new Date().toISOString().slice(0,10);
+  document.getElementById("ap-settlement").value = "";
+  document.getElementById("ap-saleamount").value = "";
+  document.getElementById("ap-gstpct").value = "";
+  document.getElementById("ap-tcs").value = "";
+  document.getElementById("ap-tds").value = "";
+  document.getElementById("ap-product-wrap").style.display = "none";
+  document.getElementById("ap-qty-wrap").style.display = "none";
+  document.getElementById("addPaymentModalOverlay").classList.add("show");
+  document.getElementById("ap-orderid").focus();
+}
+function closeAddPaymentModal(){ document.getElementById("addPaymentModalOverlay").classList.remove("show"); }
+document.getElementById("ap-orderid").addEventListener("input", (e)=>{
+  const id = e.target.value.trim();
+  const exists = id && orders.some(o=>o.id===id);
+  document.getElementById("ap-product-wrap").style.display = (id && !exists) ? "" : "none";
+  document.getElementById("ap-qty-wrap").style.display = (id && !exists) ? "" : "none";
+});
+document.getElementById("addPaymentSave").addEventListener("click", ()=>{
+  clearAddPaymentErrors();
+  const num = (v)=>{ if(v===""||v==null) return null; const n=parseFloat(v); return isNaN(n)?null:n; };
+  const orderId = document.getElementById("ap-orderid").value.trim();
+  let hasError = false;
+  if(!orderId){ document.getElementById("err-ap-orderid").textContent = "Sub Order No is required."; document.getElementById("ap-orderid").classList.add("invalid"); hasError = true; }
+  const existing = orderId ? orders.find(o=>o.id===orderId) : null;
+  const productRaw = document.getElementById("ap-product").value.trim();
+  if(orderId && !existing && !productRaw){ document.getElementById("err-ap-product").textContent = "Product name is required for a new order."; document.getElementById("ap-product").classList.add("invalid"); hasError = true; }
+  const settlement = num(document.getElementById("ap-settlement").value);
+  if(settlement===null || settlement<0){ document.getElementById("err-ap-settlement").textContent = "Enter a valid settlement amount (0 or more)."; document.getElementById("ap-settlement").classList.add("invalid"); hasError = true; }
+  if(hasError) return;
+
+  const paymentDate = document.getElementById("ap-date").value || new Date().toISOString().slice(0,10);
+  const saleAmount = num(document.getElementById("ap-saleamount").value);
+  const gstPct = num(document.getElementById("ap-gstpct").value);
+  const tcs = num(document.getElementById("ap-tcs").value);
+  const tds = num(document.getElementById("ap-tds").value);
+  const fee = saleAmount!=null ? +(saleAmount - settlement).toFixed(2) : null;
+  const manualSource = "Manual entry";
+  const rawDetails = { saleAmount, settlementAmount: settlement, gstPct, tcs, tds };
+  const providedDetails = Object.fromEntries(Object.entries(rawDetails).filter(([,v])=> v!=null));
+
+  if(existing){
+    const idx = orders.findIndex(o=>o.id===orderId);
+    const keepStatus = ["Customer Return","RTO","RTO_LOCKED"].includes(orders[idx].status);
+    const nextStatus = keepStatus ? orders[idx].status : resolveOrderStatus(orders[idx].status==="Pending"?"Shipped":orders[idx].status, settlement);
+    orders[idx] = {...orders[idx],
+      bank: settlement, paymentDate, fee: fee!=null ? fee : orders[idx].fee, status: nextStatus,
+      paymentDetails: {...(orders[idx].paymentDetails||{}), ...providedDetails}, paymentSource: manualSource,
+    };
+  } else {
+    const qty = Math.max(1, parseInt(document.getElementById("ap-qty").value)||1);
+    const resolved = matchProductOrCombo(null, productRaw);
+    const product = resolved.matched ? resolved.name : productRaw;
+    orders.push({
+      id: orderId, platform:"Meesho", date: paymentDate, product, qty,
+      sell: saleAmount!=null ? saleAmount : settlement, cost: resolved.cost,
+      status: resolveOrderStatus("Delivered", settlement), fee: fee!=null ? fee : 0, bank: settlement, paymentDate,
+      source: manualSource, paymentDetails: providedDetails, paymentOnly: true, paymentSource: manualSource,
+    });
+  }
+  inventory.forEach(recomputeInvFields);
+  closeAddPaymentModal();
+  renderAll();
+  populateProductSelect();
+});
 function openAddOrderModal(){ document.getElementById("addOrderModalOverlay").classList.add("show"); }
 function closeAddOrderModal(){ document.getElementById("addOrderModalOverlay").classList.remove("show"); }
 document.getElementById("openAddOrderBtn").addEventListener("click", openAddOrderModal);
@@ -1908,6 +2105,31 @@ document.getElementById("reverseFeeModalOverlay").addEventListener("click", (e)=
 document.getElementById("openPaymentsImportBtn").addEventListener("click", openPaymentsImportModal);
 document.getElementById("paymentsImportModalClose").addEventListener("click", closePaymentsImportModal);
 document.getElementById("paymentsImportModalOverlay").addEventListener("click", (e)=>{ if(e.target.id==="paymentsImportModalOverlay") closePaymentsImportModal(); });
+document.getElementById("openAddPaymentBtn").addEventListener("click", openAddPaymentModal);
+setupCombobox("ap-orderid", "ap-orderid-panel", (q)=>{
+  const query = q.toLowerCase();
+  return orders
+    .filter(o=> !query || o.id.toLowerCase().includes(query) || o.product.trim().toLowerCase().includes(query))
+    .slice(0, 60)
+    .map(o=>({value:o.id, label:`${o.product.trim()} — ${o.status}`}));
+});
+setupCombobox("o-product", "o-product-panel", (q)=>{
+  const query = q.toLowerCase();
+  return inventory
+    .filter(i=> !query || i.name.trim().toLowerCase().includes(query))
+    .slice(0, 60)
+    .map(i=>({value:i.name.trim()}));
+});
+setupCombobox("r-category", "r-category-panel", (q)=>{
+  const query = q.toLowerCase();
+  const cats = [...new Set(rawMaterials.map(m=>m.category).filter(Boolean))].sort();
+  return cats
+    .filter(c=> !query || c.toLowerCase().includes(query))
+    .map(c=>({value:c}));
+});
+document.getElementById("addPaymentModalClose").addEventListener("click", closeAddPaymentModal);
+document.getElementById("addPaymentCancel").addEventListener("click", closeAddPaymentModal);
+document.getElementById("addPaymentModalOverlay").addEventListener("click", (e)=>{ if(e.target.id==="addPaymentModalOverlay") closeAddPaymentModal(); });
 document.getElementById("menuToggle").addEventListener("click", ()=>{ document.getElementById("sidebar").classList.add("open"); document.getElementById("sidebarOverlay").classList.add("show"); });
 document.getElementById("sidebarOverlay").addEventListener("click", ()=>{ document.getElementById("sidebar").classList.remove("open"); document.getElementById("sidebarOverlay").classList.remove("show"); });
 
@@ -3606,7 +3828,6 @@ function populateRawCatFilter(){
   const current = sel.value || "all";
   sel.innerHTML = `<option value="all">All categories</option>` + cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
   sel.value = cats.includes(current) ? current : "all";
-  document.getElementById("rawCatList").innerHTML = cats.map(c=>`<option value="${esc(c)}">`).join("");
 }
 
 function renderRawMaterials(){
@@ -5283,13 +5504,9 @@ function clearOrderModalErrors(){
   ["id","date","product","qty","sell"].forEach(k=>{ const el=document.getElementById("oerr-"+k); if(el) el.textContent=""; });
   ["o-id","o-date","o-product","o-qty","o-sell"].forEach(k=>{ const el=document.getElementById(k); if(el) el.classList.remove("invalid"); });
 }
-function populateOrderProductList(){
-  document.getElementById("orderProductList").innerHTML = inventory.map(i=>`<option value="${esc(i.name.trim())}">`).join("");
-}
 function openOrderModal(id){
   editingOrderId = id || null;
   clearOrderModalErrors();
-  populateOrderProductList();
   const o = id ? orders.find(x=>x.id===id) : null;
   document.getElementById("orderModalTitle").textContent = o ? "Edit Order" : "Add Order";
   document.getElementById("o-id").value = o ? o.id : "";
