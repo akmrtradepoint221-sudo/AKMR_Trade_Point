@@ -521,6 +521,9 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
 .summary-stat.grandtotal{background:var(--panel-2);}
 .summary-stat.amber::before{background:var(--amber);}
 .summary-stat.amber .s-value{color:var(--amber);}
+#stockSummaryGrid{grid-template-columns:repeat(4,1fr);}
+@media (max-width:900px){ #stockSummaryGrid{grid-template-columns:repeat(2,1fr);} }
+@media (max-width:560px){ #stockSummaryGrid{grid-template-columns:1fr;} }
 #paymentsKpiStrip{grid-template-columns:repeat(6,1fr);}
 @media (max-width:1100px){ #paymentsKpiStrip{grid-template-columns:repeat(4,1fr);} }
 @media (max-width:900px){ #paymentsKpiStrip{grid-template-columns:repeat(3,1fr);} }
@@ -800,7 +803,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
           </div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th style="width:30px;"><input type="checkbox" id="inventorySelectAllCb" title="Select all"></th><th class="inv-photo-cell">Photo</th><th data-sort="name">Product <span class="sort-ic">↕</span></th><th>HSN</th><th data-sort="purchaseDate">Purchase date <span class="sort-ic">↕</span></th><th data-sort="pricePerUnit" style="text-align:right;">Price per Unit <span class="sort-ic">↕</span></th><th data-sort="totalReceived" style="text-align:right;">Total Purchased <span class="sort-ic">↕</span></th><th data-sort="purchasePrice" style="text-align:right;">Purchase price <span class="sort-ic">↕</span></th><th data-sort="gstPaid" style="text-align:right;">GST paid <span class="sort-ic">↕</span></th><th data-sort="totalPurchase" style="text-align:right;">Total purchase <span class="sort-ic">↕</span></th><th data-sort="qty" style="text-align:right;">Total In Stock <span class="sort-ic">↕</span></th><th>Stock level</th><th data-sort="sold" style="text-align:right;">Sold <span class="sort-ic">↕</span></th><th data-sort="returned" style="text-align:right;">Returned</th><th style="text-align:right;">Damaged</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
+              <thead><tr><th style="width:30px;"><input type="checkbox" id="inventorySelectAllCb" title="Select all"></th><th class="inv-photo-cell">Photo</th><th data-sort="name">Product <span class="sort-ic">↕</span></th><th>HSN</th><th data-sort="purchaseDate">Purchase date <span class="sort-ic">↕</span></th><th data-sort="pricePerUnit" style="text-align:right;">Price per Unit <span class="sort-ic">↕</span></th><th data-sort="totalReceived" style="text-align:right;">Total Purchased <span class="sort-ic">↕</span></th><th data-sort="purchasePrice" style="text-align:right;">Purchase price <span class="sort-ic">↕</span></th><th data-sort="gstPaid" style="text-align:right;">GST paid <span class="sort-ic">↕</span></th><th data-sort="shippingCost" style="text-align:right;">Shipping <span class="sort-ic">↕</span></th><th data-sort="totalPurchase" style="text-align:right;">Total purchase <span class="sort-ic">↕</span></th><th data-sort="qty" style="text-align:right;">Total In Stock <span class="sort-ic">↕</span></th><th>Stock level</th><th data-sort="sold" style="text-align:right;">Sold <span class="sort-ic">↕</span></th><th data-sort="returned" style="text-align:right;">Returned</th><th style="text-align:right;">Damaged</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
               <tbody id="inventoryBody"></tbody>
               <tfoot id="inventoryFootWrap"></tfoot>
             </table>
@@ -865,6 +868,10 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
                 <th>Unit</th>
                 <th data-sort="costPerPiece" style="text-align:right;">Cost / unit <span class="sort-ic">↕</span></th>
                 <th data-sort="totalCost" style="text-align:right;">Total cost <span class="sort-ic">↕</span></th>
+                <th data-sort="gstPct" style="text-align:right;">GST % <span class="sort-ic">↕</span></th>
+                <th data-sort="gstAmount" style="text-align:right;">GST amount <span class="sort-ic">↕</span></th>
+                <th data-sort="rounding" style="text-align:right;">Rounding <span class="sort-ic">↕</span></th>
+                <th data-sort="finalAmount" style="text-align:right;">Final amount <span class="sort-ic">↕</span></th>
                 <th data-sort="purchaseDate">Purchase date <span class="sort-ic">↕</span></th>
                 <th>Supplier / details</th>
                 <th style="text-align:right;">Actions</th>
@@ -1351,7 +1358,7 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
       <div class="field-err" id="err-listing-comp"></div>
 
       <div class="modal-grid" style="margin-top:16px;">
-        <div><label>Packing (₹)</label><input type="number" id="l-packing" min="0" step="0.01" value="20"></div>
+        <div><label>Packing (₹)</label><input type="number" id="l-packing" min="0" step="0.01" value="20"><div id="l-packing-sync-note" style="font-size:11px; color:var(--ink-soft); margin-top:5px; line-height:1.4;"></div></div>
         <div><label>MISC (₹)</label><input type="number" id="l-misc" min="0" step="0.01" value="10"></div>
         <div><label>Profit target (₹) <span class="req">*</span></label><input type="number" id="l-profit" min="0" step="0.01" placeholder="0.00"><div class="field-err" id="err-l-profit"></div></div>
         <div><label>Status</label><select id="l-status"><option value="Available">Available</option><option value="QC Error">QC Error</option><option value="Paused">Paused</option></select></div>
@@ -1449,10 +1456,22 @@ input:focus, select:focus{border-color:var(--gold); background:var(--panel);}
         <div><label>Quantity <span class="req">*</span></label><input type="number" id="r-qty" min="0" step="any" placeholder="0"><div class="field-err" id="rerr-qty"></div></div>
         <div><label>Unit <span class="req">*</span></label><select id="r-unit"><option value="pcs">pcs</option><option value="kg">kg</option><option value="g">g</option><option value="m">meter</option><option value="l">litre</option><option value="ml">ml</option><option value="box">box</option><option value="roll">roll</option></select></div>
         <div><label>Cost / unit (₹) <span class="req">*</span></label><input type="number" id="r-cost" min="0" step="0.01" placeholder="0.00"><div class="field-err" id="rerr-cost"></div></div>
+        <div><label>GST % <span class="opt">optional · default 0%</span></label>
+          <select id="r-gst"><option value="0">0%</option><option value="0.03">3% (CGST 1.5 + SGST 1.5)</option><option value="0.05">5% (CGST 2.5 + SGST 2.5)</option><option value="0.12">12% (CGST 6 + SGST 6)</option><option value="0.18">18% (CGST 9 + SGST 9)</option><option value="0.28">28% (CGST 14 + SGST 14)</option><option value="custom">Custom %…</option></select>
+          <input type="number" id="r-gst-custom" min="0" max="100" step="0.01" placeholder="e.g. 7.5" style="display:none; margin-top:6px;">
+          <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12.3px; color:var(--ink-soft); cursor:pointer; font-weight:400;">
+            <input type="checkbox" id="r-gst2-toggle" style="width:auto; margin:0;"> Add a second GST rate <span class="opt" style="margin-left:0;">(e.g. Cess, or a split invoice line)</span>
+          </label>
+          <div id="r-gst2-wrap" style="display:none; margin-top:6px;">
+            <select id="r-gst2"><option value="0">0%</option><option value="0.03">3% (CGST 1.5 + SGST 1.5)</option><option value="0.05">5% (CGST 2.5 + SGST 2.5)</option><option value="0.12">12% (CGST 6 + SGST 6)</option><option value="0.18">18% (CGST 9 + SGST 9)</option><option value="0.28">28% (CGST 14 + SGST 14)</option><option value="custom">Custom %…</option></select>
+            <input type="number" id="r-gst2-custom" min="0" max="100" step="0.01" placeholder="e.g. 7.5" style="display:none; margin-top:6px;">
+          </div>
+        </div>
+        <div><label>Rounding (₹) <span class="opt">optional · from the invoice's "Round Off" line, can be negative</span></label><input type="number" id="r-rounding" step="0.01" placeholder="0.00"></div>
         <div><label>Purchase date <span class="req">*</span></label><input type="date" id="r-date"><div class="field-err" id="rerr-date"></div></div>
         <div class="full"><label>Supplier / details <span class="opt">optional</span></label><input type="text" id="r-details" placeholder="e.g. Sri Ganesh Packers, Tumkur"></div>
       </div>
-      <p class="subtle-note" style="padding:0;">Total cost is calculated automatically as Quantity × Cost per unit.</p>
+      <p class="subtle-note" style="padding:0;">Total cost = Quantity × Cost per unit. Final amount = Total cost + GST (both rates added together, if a second one is set) + Rounding — matching what your supplier invoice actually charged.</p>
     </div>
     <div class="modal-foot">
       <button class="btn secondary" id="rawModalCancel">Cancel</button>
@@ -1727,7 +1746,8 @@ function calcListingFigures(item){
     const inv = inventory.find(i=>i.id===c.productId);
     return s + invPerPiece(inv) * (c.qty||1);
   }, 0);
-  const subtotal = basePrice + (Number(item.packing)||0) + (Number(item.misc)||0) + (Number(item.profit)||0);
+  const packingInfo = effectivePackingCost(item);
+  const subtotal = basePrice + packingInfo.value + (Number(item.misc)||0) + (Number(item.profit)||0);
   const ret = subtotal * (Number(item.retPct)||0);
   const dmg = subtotal * (Number(item.dmgPct)||0);
   const total = subtotal + ret + dmg;
@@ -1735,7 +1755,7 @@ function calcListingFigures(item){
   const sellingPrice = Math.ceil(total + gst);
   const delivery = DELIVERY_CHARGE;
   const meeshoListedPrice = sellingPrice + delivery;
-  return {basePrice, subtotal, ret, dmg, total, gst, sellingPrice, delivery, meeshoListedPrice};
+  return {basePrice, subtotal, ret, dmg, total, gst, sellingPrice, delivery, meeshoListedPrice, packing: packingInfo.value, packingSynced: packingInfo.synced};
 }
 function listingName(item){
   if(item.name && item.name.trim()) return item.name.trim();
@@ -3104,7 +3124,7 @@ function renderInventory(){
   if(invSearchTerm) list = list.filter(i=>i.name.toLowerCase().includes(invSearchTerm));
   if(invSort.key){
     list.sort((a,b)=>{
-      const map = {name:"name", purchaseDate:"purchaseDate", totalReceived:"totalReceived", qty:"qty", sold:"sold", returned:"returned", purchasePrice:"purchase", gstPaid:"gstPaid", totalPurchase:"totalPurchase", pricePerUnit:"pricePerP"};
+      const map = {name:"name", purchaseDate:"purchaseDate", totalReceived:"totalReceived", qty:"qty", sold:"sold", returned:"returned", purchasePrice:"purchase", gstPaid:"gstPaid", shippingCost:"shippingCost", totalPurchase:"totalPurchase", pricePerUnit:"pricePerP"};
       let av=a[map[invSort.key]], bv=b[map[invSort.key]];
       if(typeof av === "string" || typeof bv === "string") return (av||"").toString().localeCompare((bv||"").toString()) * invSort.dir;
       return ((av||0)-(bv||0)) * invSort.dir;
@@ -3133,7 +3153,7 @@ function renderInventory(){
     return `<tr><td><input type="checkbox" class="row-check" data-row-id="${esc(item.id)}"></td><td class="inv-photo-cell">${photoCell}</td><td>${esc(item.name.trim())}</td><td class="num-cell">${esc(item.hsn)}</td><td>${item.purchaseDate||"—"}</td>
       <td class="num-cell">${fmt(item.pricePerP)}</td>
       <td class="num-cell">${item.totalReceived}</td>
-      <td class="num-cell">${fmt(item.purchase)}</td><td class="num-cell">${fmt(item.gstPaid)}</td><td class="num-cell">${fmt(item.totalPurchase)}</td>
+      <td class="num-cell">${fmt(item.purchase)}</td><td class="num-cell">${fmt(item.gstPaid)}</td><td class="num-cell">${fmt(item.shippingCost||0)}</td><td class="num-cell">${fmt(item.totalPurchase)}</td>
       <td class="num-cell">${item.qty}</td>
       <td><div class="stock-bar-bg"><div class="stock-bar-fill" style="width:${pct}%; background:${level};"></div></div></td>
       <td class="num-cell">${item.sold||0}</td>
@@ -3188,6 +3208,7 @@ function renderInventory(){
   const totalRemaining = inventory.reduce((s,i)=>s+i.qty,0);
   const totalPurchase = inventory.reduce((s,i)=>s+i.purchase,0);
   const totalGst = inventory.reduce((s,i)=>s+i.gstPaid,0);
+  const totalShipping = inventory.reduce((s,i)=>s+(i.shippingCost||0),0);
   const totalAll = inventory.reduce((s,i)=>s+i.totalPurchase,0);
   document.getElementById("stockSummaryGrid").innerHTML = `
     <div class="summary-stat total"><span class="s-label">Total Stock</span><span class="s-value">${totalStock}</span></div>
@@ -3196,12 +3217,13 @@ function renderInventory(){
     <div class="summary-stat remaining"><span class="s-label">Total In Stock</span><span class="s-value">${totalRemaining}</span></div>
     <div class="summary-stat value"><span class="s-label">Purchase Value</span><span class="s-value">${fmt(totalPurchase)}</span></div>
     <div class="summary-stat gst"><span class="s-label">GST Paid</span><span class="s-value">${fmt(totalGst)}</span></div>
+    <div class="summary-stat amber"><span class="s-label">Shipping Paid</span><span class="s-value">${fmt(totalShipping)}</span></div>
     <div class="summary-stat grandtotal"><span class="s-label">Grand Total</span><span class="s-value">${fmt(totalAll)}</span></div>
   `;
 
   /* ---- Professional totals bar ---- */
   document.getElementById("inventoryFootWrap").innerHTML = `
-    <tr><td colspan="15" style="padding:0; border:none;">
+    <tr><td colspan="18" style="padding:0; border:none;">
       <div class="totals-bar">
         <div class="t-label">📋 Grand Total — ${inventory.length} item(s)</div>
         <div class="t-cell"><span class="t-tag">Total Purchased</span><span class="t-num">${totalStock}</span></div>
@@ -3212,6 +3234,7 @@ function renderInventory(){
         <div class="t-cell"><span class="t-tag">Damaged</span><span class="t-num">${totalDamaged}</span></div>
         <div class="t-cell"><span class="t-tag">Purchase</span><span class="t-num">${fmt(totalPurchase)}</span></div>
         <div class="t-cell"><span class="t-tag">GST Paid</span><span class="t-num">${fmt(totalGst)}</span></div>
+        <div class="t-cell"><span class="t-tag">Shipping</span><span class="t-num">${fmt(totalShipping)}</span></div>
         <div class="t-cell highlight"><span class="t-tag">Total Value</span><span class="t-num">${fmt(totalAll)}</span></div>
         <div class="t-cell"></div>
       </div>
@@ -3570,7 +3593,7 @@ function renderListing(){
       <td>${esc(name)}${stockWarn}</td>
       <td><span class="status-pill ${statusKey}">${item.status||"Available"}</span></td>
       <td class="num-cell">${fmt(fig.basePrice)}</td>
-      <td class="num-cell">${fmt(item.packing)}</td>
+      <td class="num-cell" title="${fig.packingSynced ? 'Synced from Packing Cost Calculator' : 'Manual amount — set a packing cost breakdown to sync this'}">${fmt(fig.packing)}${fig.packingSynced ? ' <span style="color:var(--purple);">🔗</span>' : ''}</td>
       <td class="num-cell">${fmt(item.misc)}</td>
       <td class="num-cell">${fmt(item.profit)}</td>
       <td class="num-cell">${fmt(fig.ret)}</td>
@@ -3682,6 +3705,16 @@ function updateListingPreview(){
     gstPct: (parseFloat(document.getElementById("l-gstpct").value)||0)/100,
   };
   const fig = calcListingFigures(draft);
+  const packingInput = document.getElementById("l-packing");
+  const packingNote = document.getElementById("l-packing-sync-note");
+  if(fig.packingSynced){
+    packingInput.value = +fig.packing.toFixed(2);
+    packingInput.disabled = true;
+    packingNote.innerHTML = `🔗 Synced from the Packing Cost Calculator (₹${fmt(fig.packing)}). To change it, edit the material breakdown there — it'll update here and in Payments automatically.`;
+  } else {
+    packingInput.disabled = false;
+    packingNote.innerHTML = `No packing cost saved for this product yet — set one in the Packing Cost Calculator to sync it here automatically, or enter a manual amount.`;
+  }
   document.getElementById("listingPreview").innerHTML = `
     <div class="lp-row"><span>Base cost (from Inventory)</span><span>${fmt(fig.basePrice)}</span></div>
     <div class="lp-row"><span>Subtotal (base + packing + misc + profit)</span><span>${fmt(fig.subtotal)}</span></div>
@@ -3850,20 +3883,27 @@ function renderRawMaterials(){
       <td>${esc(m.unit||"pcs")}</td>
       <td class="num-cell">${fmt(m.costPerPiece)}</td>
       <td class="num-cell">${fmt(m.totalCost)}</td>
+      <td class="num-cell">${m.gstPct2 ? `${+((m.gstPct1||0)*100).toFixed(2)}% + ${+((m.gstPct2||0)*100).toFixed(2)}%` : `${+((m.gstPct||0)*100).toFixed(2)}%`}</td>
+      <td class="num-cell">${fmt(m.gstAmount||0)}</td>
+      <td class="num-cell">${fmt(m.rounding||0)}</td>
+      <td class="num-cell" style="font-weight:600;">${fmt(m.finalAmount!=null?m.finalAmount:m.totalCost)}</td>
       <td>${dateStr}</td>
       <td style="color:var(--ink-soft); font-size:12.3px;">${esc(m.details)||"—"}</td>
       <td><div class="row-actions">
         <button class="icon-btn" title="Edit" data-raw-edit="${m.id}">✎</button>
         <button class="icon-btn danger" title="Delete" data-raw-delete="${m.id}">🗑</button>
       </div></td></tr>`;
-  }).join("") : `<tr><td colspan="10" style="text-align:center; color:var(--ink-soft); padding:26px;">No raw materials match this search/filter.</td></tr>`;
+  }).join("") : `<tr><td colspan="14" style="text-align:center; color:var(--ink-soft); padding:26px;">No raw materials match this search/filter.</td></tr>`;
 
   document.querySelectorAll("#rawMatBody [data-raw-edit]").forEach(b=> b.addEventListener("click", ()=> openRawModal(b.dataset.rawEdit)));
   document.querySelectorAll("#rawMatBody [data-raw-delete]").forEach(b=> b.addEventListener("click", ()=> confirmDeleteRaw(b.dataset.rawDelete)));
 
   const totQty = list.reduce((s,m)=>s+m.qty,0);
   const totCost = list.reduce((s,m)=>s+m.totalCost,0);
-  document.getElementById("rawMatFoot").innerHTML = `<td></td><td>Grand total</td><td></td><td class="num-cell">${totQty}</td><td></td><td></td><td class="num-cell">${fmt(totCost)}</td><td></td><td></td><td></td>`;
+  const totGstAmt = list.reduce((s,m)=>s+(m.gstAmount||0),0);
+  const totRounding = list.reduce((s,m)=>s+(m.rounding||0),0);
+  const totFinal = list.reduce((s,m)=>s+(m.finalAmount!=null?m.finalAmount:m.totalCost),0);
+  document.getElementById("rawMatFoot").innerHTML = `<td></td><td>Grand total</td><td></td><td class="num-cell">${totQty}</td><td></td><td></td><td class="num-cell">${fmt(totCost)}</td><td></td><td class="num-cell">${fmt(totGstAmt)}</td><td class="num-cell">${fmt(totRounding)}</td><td class="num-cell" style="font-weight:700;">${fmt(totFinal)}</td><td></td><td></td><td></td>`;
   wireBulkSelect({
     bodyId:"rawMatBody", selectAllCbId:"rawSelectAllCb", barId:"rawBulkBar", countId:"rawSelectedCount",
     clearBtnId:"rawClearSelectionBtn", deleteBtnId:"rawBulkDeleteBtn",
@@ -3900,6 +3940,32 @@ document.querySelectorAll("#view-rawmat thead th[data-sort]").forEach(th=>{
 /* ===================== PACKING COST CALCULATOR ===================== */
 let pcCurrentProductId = null;
 let pcDraftItems = []; // {material, qty, cost} for the currently selected product, unsaved working copy
+/* The material list from the most recently saved product — reused as the starting point
+   for any product that doesn't have its own saved packing cost yet, so materials don't
+   need to be picked one by one for every single product. */
+let defaultPackingTemplate = (function(){
+  const anyId = Object.keys(packingCosts)[0];
+  return anyId ? packingCosts[anyId].items.map(it=>({...it})) : [];
+})();
+
+/* Total packing cost saved for a product (or null if nothing saved yet for it). */
+function packingCostForProduct(productId){
+  const saved = packingCosts[productId];
+  if(!saved || !saved.items || !saved.items.length) return null;
+  return saved.items.reduce((s,it)=> s + (parseFloat(it.qty)||0)*(parseFloat(it.cost)||0), 0);
+}
+/* The packing cost a listing should use for its real calculations (Listing Price + Payments):
+   sums the saved packing cost of every component product that has one; if none of the listing's
+   components have a saved packing cost yet, falls back to the listing's own manual "packing" number. */
+function effectivePackingCost(item){
+  const comps = item.components || [];
+  let found = false, total = 0;
+  comps.forEach(c=>{
+    const pc = packingCostForProduct(c.productId);
+    if(pc!=null){ found = true; total += pc; }
+  });
+  return { value: found ? total : (Number(item.packing)||0), synced: found };
+}
 
 function populatePackProductSelect(){
   const sel = document.getElementById("pc-product");
@@ -3913,7 +3979,13 @@ function populatePackProductSelect(){
 function loadPackDraftForProduct(id){
   pcCurrentProductId = id;
   const saved = packingCosts[id];
-  pcDraftItems = saved ? saved.items.map(it=>({...it})) : [];
+  if(saved){
+    pcDraftItems = saved.items.map(it=>({...it}));
+  } else {
+    // No breakdown saved for this product yet — start from the shared default
+    // template instead of a blank list, so the usual materials are already there.
+    pcDraftItems = defaultPackingTemplate.map(it=>({...it}));
+  }
 }
 
 function renderPackMaterialPicker(){
@@ -4033,12 +4105,17 @@ document.getElementById("pcClearBtn").addEventListener("click", ()=>{
 document.getElementById("pcSaveBtn").addEventListener("click", ()=>{
   if(!pcCurrentProductId) return;
   if(!pcDraftItems.length){ alert("Add at least one packing material before saving."); return; }
+  const itemsCopy = pcDraftItems.map(it=>({material:it.material, qty:parseFloat(it.qty)||0, cost:parseFloat(it.cost)||0}));
   packingCosts[pcCurrentProductId] = {
-    items: pcDraftItems.map(it=>({material:it.material, qty:parseFloat(it.qty)||0, cost:parseFloat(it.cost)||0})),
+    items: itemsCopy,
     updated: new Date().toISOString().slice(0,10),
   };
-  renderPackHistory();
-  persistState();
+  // Remember this list as the starting point for the next product that hasn't been
+  // customized yet — add/remove here once and it carries forward automatically.
+  defaultPackingTemplate = itemsCopy.map(it=>({...it}));
+  // Listing Price and Payments both read packing cost live from packingCosts,
+  // so a full refresh is what makes "change here → updates there" actually true.
+  renderAll();
   const toast = document.getElementById("toast");
   if(toast){ toast.textContent = "Packing cost saved ✓"; toast.classList.add("show"); setTimeout(()=>{ toast.classList.remove("show"); toast.textContent="Order added ✓"; }, 1800); }
 });
@@ -4090,10 +4167,9 @@ function renderPackHistory(){
     document.getElementById("confirmCancelBtn").addEventListener("click", closeConfirm);
     document.getElementById("confirmDeleteBtn").addEventListener("click", ()=>{
       delete packingCosts[id];
-      if(pcCurrentProductId===id){ pcDraftItems = []; renderPackMaterialPicker(); renderPackItemsBody(); renderPackTotal(); }
+      if(pcCurrentProductId===id){ pcDraftItems = defaultPackingTemplate.map(it=>({...it})); renderPackMaterialPicker(); renderPackItemsBody(); renderPackTotal(); }
       closeConfirm();
-      renderPackHistory();
-      persistState();
+      renderAll();
     });
     document.getElementById("confirmOverlay").classList.add("show");
   }));
@@ -4106,6 +4182,8 @@ function clearRawModalErrors(){
     document.getElementById("rerr-"+f).textContent = "";
     document.getElementById("r-"+f).classList.remove("invalid");
   });
+  document.getElementById("r-gst-custom").classList.remove("invalid");
+  document.getElementById("r-gst2-custom").classList.remove("invalid");
 }
 function openRawModal(id){
   editingRawId = id || null;
@@ -4117,12 +4195,70 @@ function openRawModal(id){
   document.getElementById("r-qty").value = m ? m.qty : "";
   document.getElementById("r-unit").value = m ? (m.unit||"pcs") : "pcs";
   document.getElementById("r-cost").value = m ? m.costPerPiece : "";
+  const rGstSelect = document.getElementById("r-gst");
+  const rGstCustom = document.getElementById("r-gst-custom");
+  const rPresetValues = ["0","0.03","0.05","0.12","0.18","0.28"];
+  const rGstVal = m ? String(m.gstPct||0) : "0";
+  if(rPresetValues.includes(rGstVal)){
+    rGstSelect.value = rGstVal;
+    rGstCustom.style.display = "none";
+    rGstCustom.value = "";
+  } else {
+    rGstSelect.value = "custom";
+    rGstCustom.style.display = "";
+    rGstCustom.value = m ? +((m.gstPct||0)*100).toFixed(2) : "";
+  }
+  document.getElementById("r-rounding").value = m ? (m.rounding || "") : "";
+  const rGst2Toggle = document.getElementById("r-gst2-toggle");
+  const rGst2Select = document.getElementById("r-gst2");
+  const rGst2Custom = document.getElementById("r-gst2-custom");
+  const rGst2Wrap = document.getElementById("r-gst2-wrap");
+  const rGst2Val = m ? String(m.gstPct2||0) : "0";
+  if(m && m.gstPct2){
+    rGst2Toggle.checked = true;
+    rGst2Wrap.style.display = "";
+    if(rPresetValues.includes(rGst2Val)){
+      rGst2Select.value = rGst2Val;
+      rGst2Custom.style.display = "none";
+      rGst2Custom.value = "";
+    } else {
+      rGst2Select.value = "custom";
+      rGst2Custom.style.display = "";
+      rGst2Custom.value = +((m.gstPct2||0)*100).toFixed(2);
+    }
+  } else {
+    rGst2Toggle.checked = false;
+    rGst2Wrap.style.display = "none";
+    rGst2Select.value = "0";
+    rGst2Custom.style.display = "none";
+    rGst2Custom.value = "";
+  }
   document.getElementById("r-date").value = m ? (m.purchaseDate||"") : new Date().toISOString().slice(0,10);
   document.getElementById("r-details").value = m ? (m.details||"") : "";
   document.getElementById("rawModalOverlay").classList.add("show");
   document.getElementById("r-name").focus();
 }
 function closeRawModal(){ document.getElementById("rawModalOverlay").classList.remove("show"); editingRawId=null; }
+document.getElementById("r-gst").addEventListener("change", (e)=>{
+  const custom = document.getElementById("r-gst-custom");
+  custom.style.display = e.target.value==="custom" ? "" : "none";
+  if(e.target.value==="custom") custom.focus();
+});
+document.getElementById("r-gst2").addEventListener("change", (e)=>{
+  const custom = document.getElementById("r-gst2-custom");
+  custom.style.display = e.target.value==="custom" ? "" : "none";
+  if(e.target.value==="custom") custom.focus();
+});
+document.getElementById("r-gst2-toggle").addEventListener("change", (e)=>{
+  const wrap = document.getElementById("r-gst2-wrap");
+  wrap.style.display = e.target.checked ? "" : "none";
+  if(!e.target.checked){
+    document.getElementById("r-gst2").value = "0";
+    document.getElementById("r-gst2-custom").style.display = "none";
+    document.getElementById("r-gst2-custom").value = "";
+    document.getElementById("r-gst2-custom").classList.remove("invalid");
+  }
+});
 document.getElementById("newRawBtn").addEventListener("click", ()=> openRawModal(null));
 document.getElementById("rawModalClose").addEventListener("click", closeRawModal);
 document.getElementById("rawModalCancel").addEventListener("click", closeRawModal);
@@ -4149,11 +4285,39 @@ document.getElementById("rawModalSave").addEventListener("click", ()=>{
   const details = document.getElementById("r-details").value.trim();
   const totalCost = qty * cost;
 
+  const rGstSelectVal = document.getElementById("r-gst").value;
+  let gstPct1;
+  if(rGstSelectVal==="custom"){
+    const customRaw = document.getElementById("r-gst-custom").value;
+    const customPct = parseFloat(customRaw);
+    if(customRaw===""||isNaN(customPct)||customPct<0){ document.getElementById("r-gst-custom").classList.add("invalid"); return; }
+    gstPct1 = customPct/100;
+  } else {
+    gstPct1 = parseFloat(rGstSelectVal)||0;
+  }
+  let gstPct2 = 0;
+  if(document.getElementById("r-gst2-toggle").checked){
+    const rGst2SelectVal = document.getElementById("r-gst2").value;
+    if(rGst2SelectVal==="custom"){
+      const custom2Raw = document.getElementById("r-gst2-custom").value;
+      const custom2Pct = parseFloat(custom2Raw);
+      if(custom2Raw===""||isNaN(custom2Pct)||custom2Pct<0){ document.getElementById("r-gst2-custom").classList.add("invalid"); return; }
+      gstPct2 = custom2Pct/100;
+    } else {
+      gstPct2 = parseFloat(rGst2SelectVal)||0;
+    }
+  }
+  const gstPct = gstPct1 + gstPct2;
+  const roundingRaw = document.getElementById("r-rounding").value;
+  const rounding = roundingRaw==="" ? 0 : (parseFloat(roundingRaw)||0);
+  const gstAmount = totalCost * gstPct;
+  const finalAmount = totalCost + gstAmount + rounding;
+
   if(editingRawId){
     const m = rawMaterials.find(x=>x.id===editingRawId);
-    m.name = name; m.category = category; m.qty = qty; m.unit = unit; m.costPerPiece = cost; m.totalCost = totalCost; m.purchaseDate = dateRaw; m.details = details;
+    m.name = name; m.category = category; m.qty = qty; m.unit = unit; m.costPerPiece = cost; m.totalCost = totalCost; m.gstPct = gstPct; m.gstPct1 = gstPct1; m.gstPct2 = gstPct2; m.gstAmount = gstAmount; m.rounding = rounding; m.finalAmount = finalAmount; m.purchaseDate = dateRaw; m.details = details;
   } else {
-    rawMaterials.push({id:"raw"+(nextRawId++), name, category, qty, unit, costPerPiece:cost, totalCost, purchaseDate:dateRaw, details});
+    rawMaterials.push({id:"raw"+(nextRawId++), name, category, qty, unit, costPerPiece:cost, totalCost, gstPct, gstPct1, gstPct2, gstAmount, rounding, finalAmount, purchaseDate:dateRaw, details});
   }
   closeRawModal();
   renderRawMaterials();
@@ -4389,7 +4553,7 @@ function getOrderLedgerFigures(o){
   const inv = findInventoryByName(o.product);
   const pricePerUnit = inv ? invPerPiece(inv) : (o.cost!=null ? o.cost : 0);
   const matchedListing = inv ? findListingForInvId(inv.id) : null;
-  const packing = matchedListing ? (Number(matchedListing.packing)||0) : 20;
+  const packing = matchedListing ? effectivePackingCost(matchedListing).value : 20;
   const misc = matchedListing ? (Number(matchedListing.misc)||0) : 10;
   const bankSettlement = matchedListing && matchedListing.bank!=null ? matchedListing.bank : null;
   const payStatus = getPaymentStatus(o);
@@ -6364,7 +6528,7 @@ function collectPersistedState(){
     v: 1,
     inventory, nextInvId,
     rawMaterials, nextRawId,
-    packingCosts,
+    packingCosts, defaultPackingTemplate,
     listing, nextListingId,
     expenses,
     businessProfile, bankNumberRevealed,
@@ -6422,6 +6586,7 @@ function applyPersistedJSON(raw){
     if(Array.isArray(data.rawMaterials)){ rawMaterials.length = 0; rawMaterials.push(...data.rawMaterials); }
     if(typeof data.nextRawId==="number") nextRawId = data.nextRawId;
     if(data.packingCosts && typeof data.packingCosts==="object") packingCosts = data.packingCosts;
+    if(Array.isArray(data.defaultPackingTemplate)) defaultPackingTemplate = data.defaultPackingTemplate;
     if(Array.isArray(data.listing)) listing = data.listing;
     if(typeof data.nextListingId==="number") nextListingId = data.nextListingId;
     if(Array.isArray(data.expenses)) expenses = data.expenses;
