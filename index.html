@@ -818,6 +818,7 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
   </div>
 </div>
 <div class="storage-warning" id="storageWarning">⚠ <b>Your data isn't being saved on this device.</b> This browser is blocking local storage (common in private/incognito mode, or if storage is full/disabled). Keep this tab open, or switch to a normal browser window, until you can export a backup.</div>
+<div class="storage-warning" id="cloudSyncWarning">⚠ <b>Could not load the shared online data into this version of the app.</b> Saving has been paused so nothing gets overwritten. Reload the page — if this keeps happening after a reload, undo the last code change you uploaded, since it's likely no longer reading the same data shape that was saved online.</div>
 
 <div class="app">
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -2370,6 +2371,11 @@ inventory.forEach(i=> i.id = "inv"+(nextInvId++));
 let nextInvBatchId = 1, nextRawBatchId = 1;
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 function isBatchLocked(batch){ return (batch.addedAt || batch.date || "") !== todayStr(); }
+/* Collision-resistant id for anything created by a user action (as opposed to the one-time seed
+   data below). Two people adding a purchase on two different devices at the same moment must never
+   be able to produce the same id — if they did, the cloud merge (see mergeArraysById further down)
+   would treat their two different purchases as "the same edit" and silently keep only one of them. */
+function newId(prefix){ return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 inventory.forEach(i=>{
   i.batches = [{
     id: "ib"+(nextInvBatchId++),
@@ -4287,16 +4293,12 @@ function renderInventory(){
       <td>${pill}</td>
       <td>${reorderCellHTML(item)}</td>
       <td><div class="row-actions">
-        <button class="icon-btn" title="Edit this item" data-edit-item="${item.id}">✏️</button>
-        <button class="icon-btn" title="Add new purchase" data-addstock="${item.id}">➕</button>
-        <button class="icon-btn" title="Purchase history" data-history="${item.id}">🧾</button>
+        <button class="icon-btn" title="Edit item / add purchase / view history" data-edit-item="${item.id}">✏️</button>
         <button class="icon-btn danger" title="Delete" data-delete="${item.id}">🗑</button>
       </div></td></tr>`;
   }).join("");
 
   document.querySelectorAll("#inventoryBody [data-edit-item]").forEach(b=> b.addEventListener("click", ()=> openBatchModal("inv", b.dataset.editItem)));
-  document.querySelectorAll("#inventoryBody [data-addstock]").forEach(b=> b.addEventListener("click", ()=> openBatchModal("inv", b.dataset.addstock)));
-  document.querySelectorAll("#inventoryBody [data-history]").forEach(b=> b.addEventListener("click", ()=> openBatchModal("inv", b.dataset.history)));
   document.querySelectorAll("#inventoryBody [data-delete]").forEach(b=> b.addEventListener("click", ()=> confirmDeleteStock(b.dataset.delete)));
   document.querySelectorAll("#inventoryBody [data-edit-damaged]").forEach(b=> b.addEventListener("click", ()=>{ editingDamagedId = b.dataset.editDamaged; renderInventory(); }));
   document.querySelectorAll("#inventoryBody [data-cancel-damaged]").forEach(b=> b.addEventListener("click", ()=>{ editingDamagedId = null; renderInventory(); }));
@@ -4617,11 +4619,11 @@ document.getElementById("stockModalSave").addEventListener("click", ()=>{
     const item = inventory.find(i=>i.id===editingStockId);
     item.name = name; item.hsn = hsn; item.photo = currentStockPhotoData || null;
     if(!item.batches) item.batches = [];
-    item.batches.push({id:"ib"+(nextInvBatchId++), date: purchaseDate, addedAt: todayStr(), qty: totalReceived, pricePerUnit: purchase, gstPct, shippingCost, supplier});
+    item.batches.push({id:newId("ib"), date: purchaseDate, addedAt: todayStr(), qty: totalReceived, pricePerUnit: purchase, gstPct, shippingCost, supplier});
     recomputeInvFields(item);
   } else {
     const item = {id:"inv"+(nextInvId++), name, hsn, damaged:0, photo: currentStockPhotoData || null,
-      batches: [{id:"ib"+(nextInvBatchId++), date: purchaseDate, addedAt: todayStr(), qty: totalReceived, pricePerUnit: purchase, gstPct, shippingCost, supplier}]};
+      batches: [{id:newId("ib"), date: purchaseDate, addedAt: todayStr(), qty: totalReceived, pricePerUnit: purchase, gstPct, shippingCost, supplier}]};
     recomputeInvFields(item);
     inventory.push(item);
   }
@@ -5136,14 +5138,12 @@ function renderRawMaterials(){
       <td>${dateStr}</td>
       <td style="color:var(--ink-soft); font-size:12.3px;">${esc(m.details)||"—"}</td>
       <td><div class="row-actions">
-        <button class="icon-btn" title="Add new purchase" data-raw-addstock="${m.id}">➕</button>
-        <button class="icon-btn" title="Purchase history" data-raw-history="${m.id}">🧾</button>
+        <button class="icon-btn" title="Edit / add purchase / view history" data-raw-addstock="${m.id}">✏️</button>
         <button class="icon-btn danger" title="Delete" data-raw-delete="${m.id}">🗑</button>
       </div></td></tr>`;
   }).join("") : `<tr><td colspan="14" style="text-align:center; color:var(--ink-soft); padding:26px;">No raw materials match this search/filter.</td></tr>`;
 
   document.querySelectorAll("#rawMatBody [data-raw-addstock]").forEach(b=> b.addEventListener("click", ()=> openBatchModal("raw", b.dataset.rawAddstock)));
-  document.querySelectorAll("#rawMatBody [data-raw-history]").forEach(b=> b.addEventListener("click", ()=> openBatchModal("raw", b.dataset.rawHistory)));
   document.querySelectorAll("#rawMatBody [data-raw-delete]").forEach(b=> b.addEventListener("click", ()=> confirmDeleteRaw(b.dataset.rawDelete)));
 
   const totQty = list.reduce((s,m)=>s+m.qty,0);
@@ -5567,11 +5567,11 @@ document.getElementById("rawModalSave").addEventListener("click", ()=>{
     const m = rawMaterials.find(x=>x.id===editingRawId);
     m.name = name; m.category = category; m.unit = unit;
     if(!m.batches) m.batches = [];
-    m.batches.push({id:"rb"+(nextRawBatchId++), date: dateRaw, addedAt: todayStr(), qty, costPerPiece: cost, gstPct1, gstPct2, rounding, supplier: details});
+    m.batches.push({id:newId("rb"), date: dateRaw, addedAt: todayStr(), qty, costPerPiece: cost, gstPct1, gstPct2, rounding, supplier: details});
     aggregateRawBatches(m);
   } else {
     const m = {id:"raw"+(nextRawId++), name, category, unit,
-      batches: [{id:"rb"+(nextRawBatchId++), date: dateRaw, addedAt: todayStr(), qty, costPerPiece: cost, gstPct1, gstPct2, rounding, supplier: details}]};
+      batches: [{id:newId("rb"), date: dateRaw, addedAt: todayStr(), qty, costPerPiece: cost, gstPct1, gstPct2, rounding, supplier: details}]};
     aggregateRawBatches(m);
     rawMaterials.push(m);
   }
@@ -5602,6 +5602,14 @@ function openBatchModal(type, id){
   batchModalType = type; batchModalItemId = id; editingBatchId = null;
   renderBatchModal();
   document.getElementById("batchModalOverlay").classList.add("show");
+}
+/* If a remote/cloud update replaces the `inventory`/`rawMaterials` arrays while this modal is open,
+   the "Add purchase" button's click handler still closes over the OLD (now detached) item object —
+   so clicking it would silently write into data nobody keeps, while the screen still looks normal.
+   Re-render the modal against the fresh data any time a remote update lands, so the button always
+   targets the real, current item. */
+function refreshOpenBatchModalIfNeeded(){
+  if(batchModalItemId && document.getElementById("batchModalOverlay").classList.contains("show")) renderBatchModal();
 }
 function closeBatchModal(){
   document.getElementById("batchModalOverlay").classList.remove("show");
@@ -5721,12 +5729,12 @@ function saveNewBatch(item, isInv){
   if(isInv){
     const shipRaw = document.getElementById("ba-ship").value;
     const shippingCost = shipRaw==="" ? 0 : (parseFloat(shipRaw)||0);
-    item.batches.push({id:"ib"+(nextInvBatchId++), date, addedAt: nowDate, qty, pricePerUnit: price, gstPct, shippingCost, supplier});
+    item.batches.push({id:newId("ib"), date, addedAt: nowDate, qty, pricePerUnit: price, gstPct, shippingCost, supplier});
     recomputeInvFields(item);
   } else {
     const roundRaw = document.getElementById("ba-round").value;
     const rounding = roundRaw==="" ? 0 : (parseFloat(roundRaw)||0);
-    item.batches.push({id:"rb"+(nextRawBatchId++), date, addedAt: nowDate, qty, costPerPiece: price, gstPct1: gstPct, gstPct2: 0, rounding, supplier});
+    item.batches.push({id:newId("rb"), date, addedAt: nowDate, qty, costPerPiece: price, gstPct1: gstPct, gstPct2: 0, rounding, supplier});
     aggregateRawBatches(item);
   }
   renderAll();
@@ -9476,7 +9484,8 @@ function initCloudSync(){
     }
     _applyingRemoteUpdate = true;
     try{
-      if(applyPersistedJSON(data.json)) renderAll();
+      if(applyPersistedJSON(data.json)){ showCloudSyncWarning(false); renderAll(); refreshOpenBatchModalIfNeeded(); }
+      else showCloudSyncWarning(true);
     } finally {
       _applyingRemoteUpdate = false;
     }
@@ -9508,6 +9517,20 @@ function showStorageWarning(show){
   const el = document.getElementById("storageWarning");
   if(!el) return;
   el.classList.toggle("show", !!show);
+}
+
+/* Set the moment applyPersistedJSON() fails on data that came from the cloud (startup pull or a
+   live update from someone else). This means the code currently running can't understand the
+   shape of the data that's actually saved online — almost always because a newer index.html was
+   just uploaded with a structural change. If we let autosave continue in that state, the next
+   save would push this browser's incomplete/blank view of the data back up and overwrite the
+   real thing for everyone. So instead we freeze saving and tell the person clearly. */
+let _cloudApplyFailed = false;
+function showCloudSyncWarning(show){
+  _cloudApplyFailed = !!show;
+  const el = document.getElementById("cloudSyncWarning");
+  if(el) el.classList.toggle("show", !!show);
+  if(show){ _suspendAutosave = true; setSaveStatus("error"); }
 }
 
 /* ===================== EXPENSES (incl. ad spend by platform) ===================== */
@@ -10293,13 +10316,81 @@ function collectPersistedState(){
   };
 }
 
+/* ===================== CLOUD MERGE (avoid one save silently erasing another device's edits) =====================
+   Firestore holds one shared JSON blob. Naively overwriting it on every save means: if two devices
+   (or two tabs) each add a purchase around the same time, whichever saves second wins and the other
+   device's new purchase vanishes — even though its own screen still shows it, until the next reload.
+   To prevent that, every save now re-reads whatever is currently in the cloud (inside a transaction,
+   so no other write can sneak in between) and MERGES it with this device's local state before writing:
+     - Any array of records that carry an "id" (purchases, orders, listings, damage log, returns,
+       claims, competitor prices, insurance policies, capital transactions...) is combined by id:
+       a record only present on one side is kept either way, and if the same id exists on both sides
+       this device's version wins.
+     - Inventory and Raw Materials get one extra step: even when the *item* itself only changed on one
+       side, its "batches" (the purchase log) are unioned the same way — so a purchase added on another
+       device is never dropped just because this device happened to save around the same time.
+     - Anything without a stable id (settings-style objects, plain arrays) simply keeps this device's
+       value, same as before.
+   Trade-off: because a record isn't truly gone from the cloud's point of view until every device has
+   pulled the deletion down, something deleted on one device can briefly reappear if another device
+   saves its older copy first. This favours never silently losing a purchase over never having to
+   re-delete something — if you use this from more than one device/tab, reload before deleting. */
+function mergeArraysById(localArr, remoteArr){
+  if(!Array.isArray(remoteArr)) return localArr;
+  if(!Array.isArray(localArr)) return remoteArr;
+  const canMerge = localArr.every(x=>x && typeof x==="object" && x.id!=null) && remoteArr.every(x=>x && typeof x==="object" && x.id!=null);
+  if(!canMerge) return localArr; // no stable id to merge on — keep this device's version (previous behaviour)
+  const order = [], seen = new Set();
+  remoteArr.forEach(x=>{ if(!seen.has(x.id)){ order.push(x.id); seen.add(x.id); } });
+  localArr.forEach(x=>{ if(!seen.has(x.id)){ order.push(x.id); seen.add(x.id); } });
+  const localById = new Map(localArr.map(x=>[x.id, x]));
+  const remoteById = new Map(remoteArr.map(x=>[x.id, x]));
+  return order.map(id=> localById.has(id) ? localById.get(id) : remoteById.get(id));
+}
+function mergeItemArrays(localArr, remoteArr){
+  // Like mergeArraysById, but for inventory/rawMaterials: also unions each matching item's `batches`
+  // instead of letting one side's whole item (and its purchase log) win outright.
+  if(!Array.isArray(remoteArr)) return localArr;
+  if(!Array.isArray(localArr)) return remoteArr;
+  const order = [], seen = new Set();
+  remoteArr.forEach(x=>{ if(!seen.has(x.id)){ order.push(x.id); seen.add(x.id); } });
+  localArr.forEach(x=>{ if(!seen.has(x.id)){ order.push(x.id); seen.add(x.id); } });
+  const localById = new Map(localArr.map(x=>[x.id, x]));
+  const remoteById = new Map(remoteArr.map(x=>[x.id, x]));
+  return order.map(id=>{
+    const l = localById.get(id), r = remoteById.get(id);
+    if(l && r) return {...r, ...l, batches: mergeArraysById(l.batches, r.batches)};
+    return l || r;
+  }).filter(Boolean);
+}
+function mergeStateWithRemote(localState, remoteState){
+  if(!remoteState || typeof remoteState!=="object") return localState;
+  const merged = {...localState};
+  merged.inventory = mergeItemArrays(localState.inventory, remoteState.inventory);
+  merged.rawMaterials = mergeItemArrays(localState.rawMaterials, remoteState.rawMaterials);
+  Object.keys(localState).forEach(key=>{
+    if(key==="inventory" || key==="rawMaterials") return;
+    const lv = localState[key], rv = remoteState[key];
+    if(Array.isArray(lv) && Array.isArray(rv)) merged[key] = mergeArraysById(lv, rv);
+  });
+  return merged;
+}
+
 let _lastSavedJSON = null;
 let _suspendAutosave = false;
 function persistState(){
   if(_suspendAutosave || _applyingRemoteUpdate) return;
+  let localState;
+  try{
+    localState = collectPersistedState();
+  }catch(err){
+    console.error("AKMR Trade Point: could not prepare data for saving.", err);
+    setSaveStatus("error");
+    return;
+  }
   let json;
   try{
-    json = JSON.stringify(collectPersistedState());
+    json = JSON.stringify(localState);
   }catch(err){
     console.error("AKMR Trade Point: could not prepare data for saving.", err);
     setSaveStatus("error");
@@ -10318,13 +10409,34 @@ function persistState(){
   }
   if(_cloudEnabled){
     setSaveStatus("saving");
-    CLOUD_DOC().set({ json, passcode: APP_PASSCODE, updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
-      .then(()=>{ _cloudWriteFailed = false; setSaveStatus("saved"); })
-      .catch(err=>{
-        console.error("AKMR Trade Point: could not sync to the shared cloud data — check that your Firestore Rules passcode matches APP_PASSCODE exactly, and that the rule was Published.", err);
-        _cloudWriteFailed = true;
-        setSaveStatus("error");
-      });
+    let mergedJSON = json;
+    _cloudDb.runTransaction(transaction=>
+      transaction.get(CLOUD_DOC()).then(doc=>{
+        let remoteState = null;
+        if(doc.exists){
+          const remoteRaw = doc.data();
+          if(remoteRaw && remoteRaw.json){
+            try{ remoteState = JSON.parse(remoteRaw.json); }catch(err){ remoteState = null; }
+          }
+        }
+        mergedJSON = JSON.stringify(mergeStateWithRemote(localState, remoteState));
+        transaction.set(CLOUD_DOC(), { json: mergedJSON, passcode: APP_PASSCODE, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      })
+    ).then(()=>{
+      _cloudWriteFailed = false;
+      if(mergedJSON !== json){
+        // The cloud had records this device didn't have yet (e.g. a purchase added on another
+        // device/tab) — pull the merged result back in so this screen reflects the full picture.
+        _applyingRemoteUpdate = true;
+        try{ if(applyPersistedJSON(mergedJSON)){ renderAll(); refreshOpenBatchModalIfNeeded(); } }
+        finally{ _applyingRemoteUpdate = false; }
+      }
+      setSaveStatus("saved");
+    }).catch(err=>{
+      console.error("AKMR Trade Point: could not sync to the shared cloud data — check that your Firestore Rules passcode matches APP_PASSCODE exactly, and that the rule was Published.", err);
+      _cloudWriteFailed = true;
+      setSaveStatus("error");
+    });
   } else {
     setSaveStatus("saved");
   }
@@ -10495,14 +10607,22 @@ function startApp(){
         const data = doc.data();
         if(data && data.json && data.json !== _lastSavedJSON){
           _applyingRemoteUpdate = true;
-          try{ if(applyPersistedJSON(data.json)) renderAll(); }
-          finally{ _applyingRemoteUpdate = false; }
+          try{
+            const ok = applyPersistedJSON(data.json);
+            if(ok){ renderAll(); refreshOpenBatchModalIfNeeded(); }
+            else{
+              // The data saved online exists but this version of the app couldn't read it — do NOT
+              // let finishBoot() re-enable autosave below, or the next save overwrites the good
+              // online data with whatever got rendered from this browser's local/sample fallback.
+              showCloudSyncWarning(true);
+            }
+          } finally{ _applyingRemoteUpdate = false; }
         }
       }
     }).catch(err=>{
       console.error("AKMR Trade Point: could not load the shared cloud data on startup — showing this device's local copy instead.", err);
     }).finally(()=>{
-      finishBoot();
+      if(!_cloudApplyFailed) finishBoot();
       initCloudSync(); // now listen for live updates from other people going forward
     });
   } else {
