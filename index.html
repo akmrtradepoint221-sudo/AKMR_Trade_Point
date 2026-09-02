@@ -376,7 +376,7 @@ table{width:100%; border-collapse:collapse; font-size:12.8px; min-width:680px;}
 thead th{text-align:left; padding:10px 14px; font-size:10.3px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); border-bottom:1px solid var(--line); background:linear-gradient(180deg, var(--panel-2), var(--bg)); font-weight:700; white-space:nowrap; cursor:pointer; user-select:none;}
 thead th .sort-ic{opacity:0.4; margin-left:3px; font-size:10px;}
 thead th.sorted .sort-ic{opacity:1; color:var(--heading);}
-#paymentsColFilterRow th{cursor:default; padding:5px 10px; background:var(--panel-2);}
+#paymentsColFilterRow th, #customersColFilterRow th{cursor:default; padding:5px 10px; background:var(--panel-2);}
 .col-filter-input{width:100%; box-sizing:border-box; padding:5px 7px; font-size:11px; font-weight:400; text-transform:none; letter-spacing:normal; border:1px solid var(--line); border-radius:5px; background:var(--panel); color:var(--ink);}
 select.col-filter-input{cursor:pointer;}
 .col-filter-input:focus{outline:none; border-color:var(--heading);}
@@ -1246,10 +1246,36 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
               <option value="returned">Returned customers</option>
               <option value="stolen">Item stolen customers</option>
             </select>
+            <button class="btn small secondary" id="customersClearFiltersBtn">Clear filters</button>
           </div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th>Customer</th><th>Product / SKU</th><th>AWB</th><th>Order No</th><th style="text-align:right;">Orders</th><th>First purchase</th><th>Last purchase</th><th>Pincode</th><th>Address</th><th>Status</th><th style="text-align:right;">Actions</th></tr></thead>
+              <thead><tr>
+                <th data-sort="customerName">Customer <span class="sort-ic">↕</span></th>
+                <th data-sort="products">Product / SKU <span class="sort-ic">↕</span></th>
+                <th data-sort="awb">AWB <span class="sort-ic">↕</span></th>
+                <th data-sort="orderNos">Order No <span class="sort-ic">↕</span></th>
+                <th data-sort="orderCount" style="text-align:right;">Orders <span class="sort-ic">↕</span></th>
+                <th data-sort="firstPurchase">First purchase <span class="sort-ic">↕</span></th>
+                <th data-sort="lastPurchase">Last purchase <span class="sort-ic">↕</span></th>
+                <th data-sort="pincode">Pincode <span class="sort-ic">↕</span></th>
+                <th data-sort="address">Address <span class="sort-ic">↕</span></th>
+                <th data-sort="status">Status <span class="sort-ic">↕</span></th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+              <tr id="customersColFilterRow">
+                <th><select class="col-filter-input" data-filter-key="customerName"><option value="">All</option></select></th>
+                <th><select class="col-filter-input" data-filter-key="products"><option value="">All</option></select></th>
+                <th><select class="col-filter-input" data-filter-key="awb"><option value="">All</option></select></th>
+                <th><select class="col-filter-input" data-filter-key="orderNos"><option value="">All</option></select></th>
+                <th><select class="col-filter-input" data-filter-key="orderCount" style="text-align:right;"><option value="">All</option></select></th>
+                <th><select class="col-filter-input" data-filter-key="firstPurchase"><option value="">All</option></select></th>
+                <th><select class="col-filter-input" data-filter-key="lastPurchase"><option value="">All</option></select></th>
+                <th><select class="col-filter-input" data-filter-key="pincode"><option value="">All</option></select></th>
+                <th><select class="col-filter-input" data-filter-key="address"><option value="">All</option></select></th>
+                <th><select class="col-filter-input" data-filter-key="status"><option value="">All</option></select></th>
+                <th></th>
+              </tr></thead>
               <tbody id="customersBody"></tbody>
             </table>
           </div>
@@ -1993,7 +2019,7 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
         <div><label>Supplier name <span class="opt">optional</span></label><input type="text" id="m-supplier" placeholder="e.g. Sharma Traders"></div>
         <div><label>Shipping cost for this purchase (₹) <span class="opt">optional · default 0</span></label><input type="number" id="m-shipping" min="0" step="0.01" placeholder="0.00"></div>
         <div><label>GST % <span class="opt">optional · default 0%</span></label>
-          <select id="m-gst"><option value="0">0%</option><option value="0.03">3%</option><option value="0.05">5%</option><option value="0.12">12%</option><option value="0.18">18%</option><option value="custom">Custom %…</option></select>
+          <select id="m-gst"><option value="0">0%</option><option value="0.03">3% (CGST 1.5 + SGST 1.5)</option><option value="0.05">5% (CGST 2.5 + SGST 2.5)</option><option value="0.12">12% (CGST 6 + SGST 6)</option><option value="0.18">18% (CGST 9 + SGST 9)</option><option value="0.28">28% (CGST 14 + SGST 14)</option><option value="custom">Custom %…</option></select>
           <input type="number" id="m-gst-custom" min="0" max="100" step="0.01" placeholder="e.g. 7.5" style="display:none; margin-top:6px;">
         </div>
         <div><label>HSN code <span class="opt">optional · default 7117</span></label><input type="text" id="m-hsn" placeholder="7117"></div>
@@ -2045,7 +2071,10 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
         <div><label>Status</label><select id="l-status"><option value="Available">Available</option><option value="QC Error">QC Error</option><option value="Paused">Paused</option></select></div>
         <div><label>Return % <span class="opt">of subtotal</span></label><input type="number" id="l-retpct" min="0" step="0.01" value="15"></div>
         <div><label>Damage % <span class="opt">of subtotal</span></label><input type="number" id="l-dmgpct" min="0" step="0.01" value="10"></div>
-        <div><label>GST % <span class="opt">on sale value</span></label><input type="number" id="l-gstpct" min="0" step="0.01" value="3"></div>
+        <div><label>GST % <span class="opt">on sale value</span></label>
+          <select id="l-gst"><option value="0">0%</option><option value="0.03">3% (CGST 1.5 + SGST 1.5)</option><option value="0.05">5% (CGST 2.5 + SGST 2.5)</option><option value="0.12">12% (CGST 6 + SGST 6)</option><option value="0.18">18% (CGST 9 + SGST 9)</option><option value="0.28">28% (CGST 14 + SGST 14)</option><option value="custom">Custom %…</option></select>
+          <input type="number" id="l-gstpct" min="0" max="100" step="0.01" placeholder="e.g. 7.5" style="display:none; margin-top:6px;">
+        </div>
         <div><label>Bank settlement (₹) <span class="opt">optional · once paid out</span></label><input type="number" id="l-bank" min="0" step="0.01" placeholder="Leave blank until settled"></div>
       </div>
 
@@ -4524,7 +4553,7 @@ function openStockModal(id){
   document.getElementById("m-shipping").value = item ? (item.shippingCost || "") : "";
   const gstSelect = document.getElementById("m-gst");
   const gstCustom = document.getElementById("m-gst-custom");
-  const presetValues = ["0","0.03","0.05","0.12","0.18"];
+  const presetValues = ["0","0.03","0.05","0.12","0.18","0.28"];
   const gstVal = item ? String(item.gstPct) : "0";
   if(presetValues.includes(gstVal)){
     gstSelect.value = gstVal;
@@ -4866,6 +4895,17 @@ document.getElementById("listingAddCompBtn").addEventListener("click", ()=>{
 ["l-packing","l-misc","l-profit","l-retpct","l-dmgpct","l-gstpct"].forEach(id=>{
   document.getElementById(id).addEventListener("input", updateListingPreview);
 });
+document.getElementById("l-gst").addEventListener("change", (e)=>{
+  const custom = document.getElementById("l-gstpct");
+  if(e.target.value==="custom"){
+    custom.style.display = "";
+    custom.focus();
+  } else {
+    custom.style.display = "none";
+    custom.value = +(parseFloat(e.target.value)*100).toFixed(2);
+  }
+  updateListingPreview();
+});
 
 function openListingModal(id){
   editingListingId = id || null;
@@ -4882,7 +4922,21 @@ function openListingModal(id){
   document.getElementById("l-status").value = item ? item.status : "Available";
   document.getElementById("l-retpct").value = item ? (item.retPct*100) : 15;
   document.getElementById("l-dmgpct").value = item ? (item.dmgPct*100) : 10;
-  document.getElementById("l-gstpct").value = item ? (item.gstPct*100) : 3;
+  {
+    const gstSelect = document.getElementById("l-gst");
+    const gstCustom = document.getElementById("l-gstpct");
+    const presetValues = ["0","0.03","0.05","0.12","0.18","0.28"];
+    const gstVal = item ? String(item.gstPct) : "0.03";
+    if(presetValues.includes(gstVal)){
+      gstSelect.value = gstVal;
+      gstCustom.style.display = "none";
+      gstCustom.value = +(parseFloat(gstVal)*100).toFixed(2);
+    } else {
+      gstSelect.value = "custom";
+      gstCustom.style.display = "";
+      gstCustom.value = item ? +(item.gstPct*100).toFixed(2) : 3;
+    }
+  }
   document.getElementById("l-bank").value = item && item.bank!=null ? item.bank : "";
   updateListingPreview();
   document.getElementById("listingModalOverlay").classList.add("show");
@@ -5687,13 +5741,23 @@ function renderBatchModal(){
   const addGrid = document.getElementById("batchAddGrid");
   document.getElementById("batchAddErr").textContent = "";
   const lastBatch = (item.batches||[]).slice().sort((a,b)=>(a.date||"").localeCompare(b.date||"")||(a.id||"").localeCompare(b.id||""))[((item.batches||[]).length-1)];
+  const gstOptionsHTML = `<option value="0">0%</option><option value="0.03">3% (CGST 1.5 + SGST 1.5)</option><option value="0.05">5% (CGST 2.5 + SGST 2.5)</option><option value="0.12">12% (CGST 6 + SGST 6)</option><option value="0.18">18% (CGST 9 + SGST 9)</option><option value="0.28">28% (CGST 14 + SGST 14)</option><option value="custom">Custom %…</option>`;
   if(isInv){
-    const defGst = lastBatch ? +((lastBatch.gstPct||0)*100).toFixed(2) : 0;
     addGrid.innerHTML = `
       <div><label>Purchase date <span class="req">*</span></label><input type="date" id="ba-date" value="${todayStr()}"></div>
       <div><label>Quantity <span class="req">*</span></label><input type="number" id="ba-qty" min="0.0001" step="any" placeholder="0"></div>
       <div><label>Price / unit (₹) <span class="req">*</span></label><input type="number" id="ba-price" min="0" step="0.01" placeholder="0.00"></div>
-      <div><label>GST % <span class="opt">optional</span></label><input type="number" id="ba-gst" min="0" step="0.01" value="${defGst}"></div>
+      <div><label>GST % <span class="opt">optional</span></label>
+        <select id="ba-gst-select">${gstOptionsHTML}</select>
+        <input type="number" id="ba-gst" min="0" max="100" step="0.01" placeholder="e.g. 7.5" style="display:none; margin-top:6px;">
+        <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12.3px; color:var(--ink-soft); cursor:pointer; font-weight:400;">
+          <input type="checkbox" id="ba-gst2-toggle" style="width:auto; margin:0;"> Add a second GST rate <span class="opt" style="margin-left:0;">(e.g. Cess, or a split invoice line)</span>
+        </label>
+        <div id="ba-gst2-wrap" style="display:none; margin-top:6px;">
+          <select id="ba-gst2-select">${gstOptionsHTML}</select>
+          <input type="number" id="ba-gst2" min="0" max="100" step="0.01" placeholder="e.g. 7.5" style="display:none; margin-top:6px;">
+        </div>
+      </div>
       <div><label>Shipping (₹) <span class="opt">optional</span></label><input type="number" id="ba-ship" min="0" step="0.01" placeholder="0.00"></div>
       <div><label>Supplier <span class="opt">optional</span></label><input type="text" id="ba-supplier" placeholder="e.g. XYZ Traders"></div>
     `;
@@ -5702,10 +5766,92 @@ function renderBatchModal(){
       <div><label>Purchase date <span class="req">*</span></label><input type="date" id="ba-date" value="${todayStr()}"></div>
       <div><label>Quantity <span class="req">*</span></label><input type="number" id="ba-qty" min="0.0001" step="any" placeholder="0"></div>
       <div><label>Cost / unit (₹) <span class="req">*</span></label><input type="number" id="ba-price" min="0" step="0.01" placeholder="0.00"></div>
-      <div><label>GST % <span class="opt">optional</span></label><input type="number" id="ba-gst" min="0" step="0.01" placeholder="0"></div>
+      <div><label>GST % <span class="opt">optional</span></label>
+        <select id="ba-gst-select">${gstOptionsHTML}</select>
+        <input type="number" id="ba-gst" min="0" max="100" step="0.01" placeholder="e.g. 7.5" style="display:none; margin-top:6px;">
+        <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12.3px; color:var(--ink-soft); cursor:pointer; font-weight:400;">
+          <input type="checkbox" id="ba-gst2-toggle" style="width:auto; margin:0;"> Add a second GST rate <span class="opt" style="margin-left:0;">(e.g. Cess, or a split invoice line)</span>
+        </label>
+        <div id="ba-gst2-wrap" style="display:none; margin-top:6px;">
+          <select id="ba-gst2-select">${gstOptionsHTML}</select>
+          <input type="number" id="ba-gst2" min="0" max="100" step="0.01" placeholder="e.g. 7.5" style="display:none; margin-top:6px;">
+        </div>
+      </div>
       <div><label>Rounding (₹) <span class="opt">optional</span></label><input type="number" id="ba-round" step="0.01" placeholder="0.00"></div>
       <div><label>Supplier / details <span class="opt">optional</span></label><input type="text" id="ba-supplier" placeholder="e.g. Sri Ganesh Packers"></div>
     `;
+  }
+  {
+    const gstSelect = document.getElementById("ba-gst-select");
+    const gstCustom = document.getElementById("ba-gst");
+    const presetValues = ["0","0.03","0.05","0.12","0.18","0.28"];
+    const defFrac = isInv ? (lastBatch ? (lastBatch.gstPct||0) : 0) : (lastBatch ? (lastBatch.gstPct1||0) : 0);
+    const gstVal = String(defFrac);
+    if(presetValues.includes(gstVal)){
+      gstSelect.value = gstVal;
+      gstCustom.style.display = "none";
+      gstCustom.value = +(defFrac*100).toFixed(2);
+    } else {
+      gstSelect.value = "custom";
+      gstCustom.style.display = "";
+      gstCustom.value = +(defFrac*100).toFixed(2);
+    }
+    gstSelect.addEventListener("change", (e)=>{
+      if(e.target.value==="custom"){
+        gstCustom.style.display = "";
+        gstCustom.focus();
+      } else {
+        gstCustom.style.display = "none";
+        gstCustom.value = +(parseFloat(e.target.value)*100).toFixed(2);
+      }
+    });
+
+    /* Second GST rate — same pattern as the raw material single-item form's "Add a second GST
+       rate" toggle, so an invoice with two GST lines (e.g. a base rate plus Cess, or a split
+       line) can be entered without forcing everyone to pre-add the two amounts by hand. */
+    const gst2Toggle = document.getElementById("ba-gst2-toggle");
+    const gst2Select = document.getElementById("ba-gst2-select");
+    const gst2Custom = document.getElementById("ba-gst2");
+    const gst2Wrap = document.getElementById("ba-gst2-wrap");
+    const defFrac2 = isInv ? (lastBatch ? (lastBatch.gstPct2||0) : 0) : (lastBatch ? (lastBatch.gstPct2||0) : 0);
+    if(defFrac2){
+      gst2Toggle.checked = true;
+      gst2Wrap.style.display = "";
+      const gst2Val = String(defFrac2);
+      if(presetValues.includes(gst2Val)){
+        gst2Select.value = gst2Val;
+        gst2Custom.style.display = "none";
+        gst2Custom.value = +(defFrac2*100).toFixed(2);
+      } else {
+        gst2Select.value = "custom";
+        gst2Custom.style.display = "";
+        gst2Custom.value = +(defFrac2*100).toFixed(2);
+      }
+    } else {
+      gst2Toggle.checked = false;
+      gst2Wrap.style.display = "none";
+      gst2Select.value = "0";
+      gst2Custom.style.display = "none";
+      gst2Custom.value = "";
+    }
+    gst2Select.addEventListener("change", (e)=>{
+      if(e.target.value==="custom"){
+        gst2Custom.style.display = "";
+        gst2Custom.focus();
+      } else {
+        gst2Custom.style.display = "none";
+        gst2Custom.value = +(parseFloat(e.target.value)*100).toFixed(2);
+      }
+    });
+    gst2Toggle.addEventListener("change", (e)=>{
+      gst2Wrap.style.display = e.target.checked ? "" : "none";
+      if(!e.target.checked){
+        gst2Select.value = "0";
+        gst2Custom.style.display = "none";
+        gst2Custom.value = "";
+        gst2Custom.classList.remove("invalid");
+      }
+    });
   }
   document.getElementById("batchAddSaveBtn").onclick = ()=> saveNewBatch(item, isInv);
   renderBatchTable(item, isInv);
@@ -5721,7 +5867,13 @@ function saveNewBatch(item, isInv){
   if(isNaN(qty) || qty<=0){ errEl.textContent = "Enter a valid quantity greater than 0."; return; }
   if(isNaN(price) || price<0){ errEl.textContent = "Enter a valid price/cost."; return; }
   const gstRaw = document.getElementById("ba-gst").value;
-  const gstPct = gstRaw==="" ? 0 : (parseFloat(gstRaw)||0)/100;
+  const gstPct1 = gstRaw==="" ? 0 : (parseFloat(gstRaw)||0)/100;
+  let gstPct2 = 0;
+  if(document.getElementById("ba-gst2-toggle").checked){
+    const gst2Raw = document.getElementById("ba-gst2").value;
+    gstPct2 = gst2Raw==="" ? 0 : (parseFloat(gst2Raw)||0)/100;
+  }
+  const gstPct = gstPct1 + gstPct2;
   const supplier = document.getElementById("ba-supplier").value.trim();
   const nowDate = todayStr();
 
@@ -5729,12 +5881,12 @@ function saveNewBatch(item, isInv){
   if(isInv){
     const shipRaw = document.getElementById("ba-ship").value;
     const shippingCost = shipRaw==="" ? 0 : (parseFloat(shipRaw)||0);
-    item.batches.push({id:newId("ib"), date, addedAt: nowDate, qty, pricePerUnit: price, gstPct, shippingCost, supplier});
+    item.batches.push({id:newId("ib"), date, addedAt: nowDate, qty, pricePerUnit: price, gstPct, gstPct1, gstPct2, shippingCost, supplier});
     recomputeInvFields(item);
   } else {
     const roundRaw = document.getElementById("ba-round").value;
     const rounding = roundRaw==="" ? 0 : (parseFloat(roundRaw)||0);
-    item.batches.push({id:newId("rb"), date, addedAt: nowDate, qty, costPerPiece: price, gstPct1: gstPct, gstPct2: 0, rounding, supplier});
+    item.batches.push({id:newId("rb"), date, addedAt: nowDate, qty, costPerPiece: price, gstPct1, gstPct2, rounding, supplier});
     aggregateRawBatches(item);
   }
   renderAll();
@@ -9959,6 +10111,8 @@ function renderDataBackupCard(){
    imported orders (`orders`, keyed by `.id` = order/sub-order no) to pull the real purchase date
    and current status, which drives the Repeat / RTO / Returned / Item stolen tags. */
 let customerSearchTerm = "", customerRepeatFilterVal = "all";
+let customersColFilters = {};
+let customersSort = {key:null, dir:1};
 function classifyOrderStatus(status){
   if(status==="RTO" || status==="RTO_LOCKED") return "rto";
   if(status==="Customer Return") return "returned";
@@ -10016,6 +10170,67 @@ function customerTagsHTML(c){
   if(c.stolen) tags.push(`<span class="status-pill lost">Item stolen</span>`);
   return tags.length ? tags.join(" ") : `<span class="subtle-note" style="padding:0;">First-time</span>`;
 }
+/* Plain-text tags for a customer — same logic as customerTagsHTML but without the markup, used by
+   the Status column's click-to-sort and per-column filter dropdown. */
+function customerStatusTags(c){
+  const tags = [];
+  if(c.repeat) tags.push("Repeat buyer");
+  if(c.rto) tags.push("RTO return");
+  if(c.returned) tags.push("Returned");
+  if(c.stolen) tags.push("Item stolen");
+  return tags.length ? tags : ["First-time"];
+}
+/* Returns the raw value behind one column of the Customers table, for the header's click-to-sort
+   and per-column filter dropdown. Array-valued columns (products/orderNos/status) are joined into
+   a display string for sorting, while the filter dropdown matches against individual array entries
+   so picking e.g. one product still surfaces every customer who ever bought it. */
+function getCustomerColValue(c, key){
+  switch(key){
+    case "customerName": return c.customerName;
+    case "products": return c.products.join(", ");
+    case "awb": return c.awb;
+    case "orderNos": return c.orderNos.join(", ");
+    case "orderCount": return c.orderCount;
+    case "firstPurchase": return c.firstPurchase;
+    case "lastPurchase": return c.lastPurchase;
+    case "pincode": return c.pincode;
+    case "address": return c.address;
+    case "status": return customerStatusTags(c).join(", ");
+    default: return "";
+  }
+}
+const CUSTOMERS_COL_FILTER_NUMERIC_KEYS = ["orderCount"];
+const CUSTOMERS_COL_FILTER_DATE_KEYS = ["firstPurchase","lastPurchase"];
+/* Multi-valued columns: the filter dropdown lists individual entries (one product, one order no,
+   one status tag) rather than the joined display string, and matches any customer whose array
+   contains that entry. */
+const CUSTOMERS_COL_FILTER_MULTI = {
+  products: c=>c.products,
+  orderNos: c=>c.orderNos,
+  status: c=>customerStatusTags(c),
+};
+/* Populates each per-column filter dropdown from the full (unfiltered) customer list, like a
+   spreadsheet column filter, so choosing one column's filter never hides another column's options. */
+function populateCustomersColFilterSelects(fullList){
+  document.querySelectorAll("#customersColFilterRow select.col-filter-input").forEach(sel=>{
+    const key = sel.dataset.filterKey;
+    const prevVal = customersColFilters[key] || "";
+    let rawValues;
+    if(CUSTOMERS_COL_FILTER_MULTI[key]){
+      rawValues = [...new Set(fullList.flatMap(CUSTOMERS_COL_FILTER_MULTI[key]).filter(Boolean))];
+    } else {
+      rawValues = [...new Set(fullList.map(c=>getCustomerColValue(c,key)).filter(v=> v!=null && v!=="" && v!=="—"))];
+    }
+    let sorted;
+    if(CUSTOMERS_COL_FILTER_NUMERIC_KEYS.includes(key)) sorted = rawValues.slice().sort((a,b)=>Number(a)-Number(b));
+    else if(CUSTOMERS_COL_FILTER_DATE_KEYS.includes(key)) sorted = rawValues.slice().sort((a,b)=> a<b?-1:(a>b?1:0));
+    else sorted = rawValues.slice().sort((a,b)=> a.toString().localeCompare(b.toString()));
+    const strValues = sorted.map(v=>v.toString());
+    sel.innerHTML = `<option value="">All</option>` + sorted.map((v,i)=>`<option value="${esc(strValues[i])}">${esc(strValues[i])}</option>`).join("");
+    sel.value = strValues.includes(prevVal) ? prevVal : "";
+    customersColFilters[key] = sel.value;
+  });
+}
 function renderCustomers(){
   const body = document.getElementById("customersBody");
   const emptyEl = document.getElementById("customersEmpty");
@@ -10027,6 +10242,7 @@ function renderCustomers(){
   const rtoCustomers = list.filter(c=>c.rto).length;
   const returnedCustomers = list.filter(c=>c.returned).length;
   const stolenCustomers = list.filter(c=>c.stolen).length;
+  populateCustomersColFilterSelects(list);
   if(customerRepeatFilterVal==="repeat") list = list.filter(c=>c.repeat);
   else if(customerRepeatFilterVal==="rto") list = list.filter(c=>c.rto);
   else if(customerRepeatFilterVal==="returned") list = list.filter(c=>c.returned);
@@ -10035,12 +10251,33 @@ function renderCustomers(){
     const t = customerSearchTerm;
     list = list.filter(c=> c.customerName.toLowerCase().includes(t) || c.orderNos.some(o=>o.toLowerCase().includes(t)) || c.awb.toLowerCase().includes(t) || c.products.some(p=>p.toLowerCase().includes(t)));
   }
+  Object.keys(customersColFilters).forEach(key=>{
+    const filterVal = customersColFilters[key];
+    if(!filterVal) return;
+    if(CUSTOMERS_COL_FILTER_MULTI[key]){
+      list = list.filter(c=> CUSTOMERS_COL_FILTER_MULTI[key](c).includes(filterVal));
+    } else {
+      list = list.filter(c=> (getCustomerColValue(c,key)||"").toString() === filterVal);
+    }
+  });
+  if(customersSort.key){
+    list = list.slice().sort((a,b)=>{
+      let av = getCustomerColValue(a, customersSort.key);
+      let bv = getCustomerColValue(b, customersSort.key);
+      const aEmpty = av==null || av==="" || av==="—", bEmpty = bv==null || bv==="" || bv==="—";
+      if(aEmpty && bEmpty) return 0;
+      if(aEmpty) return 1;
+      if(bEmpty) return -1;
+      if(typeof av === "number" && typeof bv === "number") return (av-bv)*customersSort.dir;
+      return av.toString().localeCompare(bv.toString()) * customersSort.dir;
+    });
+  }
   emptyEl.style.display = totalCustomers ? "none" : "block";
   body.innerHTML = list.map(c=>`<tr>
     <td>${esc(c.customerName)}</td>
     <td style="font-size:11px; max-width:180px; white-space:normal;" title="${esc(c.products.join(', '))}">${esc(c.products[c.products.length-1]||"—")}${c.products.length>1?` <span class="subtle-note" style="padding:0;">+${c.products.length-1} more</span>`:""}</td>
     <td class="mono" style="font-size:11px;">${esc(c.awb)}</td>
-    <td class="mono" style="font-size:11px;" title="${esc(c.orderNos.join(', '))}">${esc(c.orderNos[c.orderNos.length-1]||"—")}${c.orderNos.length>1?` <span class="subtle-note" style="padding:0;">+${c.orderNos.length-1} more</span>`:""}</td>
+    <td class="mono" style="font-size:11px; max-width:180px; white-space:normal;">${esc(c.orderNos.join(', '))||"—"}</td>
     <td class="num-cell">${c.orderCount}</td>
     <td>${esc(c.firstPurchase)}</td>
     <td>${esc(c.lastPurchase)}</td>
@@ -10125,6 +10362,31 @@ document.addEventListener("DOMContentLoaded", ()=>{
   if(search) search.addEventListener("input", (e)=>{ customerSearchTerm = e.target.value.toLowerCase(); renderCustomers(); });
   const repFilter = document.getElementById("customerRepeatFilter");
   if(repFilter) repFilter.addEventListener("change", (e)=>{ customerRepeatFilterVal = e.target.value; renderCustomers(); });
+  document.querySelectorAll("#customersColFilterRow .col-filter-input").forEach(sel=>{
+    sel.addEventListener("click", (e)=> e.stopPropagation());
+    sel.addEventListener("change", (e)=>{
+      customersColFilters[e.target.dataset.filterKey] = e.target.value;
+      renderCustomers();
+    });
+  });
+  document.querySelectorAll("#view-customers thead th[data-sort]").forEach(th=>{
+    th.addEventListener("click", ()=>{
+      const key = th.dataset.sort;
+      if(customersSort.key===key) customersSort.dir *= -1; else { customersSort.key=key; customersSort.dir=1; }
+      th.closest("table").querySelectorAll("thead th[data-sort]").forEach(t=>t.classList.remove("sorted"));
+      th.classList.add("sorted");
+      renderCustomers();
+    });
+  });
+  const clearBtn = document.getElementById("customersClearFiltersBtn");
+  if(clearBtn) clearBtn.addEventListener("click", ()=>{
+    customerSearchTerm=""; customerRepeatFilterVal="all"; customersColFilters={}; customersSort={key:null, dir:1};
+    if(search) search.value="";
+    if(repFilter) repFilter.value="all";
+    document.querySelectorAll("#customersColFilterRow .col-filter-input").forEach(sel=> sel.value="");
+    document.querySelectorAll("#view-customers thead th[data-sort]").forEach(t=>t.classList.remove("sorted"));
+    renderCustomers();
+  });
 });
 
 /* ===================== TRADEMARK PROTECTION ===================== */
