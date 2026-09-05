@@ -1988,7 +1988,7 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
       <span class="toast-msg" id="toast">Order added ✓</span>
       <span class="field-err" id="f-stock-warn" style="min-height:auto;"></span>
       <button class="btn secondary" id="resetBtn">Reset to sample data</button>
-      <button class="btn secondary" id="wipeStorageBtn" title="Erases everything saved in this browser for this app and reloads fresh">Clear all local data</button>
+      <button class="btn secondary" id="wipeStorageBtn" title="Reloads the page and re-fetches the current data from the cloud">Reload from cloud</button>
       <button class="btn" id="addOrderBtn">Add order</button>
     </div>
   </div>
@@ -6621,7 +6621,15 @@ function renderPayments(){
   /* Compute each row's figures exactly once here, then reuse the same {o, rf} pairs for both the
      missing-breakdown warning banner and the table row markup below — avoids calling
      getPaymentRowFigures twice per order on every render. */
-  const rowData = paidOrders.map(o=>({o, rf:getPaymentRowFigures(o)}));
+  /* Build each row's figures defensively — one order with an unexpected/missing field used to be
+     able to throw here and abort the whole render, leaving the table looking completely empty
+     (even though every other row's data was perfectly intact). Now a bad row is skipped and
+     reported instead of silently wiping every row on screen. */
+  const _paymentsRowErrors = [];
+  const rowData = paidOrders.map(o=>{
+    try{ return {o, rf:getPaymentRowFigures(o)}; }
+    catch(err){ console.error("AKMR Trade Point: could not render payment row", o && o.id, err); _paymentsRowErrors.push(o); return null; }
+  }).filter(Boolean);
   /* Surface, up front, which products in the currently visible rows have no Packing Cost
      Calculator breakdown saved — their Other Expense is showing ₹0 (not a real ₹0) and Net
      Profit is therefore overstated until a breakdown is added for them. */
@@ -6637,6 +6645,17 @@ function renderPayments(){
       packingWarnEl.style.display = "none";
       packingWarnEl.innerHTML = "";
     }
+  }
+  const _existingRowErrWarn = document.getElementById("paymentsRowErrorWarning");
+  if(_existingRowErrWarn) _existingRowErrWarn.remove();
+  if(_paymentsRowErrors.length){
+    const warnRow = document.createElement("div");
+    warnRow.id = "paymentsRowErrorWarning";
+    warnRow.className = "import-log-row error";
+    warnRow.style.margin = "0 18px 10px";
+    warnRow.innerHTML = `⚠ <b>${_paymentsRowErrors.length}</b> row(s) could not be displayed due to unexpected data (order no: ${_paymentsRowErrors.map(o=>esc(o.id)).slice(0,5).join(", ")}${_paymentsRowErrors.length>5?"…":""}). The data itself is safe — this is just a display issue. Check the browser console for details, or let support know which order numbers these are.`;
+    const tableWrap = document.getElementById("paymentsBody").closest("table") || document.getElementById("paymentsBody").parentElement;
+    tableWrap.parentElement.insertBefore(warnRow, tableWrap);
   }
   document.getElementById("paymentsBody").innerHTML = rowData.map(({o, rf})=>{
     const pd = o.paymentDetails || {};
@@ -8345,12 +8364,10 @@ document.getElementById("resetBtn").addEventListener("click", ()=>{
 document.getElementById("wipeStorageBtn").addEventListener("click", ()=>{
   const body = document.getElementById("confirmBody");
   const foot = document.getElementById("confirmFoot");
-  body.innerHTML = `<h4 class="confirm-title">Clear all local data?</h4><p class="confirm-text">This permanently erases everything saved in this browser for AKMR Trade Point — every order, inventory change, listing, raw material, return and payment — and reloads the page from scratch. This can't be undone.</p>`;
-  foot.innerHTML = `<button class="btn secondary" id="confirmCancelBtn">Cancel</button><button class="btn" style="background:var(--red);" id="confirmDeleteBtn">Clear everything</button>`;
+  body.innerHTML = `<h4 class="confirm-title">Reload from the cloud?</h4><p class="confirm-text">This data now lives only in the shared cloud (Firestore) — nothing is cached in this browser any more. This just reloads the page and re-fetches the current cloud data fresh; it does NOT delete any orders, inventory, listings, raw materials, returns or payments. To actually delete data, use the delete/undo buttons on the specific records or imports instead.</p>`;
+  foot.innerHTML = `<button class="btn secondary" id="confirmCancelBtn">Cancel</button><button class="btn" style="background:var(--red);" id="confirmDeleteBtn">Reload</button>`;
   document.getElementById("confirmCancelBtn").addEventListener("click", closeConfirm);
   document.getElementById("confirmDeleteBtn").addEventListener("click", ()=>{
-    _suspendAutosave = true;
-    try{ localStorage.removeItem(STORAGE_KEY); }catch(err){ console.error("AKMR Trade Point: could not clear local storage.", err); }
     location.reload();
   });
   document.getElementById("confirmOverlay").classList.add("show");
@@ -9095,6 +9112,21 @@ function processMeeshoPaymentRows(rows, filename){
     touchedIds.push(subOrderNo);
   });
   inventory.forEach(recomputeInvFields);
+  /* Reset every Payments-tab filter after a successful import — otherwise a filter left set from
+     an earlier session (status tab, date range, product, search box, or a column filter) can hide
+     the rows this import just added/updated, making it look like the data "disappeared" the moment
+     you touch anything, when really it was filtered out the whole time. */
+  paymentsSearchTerm = ""; paymentsPlatformFilterVal = "all"; paymentsProductFilterVal = "all";
+  paymentsPaymentFilterVal = "all"; paymentsDateFromVal = ""; paymentsDateToVal = "";
+  paymentsColFilters = {}; paymentsSort = {key:null, dir:1}; activePaymentStatusTab = "All";
+  const _pSearch = document.getElementById("paymentsSearch"); if(_pSearch) _pSearch.value = "";
+  const _pPlatform = document.getElementById("paymentsPlatformFilter"); if(_pPlatform) _pPlatform.value = "all";
+  const _pPayment = document.getElementById("paymentsPaymentFilter"); if(_pPayment) _pPayment.value = "all";
+  const _pFrom = document.getElementById("paymentsDateFromFilter"); if(_pFrom) _pFrom.value = "";
+  const _pTo = document.getElementById("paymentsDateToFilter"); if(_pTo) _pTo.value = "";
+  const _pStatus = document.getElementById("paymentsStatusFilter"); if(_pStatus) _pStatus.value = "All";
+  document.querySelectorAll("#paymentsColFilterRow .col-filter-input").forEach(inp=> inp.value="");
+  document.querySelectorAll("#view-payments thead th[data-sort]").forEach(t=>t.classList.remove("sorted"));
   renderAll();
   populateProductSelect();
   return {matched, created, skipped, unmatched, locked, unmatchedList:[...unmatchedSet], total:rows.length, orderIds: touchedIds, skippedDetails};
@@ -11032,16 +11064,14 @@ function persistState(force){
      before ever reaching the Firestore transaction — silently skipping the exact push that was
      supposed to sync the merge result back up to the cloud for other devices. */
   if(!force && json === _lastSavedJSON && !_cloudWriteFailed) return; // nothing changed and any previous write already succeeded
-  try{
-    localStorage.setItem(STORAGE_KEY, json);
-    _lastSavedJSON = json;
-    showStorageWarning(false);
-  }catch(err){
-    console.error("AKMR Trade Point: could not save to this browser's storage — is it private/incognito mode, or full?", err);
-    setSaveStatus("error");
-    showStorageWarning(true);
-    return;
-  }
+  /* Local storage is intentionally NOT used to cache this data any more. This file's Firestore
+     document and local-storage key are both shared with a separate "AKMR Trade Point dashboard"
+     app on this device — if that app ever saves with an older/different schema (e.g. one that
+     doesn't know about paymentDetails), a local-storage cache picked up on this app's next reload
+     could silently reintroduce that stale, poorer copy and win the "local edits win" merge below,
+     erasing payment data that was actually fine in the cloud. Making Firestore the single source
+     of truth for boot removes that path entirely — see loadPersistedState(). */
+  _lastSavedJSON = json;
   if(_cloudEnabled){
     setSaveStatus("saving");
     let mergedJSON = json;
@@ -11170,7 +11200,6 @@ function applyPersistedJSON(raw){
     inventory.forEach(recomputeInvFields);
     rebuildPriceBook();
     _lastSavedJSON = raw;
-    try{ localStorage.setItem(STORAGE_KEY, raw); }catch(err){ /* local cache is best-effort only */ }
     return true;
   }catch(err){
     console.error("AKMR Trade Point: problem applying the saved data — starting from the built-in sample data instead.", err);
@@ -11178,14 +11207,12 @@ function applyPersistedJSON(raw){
   }
 }
 
+/* Intentionally does nothing now — kept only so any old call sites don't error. Data now loads
+   exclusively from Firestore in startApp() below; see the comment in persistState() for why local
+   storage was removed as a data source (it was a silent-corruption path via the sibling dashboard
+   app that shares this browser's local storage). */
 function loadPersistedState(){
-  let raw;
-  try{
-    raw = localStorage.getItem(STORAGE_KEY);
-  }
-  catch(err){ console.error("AKMR Trade Point: could not read saved data from this browser.", err); showStorageWarning(true); return false; }
-  if(!raw) return false;
-  return applyPersistedJSON(raw);
+  return false;
 }
 
 /* ===================== RENDER ALL ===================== */
@@ -11229,12 +11256,17 @@ const PASSCODE_STORAGE_KEY = "akmr_trade_point_unlocked_v1";
 
 function startApp(){
   /* Suspend saving until we've pulled down the real shared data — otherwise a brand-new browser
-     with no local copy would render blank/default data and immediately autosave that blank state
-     to the cloud, wiping out everyone else's real data before it ever gets a chance to download it. */
+     would render blank/default data and immediately autosave that blank state to the cloud,
+     wiping out everyone else's real data before it ever gets a chance to download it.
+     Firestore is now the ONLY source of truth on boot — there is no local-storage cache to fast-
+     paint from any more (see persistState()/loadPersistedState() for why: this app shares its
+     local-storage key AND Firestore document with a separate "dashboard" app, and a local cache
+     picked up here could silently be that other app's older/poorer snapshot, winning the "local
+     edits win" merge and erasing real payment data that was actually fine in the cloud). Sample/
+     built-in data stays on screen — clearly not yet real — until the real Firestore data arrives. */
   _suspendAutosave = true;
-  loadPersistedState();
   populateProductSelect();
-  renderAll(); // fast local paint (from this browser's cache, if any); nothing is saved yet
+  renderAll(); // shows the built-in sample data momentarily while Firestore loads; nothing is saved yet
 
   const finishBoot = ()=>{
     _suspendAutosave = false;
@@ -11245,52 +11277,35 @@ function startApp(){
   };
 
   if(_cloudEnabled){
-    let _cloudNeedsCatchUpPush = false;
     CLOUD_DOC().get().then(doc=>{
       if(doc.exists){
         const data = doc.data();
-        if(data && data.json && data.json !== _lastSavedJSON){
+        if(data && data.json){
           _applyingRemoteUpdate = true;
           try{
-            /* MERGE, don't overwrite: this browser may already have data (e.g. something added
-               moments ago, right before a refresh) that hadn't finished syncing to the cloud yet.
-               Blindly applying whatever the cloud returns here would silently erase that — so we
-               run it through the same id-based merge used for every save, keeping both sides'
-               records. If the merge pulls in anything the cloud didn't have, push it back up once
-               boot finishes so the cloud catches up too. */
-            let mergedJSON = data.json;
-            let remoteStateForBase = null;
-            try{
-              const localState = collectPersistedState();
-              const remoteState = JSON.parse(data.json);
-              remoteStateForBase = remoteState;
-              mergedJSON = JSON.stringify(mergeStateWithRemote(localState, remoteState, _syncBaseState));
-            }catch(mergeErr){
-              console.error("AKMR Trade Point: could not merge local data with the cloud on startup — using the cloud copy as-is.", mergeErr);
-              try{ remoteStateForBase = JSON.parse(data.json); }catch(e2){ /* leave as null */ }
-            }
-            const ok = applyPersistedJSON(mergedJSON);
+            // Nothing local to merge against on a fresh boot (no local-storage cache any more) —
+            // Firestore's copy IS the state. Just load it as-is.
+            const ok = applyPersistedJSON(data.json);
             if(ok){
-              try{ _syncBaseState = JSON.parse(mergedJSON); }catch(e3){ _syncBaseState = remoteStateForBase; }
+              try{ _syncBaseState = JSON.parse(data.json); }catch(e3){ _syncBaseState = null; }
               renderAll();
               refreshOpenBatchModalIfNeeded();
-              if(mergedJSON !== data.json) _cloudNeedsCatchUpPush = true;
             }
             else{
               // The data saved online exists but this version of the app couldn't read it — do NOT
               // let finishBoot() re-enable autosave below, or the next save overwrites the good
-              // online data with whatever got rendered from this browser's local/sample fallback.
+              // online data with whatever got rendered from the sample-data fallback.
               showCloudSyncWarning(true);
             }
           } finally{ _applyingRemoteUpdate = false; }
         }
       }
     }).catch(err=>{
-      console.error("AKMR Trade Point: could not load the shared cloud data on startup — showing this device's local copy instead.", err);
+      console.error("AKMR Trade Point: could not load the shared cloud data on startup.", err);
+      showCloudSyncWarning(true);
     }).finally(()=>{
       if(!_cloudApplyFailed) finishBoot();
       initCloudSync(); // now listen for live updates from other people going forward
-      if(_cloudNeedsCatchUpPush) persistState(true); // local had something the cloud didn't — sync it up now (force: bypass the just-set _lastSavedJSON guard)
     });
   } else {
     finishBoot();
