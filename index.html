@@ -944,7 +944,9 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
             <div class="search-box"><span class="si">🔍</span><input type="text" id="invSearch" placeholder="Search product..."></div>
             <select class="filter-select" id="invFilter"><option value="all">All stock levels</option><option value="low">Low stock (&lt;5)</option><option value="out">Out of stock</option><option value="ok">Healthy stock</option><option value="reorder">Reorder soon</option></select>
             <label class="filter-inline" title="Flag a product when its stock will run out within this many days, based on its recent sales pace"><span>Reorder if &lt;</span><input type="number" class="filter-select" id="reorderThresholdInput" min="1" max="90" style="width:56px;"><span>days left</span></label>
-            <button class="btn small" id="newStockBtn" style="margin-left:auto;">+ Add New Item</button>
+            <button class="btn small secondary" id="openInventoryImportBtn" style="margin-left:auto;">📥 Import Excel</button>
+            <button class="btn small secondary" id="exportInventoryBtn">⬇ Export Excel</button>
+            <button class="btn small" id="newStockBtn">+ Add New Item</button>
             <button class="btn small secondary" id="deleteAllInventoryBtn" style="color:var(--red);">🗑 Delete all</button>
             <button class="btn small secondary" id="undoInventoryBtn" style="display:none;">↩ Undo delete</button>
           </div>
@@ -1031,7 +1033,9 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
           <div class="toolbar">
             <div class="search-box"><span class="si">🔍</span><input type="text" id="rawSearch" placeholder="Search material..."></div>
             <select class="filter-select" id="rawCatFilter"><option value="all">All categories</option></select>
-            <button class="btn small" id="newRawBtn" style="margin-left:auto;">+ Add New Item</button>
+            <button class="btn small secondary" id="openRawImportBtn" style="margin-left:auto;">📥 Import Excel</button>
+            <button class="btn small secondary" id="exportRawBtn">⬇ Export Excel</button>
+            <button class="btn small" id="newRawBtn">+ Add New Item</button>
             <button class="btn small secondary" id="deleteAllRawBtn" style="color:var(--red);">🗑 Delete all</button>
             <button class="btn small secondary" id="undoRawBtn" style="display:none;">↩ Undo delete</button>
           </div>
@@ -1875,6 +1879,60 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
         <input type="file" id="importFileReturns" accept=".csv,.xlsx,.xls">
       </label>
       <div class="import-result" id="importResultReturns"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== IMPORT INVENTORY MODAL ===================== -->
+<div class="modal-overlay" id="inventoryImportModalOverlay">
+  <div class="modal" id="inventoryImportModal" role="dialog" aria-modal="true" aria-labelledby="inventoryImportModalTitle">
+    <div class="modal-head">
+      <h4 id="inventoryImportModalTitle">Import Inventory from Excel</h4>
+      <button class="drawer-close" id="inventoryImportModalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="import-note">
+        <span class="in-ic">📦</span>
+        <div class="in-body">
+          Upload a .csv/.xlsx/.xls with one row per stock line. Expected columns (names are flexible — e.g. "Item Name" or "Product Name" both work): <b>Item Name</b>, <b>Quantity</b>, <b>Price Per Unit</b>, and optionally <b>HSN</b>, <b>GST %</b>, <b>Shipping Cost</b>, <b>Supplier</b>, <b>Purchase Date</b>.
+          <div class="in-lock"><span class="in-lock-ic">🔗</span><span>If the Item Name already exists in Inventory (matched case-insensitively), the row is added as a <b>new purchase batch</b> on that item instead of creating a duplicate. A new name creates a new item.</span></div>
+          <div class="in-lock"><span class="in-lock-ic">⬇</span><span>Not sure of the format? Close this and click <b>Export Excel</b> on the Inventory toolbar to download your current stock in this exact layout, edit it, then re-import.</span></div>
+        </div>
+      </div>
+      <label class="import-zone" id="importZoneInventory" for="importFileInventory">
+        <div class="iz-badge">📦</div>
+        <div class="iz-title">Drop your Inventory Excel file here, or click to browse</div>
+        <div class="iz-sub">.csv, .xlsx, or .xls — rows missing an item name, quantity, or price are skipped and listed below.</div>
+        <input type="file" id="importFileInventory" accept=".csv,.xlsx,.xls">
+      </label>
+      <div class="import-result" id="importResultInventory"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== IMPORT RAW MATERIALS MODAL ===================== -->
+<div class="modal-overlay" id="rawImportModalOverlay">
+  <div class="modal" id="rawImportModal" role="dialog" aria-modal="true" aria-labelledby="rawImportModalTitle">
+    <div class="modal-head">
+      <h4 id="rawImportModalTitle">Import Raw Materials from Excel</h4>
+      <button class="drawer-close" id="rawImportModalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="import-note">
+        <span class="in-ic">🧵</span>
+        <div class="in-body">
+          Upload a .csv/.xlsx/.xls with one row per purchase line. Expected columns (names are flexible): <b>Material Name</b>, <b>Quantity</b>, <b>Cost Per Unit</b>, and optionally <b>Category</b>, <b>Unit</b>, <b>GST %</b>, <b>Rounding</b>, <b>Purchase Date</b>, <b>Supplier / Details</b>.
+          <div class="in-lock"><span class="in-lock-ic">🔗</span><span>If the Material Name already exists (matched case-insensitively), the row is added as a <b>new purchase batch</b> on that material instead of creating a duplicate. A new name creates a new material.</span></div>
+          <div class="in-lock"><span class="in-lock-ic">⬇</span><span>Not sure of the format? Close this and click <b>Export Excel</b> on the Raw Materials toolbar to download your current stock in this exact layout, edit it, then re-import.</span></div>
+        </div>
+      </div>
+      <label class="import-zone" id="importZoneRaw" for="importFileRaw">
+        <div class="iz-badge">🧵</div>
+        <div class="iz-title">Drop your Raw Materials Excel file here, or click to browse</div>
+        <div class="iz-sub">.csv, .xlsx, or .xls — rows missing a material name, quantity, or cost are skipped and listed below.</div>
+        <input type="file" id="importFileRaw" accept=".csv,.xlsx,.xls">
+      </label>
+      <div class="import-result" id="importResultRaw"></div>
     </div>
   </div>
 </div>
@@ -3123,6 +3181,10 @@ function openReverseFeeModal(){ document.getElementById("reverseFeeModalOverlay"
 function closeReverseFeeModal(){ document.getElementById("reverseFeeModalOverlay").classList.remove("show"); }
 function openPaymentsImportModal(){ document.getElementById("paymentsImportModalOverlay").classList.add("show"); }
 function closePaymentsImportModal(){ document.getElementById("paymentsImportModalOverlay").classList.remove("show"); }
+function openInventoryImportModal(){ document.getElementById("inventoryImportModalOverlay").classList.add("show"); }
+function closeInventoryImportModal(){ document.getElementById("inventoryImportModalOverlay").classList.remove("show"); }
+function openRawImportModal(){ document.getElementById("rawImportModalOverlay").classList.add("show"); }
+function closeRawImportModal(){ document.getElementById("rawImportModalOverlay").classList.remove("show"); }
 
 /* ---- Add Payment Manually — the single-order equivalent of importing the Payments file. Reuses
    the exact same fields/effects processMeeshoPaymentRows applies per row (bank, paymentDate, fee,
@@ -3226,6 +3288,14 @@ document.getElementById("reverseFeeModalOverlay").addEventListener("click", (e)=
 document.getElementById("openPaymentsImportBtn").addEventListener("click", openPaymentsImportModal);
 document.getElementById("paymentsImportModalClose").addEventListener("click", closePaymentsImportModal);
 document.getElementById("paymentsImportModalOverlay").addEventListener("click", (e)=>{ if(e.target.id==="paymentsImportModalOverlay") closePaymentsImportModal(); });
+document.getElementById("exportInventoryBtn").addEventListener("click", exportInventoryToExcel);
+document.getElementById("exportRawBtn").addEventListener("click", exportRawMaterialsToExcel);
+document.getElementById("openInventoryImportBtn").addEventListener("click", openInventoryImportModal);
+document.getElementById("inventoryImportModalClose").addEventListener("click", closeInventoryImportModal);
+document.getElementById("inventoryImportModalOverlay").addEventListener("click", (e)=>{ if(e.target.id==="inventoryImportModalOverlay") closeInventoryImportModal(); });
+document.getElementById("openRawImportBtn").addEventListener("click", openRawImportModal);
+document.getElementById("rawImportModalClose").addEventListener("click", closeRawImportModal);
+document.getElementById("rawImportModalOverlay").addEventListener("click", (e)=>{ if(e.target.id==="rawImportModalOverlay") closeRawImportModal(); });
 document.getElementById("openAddPaymentBtn").addEventListener("click", openAddPaymentModal);
 setupCombobox("ap-orderid", "ap-orderid-panel", (q)=>{
   const query = q.toLowerCase();
@@ -5062,7 +5132,9 @@ function renderRawMaterials(){
         text: `This permanently removes ${ids.length} selected raw material &amp; packaging stock line(s). This can't be undone.`,
         confirmLabel: "Delete selected",
         onConfirm: ()=>{
-          rawMaterials = rawMaterials.filter(m=>!ids.includes(m.id));
+          // rawMaterials is declared `const` — can't reassign it (that threw a silent TypeError
+          // here before, so bulk delete never actually removed anything). Splice in place instead.
+          for(let i=rawMaterials.length-1;i>=0;i--){ if(ids.includes(rawMaterials[i].id)) rawMaterials.splice(i,1); }
           selectedRawIds.clear();
           closeConfirm();
           renderAll();
@@ -9098,7 +9170,199 @@ function readMeeshoFile(file, onRows, onError){
   if(ext==="csv") reader.readAsText(file); else reader.readAsArrayBuffer(file);
 }
 
-const MEESHO_KIND_LABEL = {orders:"Orders", returns:"Returns", payments:"Payments"};
+/* ===================== INVENTORY / RAW MATERIAL EXCEL IMPORT =====================
+   Simpler than the 3-way Meesho import above: every row is just a purchase — matched to an
+   existing item by name (case-insensitive) and appended as a new dated batch, or used to create
+   a brand-new item if no name matches. Nothing is ever "locked"; re-uploading the same file just
+   adds the same batches again as a fresh purchase, same as re-entering them by hand would. Column
+   names are matched flexibly via getField(), same helper the Meesho imports use. */
+const INVENTORY_IMPORT_FIELD_MAP = {
+  name: ["item name","product name","name"],
+  hsn: ["hsn code","hsn"],
+  qty: ["quantity","qty"],
+  price: ["price per unit","purchase price","price"],
+  gst: ["gst %","gst%","gst"],
+  shipping: ["shipping cost","shipping"],
+  supplier: ["supplier"],
+  date: ["purchase date","date"],
+};
+const RAWMAT_IMPORT_FIELD_MAP = {
+  name: ["material name","material","name"],
+  category: ["category"],
+  qty: ["quantity","qty"],
+  unit: ["unit"],
+  cost: ["cost per unit","cost per piece","cost"],
+  gst: ["gst %","gst%","gst"],
+  rounding: ["rounding"],
+  date: ["purchase date","date"],
+  supplier: ["supplier / details","supplier","details"],
+};
+/* Accepts "18", "18%", or "0.18" and always returns a fraction (0.18). A value over 1 is assumed
+   to be written as whole percentage points (18 meaning 18%); 1 or under is assumed to already be
+   a fraction — matches how the manual Add Item / Add Raw Material forms treat GST input. */
+function parsePctFlexible(v){
+  if(v===undefined || v===null || v==="") return 0;
+  const s = v.toString().trim();
+  if(!s) return 0;
+  const hadPercentSign = s.includes("%");
+  const n = parseFloat(s.replace("%",""));
+  if(isNaN(n)) return 0;
+  if(hadPercentSign) return n/100;
+  return n>1 ? n/100 : n;
+}
+function processInventoryImportRows(rows, filename){
+  let added=0, newItems=0, skipped=0;
+  const skippedDetails = [];
+  const batchIds = [];
+  rows.forEach((row,i)=>{
+    const name = (getField(row, INVENTORY_IMPORT_FIELD_MAP.name)||"").toString().trim();
+    const qty = parseFloat(getField(row, INVENTORY_IMPORT_FIELD_MAP.qty));
+    const price = parseFloat(getField(row, INVENTORY_IMPORT_FIELD_MAP.price));
+    if(!name || isNaN(qty) || qty<0 || isNaN(price) || price<0){
+      skipped++;
+      skippedDetails.push({row:i+2, product:name, reason: !name ? "Missing item name" : "Missing or invalid Quantity/Price Per Unit"});
+      return;
+    }
+    const gstPct = parsePctFlexible(getField(row, INVENTORY_IMPORT_FIELD_MAP.gst));
+    const shippingCost = parseFloat(getField(row, INVENTORY_IMPORT_FIELD_MAP.shipping)) || 0;
+    const supplier = (getField(row, INVENTORY_IMPORT_FIELD_MAP.supplier)||"").toString().trim();
+    const purchaseDate = normalizeDate(getField(row, INVENTORY_IMPORT_FIELD_MAP.date));
+    const batch = {id:newId("ib"), date:purchaseDate, addedAt:todayStr(), qty, pricePerUnit:price, gstPct, shippingCost, supplier, importSource:filename};
+
+    let item = inventory.find(x=> x.name.trim().toLowerCase()===name.toLowerCase());
+    if(item){
+      if(!item.batches) item.batches = [];
+      item.batches.push(batch);
+    } else {
+      const hsn = (getField(row, INVENTORY_IMPORT_FIELD_MAP.hsn)||"").toString().trim() || "7117";
+      item = {id:"inv"+(nextInvId++), name, hsn, damaged:0, photo:null, batches:[batch]};
+      inventory.push(item);
+      newItems++;
+    }
+    recomputeInvFields(item);
+    batchIds.push(batch.id);
+    added++;
+  });
+  renderAll();
+  populateProductSelect();
+  return {added, newItems, skipped, total:rows.length, batchIds, skippedDetails};
+}
+function processRawImportRows(rows, filename){
+  let added=0, newItems=0, skipped=0;
+  const skippedDetails = [];
+  const batchIds = [];
+  rows.forEach((row,i)=>{
+    const name = (getField(row, RAWMAT_IMPORT_FIELD_MAP.name)||"").toString().trim();
+    const qty = parseFloat(getField(row, RAWMAT_IMPORT_FIELD_MAP.qty));
+    const cost = parseFloat(getField(row, RAWMAT_IMPORT_FIELD_MAP.cost));
+    if(!name || isNaN(qty) || qty<0 || isNaN(cost) || cost<0){
+      skipped++;
+      skippedDetails.push({row:i+2, product:name, reason: !name ? "Missing material name" : "Missing or invalid Quantity/Cost Per Unit"});
+      return;
+    }
+    const gstPct1 = parsePctFlexible(getField(row, RAWMAT_IMPORT_FIELD_MAP.gst));
+    const roundingRaw = getField(row, RAWMAT_IMPORT_FIELD_MAP.rounding);
+    const rounding = roundingRaw==="" ? 0 : (parseFloat(roundingRaw)||0);
+    const supplier = (getField(row, RAWMAT_IMPORT_FIELD_MAP.supplier)||"").toString().trim();
+    const purchaseDate = normalizeDate(getField(row, RAWMAT_IMPORT_FIELD_MAP.date));
+    const batch = {id:newId("rb"), date:purchaseDate, addedAt:todayStr(), qty, costPerPiece:cost, gstPct1, gstPct2:0, rounding, supplier, importSource:filename};
+
+    let m = rawMaterials.find(x=> x.name.trim().toLowerCase()===name.toLowerCase());
+    if(m){
+      if(!m.batches) m.batches = [];
+      m.batches.push(batch);
+    } else {
+      const category = (getField(row, RAWMAT_IMPORT_FIELD_MAP.category)||"").toString().trim();
+      const unit = (getField(row, RAWMAT_IMPORT_FIELD_MAP.unit)||"").toString().trim() || "pcs";
+      m = {id:"raw"+(nextRawId++), name, category, unit, batches:[batch]};
+      rawMaterials.push(m);
+      newItems++;
+    }
+    aggregateRawBatches(m);
+    batchIds.push(batch.id);
+    added++;
+  });
+  renderAll();
+  renderPackMaterialPicker();
+  return {added, newItems, skipped, total:rows.length, batchIds, skippedDetails};
+}
+/* ===================== INVENTORY / RAW MATERIAL EXCEL EXPORT =====================
+   Mirrors the column headers in INVENTORY_IMPORT_FIELD_MAP / RAWMAT_IMPORT_FIELD_MAP (using the
+   first/canonical alias for each field) so a downloaded file can be edited and re-imported with a
+   clean round trip. One row per purchase batch — matching how import adds rows — rather than one
+   row per item, so purchase history (dates, per-batch price/cost, supplier) isn't collapsed. */
+function exportInventoryToExcel(){
+  const aoa = [["Item Name","HSN Code","Purchase Date","Price Per Unit","Quantity","GST %","Shipping Cost","Supplier"]];
+  inventory.forEach(item=>{
+    const batches = (item.batches && item.batches.length) ? item.batches : [{date:"", qty:item.qty||0, pricePerUnit:item.pricePerP||0, gstPct:item.gstPct||0, shippingCost:item.shippingCost||0, supplier:""}];
+    batches.forEach(b=>{
+      aoa.push([
+        item.name,
+        item.hsn || "",
+        b.date || "",
+        +(b.pricePerUnit||0),
+        +(b.qty||0),
+        +(((b.gstPct||0)*100).toFixed(2)),
+        +(b.shippingCost||0),
+        b.supplier || ""
+      ]);
+    });
+  });
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = [{wch:26},{wch:10},{wch:14},{wch:14},{wch:10},{wch:8},{wch:12},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+  XLSX.writeFile(wb, `Inventory_Export_${todayStr()}.xlsx`);
+}
+function exportRawMaterialsToExcel(){
+  const aoa = [["Material Name","Category","Unit","Purchase Date","Cost Per Unit","Quantity","GST %","Rounding","Supplier / Details"]];
+  rawMaterials.forEach(m=>{
+    const batches = (m.batches && m.batches.length) ? m.batches : [{date:"", qty:m.qty||0, costPerPiece:m.costPerPiece||0, gstPct1:m.gstPct1||0, rounding:m.rounding||0, supplier:""}];
+    batches.forEach(b=>{
+      aoa.push([
+        m.name,
+        m.category || "",
+        m.unit || "",
+        b.date || "",
+        +(b.costPerPiece||0),
+        +(b.qty||0),
+        +((((b.gstPct1||0)+(b.gstPct2||0))*100).toFixed(2)),
+        +(b.rounding||0),
+        b.supplier || ""
+      ]);
+    });
+  });
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!cols"] = [{wch:26},{wch:16},{wch:8},{wch:14},{wch:14},{wch:10},{wch:8},{wch:10},{wch:18}];
+  XLSX.utils.book_append_sheet(wb, ws, "Raw Materials");
+  XLSX.writeFile(wb, `Raw_Materials_Export_${todayStr()}.xlsx`);
+}
+/* ---- entry point for the Inventory/Raw Material dropzones — unlike handleMeeshoFile, there's no
+   auto-detection between kinds here since both file shapes are similar free-form spreadsheets;
+   whichever dropzone the file lands in is respected as-is. ---- */
+function handleStockImportFile(file, kind){
+  readMeeshoFile(file, (rows)=>{
+    const stats = kind==="inventory" ? processInventoryImportRows(rows, file.name) : processRawImportRows(rows, file.name);
+    logImportResult({kind, intendedKind:kind, filename:file.name, stats});
+  }, (error)=>{
+    logImportResult({kind, intendedKind:kind, filename:file.name, error});
+  });
+}
+function wireStockImportZone(zoneId, inputId, kind){
+  const zone = document.getElementById(zoneId);
+  const input = document.getElementById(inputId);
+  input.addEventListener("change", (e)=>{ if(e.target.files[0]) handleStockImportFile(e.target.files[0], kind); e.target.value=""; });
+  zone.addEventListener("dragover", (e)=>{ e.preventDefault(); zone.classList.add("dragover"); });
+  zone.addEventListener("dragleave", ()=> zone.classList.remove("dragover"));
+  zone.addEventListener("drop", (e)=>{
+    e.preventDefault(); zone.classList.remove("dragover");
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if(file) handleStockImportFile(file, kind);
+  });
+}
+
+const MEESHO_KIND_LABEL = {orders:"Orders", returns:"Returns", payments:"Payments", inventory:"Inventory", rawmaterial:"Raw Material"};
 
 /* ---- entry point for all 3 dropzones: reads the file, auto-detects its real type from the header
    row (so a file dropped in the wrong box still routes correctly), runs the matching processor,
@@ -9154,6 +9418,8 @@ function applyImportEntryDeletion(entry){
   const isOrdersDelete = entry && !entry.error && entry.kind==="orders" && entry.stats && entry.stats.orderIds && entry.stats.orderIds.length;
   const isReturnsDelete = entry && !entry.error && entry.kind==="returns" && entry.stats && entry.stats.recordIds && entry.stats.recordIds.length;
   const isPaymentsDelete = entry && !entry.error && entry.kind==="payments" && entry.stats && entry.stats.orderIds && entry.stats.orderIds.length;
+  const isInventoryDelete = entry && !entry.error && entry.kind==="inventory" && entry.stats && entry.stats.batchIds && entry.stats.batchIds.length;
+  const isRawDelete = entry && !entry.error && entry.kind==="rawmaterial" && entry.stats && entry.stats.batchIds && entry.stats.batchIds.length;
 
   /* Deleting an import is the ONLY way any of the locks below get cleared — this is the "unless I
      delete it manually" escape hatch. A plain re-import of the same/an updated file, with the lock
@@ -9201,6 +9467,33 @@ function applyImportEntryDeletion(entry){
       } else if(idx>-1){ kept++; }
     });
     return {kind:"payments", filename:entry.filename, removed, reverted, kept};
+  } else if(isInventoryDelete){
+    let removed=0, itemsRemoved=0;
+    entry.stats.batchIds.forEach(bid=>{
+      const item = inventory.find(it=> (it.batches||[]).some(b=>b.id===bid));
+      if(!item) return;
+      const bidx = item.batches.findIndex(b=>b.id===bid);
+      if(bidx>-1){ item.batches.splice(bidx,1); removed++; }
+      if(item.batches.length===0) itemsRemoved++; // this item had no purchases before this import either — drop it entirely, don't leave a zero-batch ghost row
+      else recomputeInvFields(item);
+    });
+    if(itemsRemoved) inventory = inventory.filter(it=> (it.batches||[]).length>0);
+    return {kind:"inventory", filename:entry.filename, removed, itemsRemoved};
+  } else if(isRawDelete){
+    let removed=0, itemsRemoved=0;
+    entry.stats.batchIds.forEach(bid=>{
+      const m = rawMaterials.find(x=> (x.batches||[]).some(b=>b.id===bid));
+      if(!m) return;
+      const bidx = m.batches.findIndex(b=>b.id===bid);
+      if(bidx>-1){ m.batches.splice(bidx,1); removed++; }
+      if(m.batches.length===0) itemsRemoved++;
+      else aggregateRawBatches(m);
+    });
+    // rawMaterials is declared const — splice in place rather than reassigning, unlike inventory above.
+    if(itemsRemoved){
+      for(let i=rawMaterials.length-1;i>=0;i--){ if((rawMaterials[i].batches||[]).length===0) rawMaterials.splice(i,1); }
+    }
+    return {kind:"rawmaterial", filename:entry.filename, removed, itemsRemoved};
   }
   return null;
 }
@@ -9209,7 +9502,9 @@ function deleteImportLogEntry(id){
   const isDestructive = entry && !entry.error && (
     (entry.kind==="orders" && entry.stats && entry.stats.orderIds && entry.stats.orderIds.length) ||
     (entry.kind==="returns" && entry.stats && entry.stats.recordIds && entry.stats.recordIds.length) ||
-    (entry.kind==="payments" && entry.stats && entry.stats.orderIds && entry.stats.orderIds.length)
+    (entry.kind==="payments" && entry.stats && entry.stats.orderIds && entry.stats.orderIds.length) ||
+    (entry.kind==="inventory" && entry.stats && entry.stats.batchIds && entry.stats.batchIds.length) ||
+    (entry.kind==="rawmaterial" && entry.stats && entry.stats.batchIds && entry.stats.batchIds.length)
   );
 
   if(isDestructive && !pendingDeleteIds.has(id)){
@@ -9221,16 +9516,21 @@ function deleteImportLogEntry(id){
   pendingDeleteIds.delete(id);
 
   const result = applyImportEntryDeletion(entry);
+  /* Filter importLog BEFORE renderAll()/persistState() runs (renderAll() saves internally). Doing
+     this after would leave a brief window where two separate saves are in flight — one with the
+     entry still in importLog, one without — and since Firestore doesn't guarantee they land in
+     the order they were sent, the stale one could finish last and silently resurrect the entry
+     you just deleted. Filtering first means there's only ever one, fully-correct save. */
+  importLog = importLog.filter(e=>e.id!==id);
   if(result){
     inventory.forEach(recomputeInvFields);
     renderAll();
     populateProductSelect();
     lastDeleteNotice = result;
+  } else {
+    renderImportResult();
+    persistState();
   }
-
-  importLog = importLog.filter(e=>e.id!==id);
-  renderImportResult();
-  persistState();
 }
 /* "Clear all history" for a tab used to only clear the log lines, silently leaving the imported
    data behind — that's the bug being fixed here. It now runs the same real undo as the per-row
@@ -9247,24 +9547,28 @@ function clearAllImportHistory(kind){
   }
   pendingClearAllKinds.delete(kind);
 
-  let removed=0, reverted=0, kept=0;
+  let removed=0, reverted=0, kept=0, itemsRemoved=0;
   entries.forEach(entry=>{
     const result = applyImportEntryDeletion(entry);
-    if(result){ removed += result.removed||0; reverted += result.reverted||0; kept += result.kept||0; }
+    if(result){ removed += result.removed||0; reverted += result.reverted||0; kept += result.kept||0; itemsRemoved += result.itemsRemoved||0; }
   });
-  if(removed || reverted || kept){
+  /* Same fix as deleteImportLogEntry(): filter importLog BEFORE renderAll()/persistState() so
+     only one, fully-correct save goes out — see the comment there for why doing it after can let
+     a stale save race ahead and resurrect what you just cleared. */
+  importLog = importLog.filter(e=> e.intendedKind!==kind);
+  if(removed || reverted || kept || itemsRemoved){
     inventory.forEach(recomputeInvFields);
     renderAll();
     populateProductSelect();
-    lastDeleteNotice = {kind, filename: entries.length>1 ? `${entries.length} files` : (entries[0]?.filename||""), removed, reverted, kept};
+    lastDeleteNotice = {kind, filename: entries.length>1 ? `${entries.length} files` : (entries[0]?.filename||""), removed, reverted, kept, itemsRemoved};
+  } else {
+    renderImportResult();
+    persistState();
   }
-  importLog = importLog.filter(e=> e.intendedKind!==kind);
-  renderImportResult();
-  persistState();
 }
 function buildImportLogRow(e){
   const label = MEESHO_KIND_LABEL[e.kind] + " file";
-  const delTitleMap = {orders:"Delete this raw data — removes the orders it added/updated too", returns:"Delete this raw data — removes the return records it captured", payments:"Delete this raw data — removes/reverts the orders it touched"};
+  const delTitleMap = {orders:"Delete this raw data — removes the orders it added/updated too", returns:"Delete this raw data — removes the return records it captured", payments:"Delete this raw data — removes/reverts the orders it touched", inventory:"Delete this raw data — removes the purchase batches it added", rawmaterial:"Delete this raw data — removes the purchase batches it added"};
   const delTitle = delTitleMap[e.kind] || "Remove this from the upload history";
   const isPending = pendingDeleteIds.has(e.id);
   const delBtn = isPending
@@ -9281,17 +9585,20 @@ function buildImportLogRow(e){
   if(s.created!=null) statHtml += ` <span class="import-stat" style="color:var(--forest);">➕ <b>${s.created}</b> new order</span>`;
   if(s.captured!=null) statHtml += ` <span class="import-stat" style="color:var(--forest);">📋 <b>${s.captured}</b> captured to dashboard</span>`;
   if(s.ordersUpdated!=null) statHtml += ` <span class="import-stat" style="color:var(--blue);">🔗 <b>${s.ordersUpdated}</b> order status synced</span>`;
+  if(s.newItems!=null) statHtml += ` <span class="import-stat" style="color:var(--forest);">🆕 <b>${s.newItems}</b> new ${e.kind==="rawmaterial"?"material(s)":"item(s)"} created</span>`;
   if(s.locked) statHtml += ` <span class="import-stat" style="color:var(--ink-soft);">🔒 <b>${s.locked}</b> already imported — left unchanged</span>`;
-  if(s.skipped) statHtml += ` <span class="import-stat stat-danger">⛔ <b>${s.skipped}</b> skipped — missing Sub Order No</span>`;
+  const isStockKind = e.kind==="inventory" || e.kind==="rawmaterial";
+  if(s.skipped) statHtml += ` <span class="import-stat stat-danger">⛔ <b>${s.skipped}</b> skipped${isStockKind ? "" : " — missing Sub Order No"}</span>`;
   const routeNote = e.autoRouted ? `<div class="import-route-note">⚠ This looked like a ${MEESHO_KIND_LABEL[e.kind]} file by its columns, not a ${MEESHO_KIND_LABEL[e.intendedKind]} file — imported as ${MEESHO_KIND_LABEL[e.kind]} automatically.</div>` : "";
   const unmatchedNote = s.unmatched ? `<div class="import-unmatched">⚠ <b>${s.unmatched}</b> order(s) had a product that didn't match your Inventory list, so cost/profit couldn't be linked automatically: <i>${esc(s.unmatchedList.slice(0,6).join(", "))}${s.unmatchedList.length>6?"…":""}</i>. Use the ✎ edit button on those orders to correct the product name and link the cost.</div>` : "";
   let skippedNote = "";
   if(s.skippedDetails && s.skippedDetails.length){
     const shown = s.skippedDetails.slice(0,10);
     const more = s.skippedDetails.length>10 ? `<li>…and ${s.skippedDetails.length-10} more</li>` : "";
-    skippedNote = `<div class="import-skipped-detail">⛔ <b>${s.skippedDetails.length}</b> row(s) from this file were <b>not imported</b> — no Sub Order No found:
-      <ul>${shown.map(d=>`<li>Row ${d.row}${d.sku?` — SKU: ${esc(d.sku)}`:""}${d.product?` — Product: ${esc(d.product)}`:""}</li>`).join("")}${more}</ul>
-      Fix the Sub Order No for these rows in the source file and re-upload to bring them in.</div>`;
+    const skippedTail = isStockKind ? `Fix these rows in the source file and re-upload to bring them in.` : `Fix the Sub Order No for these rows in the source file and re-upload to bring them in.`;
+    skippedNote = `<div class="import-skipped-detail">⛔ <b>${s.skippedDetails.length}</b> row(s) from this file were <b>not imported</b>:
+      <ul>${shown.map(d=>`<li>Row ${d.row}${d.sku?` — SKU: ${esc(d.sku)}`:""}${d.product?` — ${isStockKind?"Name":"Product"}: ${esc(d.product)}`:""}${d.reason?` — ${esc(d.reason)}`:""}</li>`).join("")}${more}</ul>
+      ${skippedTail}</div>`;
   }
   return `<div class="import-log-row"><div style="display:flex; justify-content:space-between; gap:8px;"><span><b>${label}</b> — <span class="il-file mono" style="font-size:11px;">${esc(e.filename)}</span></span>${delBtn}</div><div class="import-stat-row" style="margin-top:4px;">${statHtml}</div>${routeNote}${unmatchedNote}${skippedNote}</div>`;
 }
@@ -9305,11 +9612,13 @@ function buildImportLogRow(e){
    a long list manageable it sits in its own scrollable box (so the modal itself doesn't grow
    forever), and once there are enough uploads to matter a small search box appears to jump
    straight to a file by name. */
-let importLogSearch = {orders:"", payments:"", returns:""};
+let importLogSearch = {orders:"", payments:"", returns:"", inventory:"", rawmaterial:""};
 function renderImportResult(){
   const ordersOnly = importLog.filter(e=> e.intendedKind==="orders");
   const paymentsOnly = importLog.filter(e=> e.intendedKind==="payments");
   const returnsOnly = importLog.filter(e=> e.intendedKind==="returns");
+  const inventoryOnly = importLog.filter(e=> e.intendedKind==="inventory");
+  const rawOnly = importLog.filter(e=> e.intendedKind==="rawmaterial");
   const renderInto = (elId, entries, kind)=>{
     const el = document.getElementById(elId);
     if(!el) return;
@@ -9322,6 +9631,10 @@ function renderImportResult(){
         noticeHtml = `<div class="import-log-row" style="border-color:var(--forest); background:var(--forest-bg);">✓ Removed <b>${n.removed}</b> return record(s) that came from <span class="il-file mono" style="font-size:11px;">${esc(n.filename)}</span>${n.kept?` · kept <b>${n.kept}</b> a newer Returns file has since updated`:""}</div>`;
       } else if(n.kind==="payments"){
         noticeHtml = `<div class="import-log-row" style="border-color:var(--forest); background:var(--forest-bg);">✓ From <span class="il-file mono" style="font-size:11px;">${esc(n.filename)}</span>: removed <b>${n.removed}</b> payment-only order(s), reverted payment fields on <b>${n.reverted}</b> order(s)${n.kept?` · kept <b>${n.kept}</b> a newer Payments file has since updated`:""}</div>`;
+      } else if(n.kind==="inventory"){
+        noticeHtml = `<div class="import-log-row" style="border-color:var(--forest); background:var(--forest-bg);">✓ Removed <b>${n.removed}</b> purchase batch(es) that came from <span class="il-file mono" style="font-size:11px;">${esc(n.filename)}</span>${n.itemsRemoved?` · <b>${n.itemsRemoved}</b> item(s) removed entirely (this import was their only purchase)`:""}</div>`;
+      } else if(n.kind==="rawmaterial"){
+        noticeHtml = `<div class="import-log-row" style="border-color:var(--forest); background:var(--forest-bg);">✓ Removed <b>${n.removed}</b> purchase batch(es) that came from <span class="il-file mono" style="font-size:11px;">${esc(n.filename)}</span>${n.itemsRemoved?` · <b>${n.itemsRemoved}</b> material(s) removed entirely (this import was their only purchase)`:""}</div>`;
       }
       lastDeleteNotice = null;
     }
@@ -9364,6 +9677,8 @@ function renderImportResult(){
   renderInto("importResult", ordersOnly, "orders");
   renderInto("importResultPayments", paymentsOnly, "payments");
   renderInto("importResultReturns", returnsOnly, "returns");
+  renderInto("importResultInventory", inventoryOnly, "inventory");
+  renderInto("importResultRaw", rawOnly, "rawmaterial");
 }
 
 function wireImportZone(zoneId, inputId, kind){
@@ -9381,6 +9696,8 @@ function wireImportZone(zoneId, inputId, kind){
 wireImportZone("importZoneOrders", "importFileOrders", "orders");
 wireImportZone("importZoneReturns", "importFileReturns", "returns");
 wireImportZone("importZonePayments", "importFilePayments", "payments");
+wireStockImportZone("importZoneInventory", "importFileInventory", "inventory");
+wireStockImportZone("importZoneRaw", "importFileRaw", "rawmaterial");
 
 /* ===================== IMPORT CALENDAR =====================
    Day-by-day view built entirely from data already in the app — no separate storage of its own.
