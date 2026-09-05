@@ -9387,7 +9387,10 @@ let importLog = [];
 let importLogSeq = 0;
 let lastDeleteNotice = null;
 function logImportResult(entry){
-  entry.id = ++importLogSeq;
+  entry.id = newId("il"); // collision-resistant — a simple incrementing counter reset each session
+                           // could collide with an id from another device/session and get silently
+                           // dropped by the cloud merge, same failure mode newId() exists to prevent
+                           // everywhere else (see mergeArraysById above).
   entry.importedAt = new Date().toISOString(); // when the file was actually uploaded — powers the Calendar view
   importLog.unshift(entry);
   renderImportResult();
@@ -9659,7 +9662,7 @@ function renderImportResult(){
       : `<div class="il-empty-filtered">No uploads match "${esc(importLogSearch[kind])}"</div>`;
     el.innerHTML = noticeHtml + headHtml + `<div class="il-scroll">${rowsHtml}</div>`;
     el.querySelectorAll(".il-delete").forEach(btn=>{
-      btn.addEventListener("click", ()=> deleteImportLogEntry(Number(btn.dataset.logId)));
+      btn.addEventListener("click", ()=> deleteImportLogEntry(btn.dataset.logId));
     });
     const clearAllBtn = el.querySelector(".il-clear-all");
     if(clearAllBtn) clearAllBtn.addEventListener("click", ()=> clearAllImportHistory(kind));
