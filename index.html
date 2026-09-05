@@ -416,59 +416,75 @@ tbody tr.clickable:hover td:first-child{box-shadow:inset 3px 0 0 var(--maroon);}
 .icon-btn:hover{background:var(--panel); border-color:var(--gold); color:var(--ink);}
 .icon-btn.danger:hover{border-color:var(--red); color:var(--red); background:var(--red-bg);}
 
-/* ---------- order import ---------- */
-.import-zone{display:block; border:2px dashed var(--line-strong); border-radius:10px; padding:26px 20px; text-align:center; cursor:pointer; transition:border-color .15s, background .15s; background:var(--panel-2);}
-.import-zone:hover, .import-zone.dragover{border-color:var(--gold); background:var(--gold-bg);}
+/* ---------- order / payments import (fresh redesign) ---------- */
+.import-zone{display:block; border:2px dashed var(--line-strong); border-radius:16px; padding:34px 22px; text-align:center; cursor:pointer; transition:border-color .18s ease, background .18s ease, transform .18s ease; background:var(--panel-2); position:relative;}
+.import-zone:hover{border-color:var(--line-strong); background:var(--panel);}
+.import-zone.dragover{border-color:var(--gold); border-style:solid; background:var(--brand-gradient-soft); transform:scale(1.01);}
 .import-zone .iz-ic{font-size:26px; margin-bottom:8px;}
-.import-zone .iz-title{font-weight:700; font-size:13.5px; color:var(--ink); margin-bottom:3px;}
-.import-zone .iz-sub{font-size:11.5px; color:var(--ink-soft);}
+.import-zone .iz-title{font-weight:800; font-size:14px; color:var(--ink); margin-bottom:5px; letter-spacing:.01em;}
+.import-zone .iz-sub{font-size:11.5px; line-height:1.5; color:var(--ink-soft); max-width:420px; margin:0 auto;}
 .import-zone input[type=file]{display:none;}
-/* Redesigned info card above each import drop-zone: an icon-badge drop target plus a compact,
-   non-italic explainer split into "what this does" and a separate locking callout, instead of one
-   long italic paragraph. */
-.import-zone{padding:30px 20px;}
-.import-zone .iz-badge{width:46px; height:46px; border-radius:50%; background:var(--gold-bg); display:flex; align-items:center; justify-content:center; font-size:21px; margin:0 auto 12px;}
-.import-note{display:flex; gap:10px; padding:12px 14px; border-radius:10px; background:var(--panel-2); border:1px solid var(--line); margin-bottom:14px;}
-.import-note .in-ic{font-size:15px; flex-shrink:0; line-height:1.4;}
-.import-note .in-body{font-size:12px; line-height:1.55; color:var(--ink-soft);}
+.import-zone .iz-badge{width:54px; height:54px; border-radius:16px; background:var(--brand-gradient); color:#fff; display:flex; align-items:center; justify-content:center; font-size:23px; margin:0 auto 14px; box-shadow:var(--shadow-gold);}
+/* info card above each drop-zone: icon-badge + explainer, with a distinct callout for the
+   "once imported, it's locked" behaviour so it doesn't get lost inside a wall of text. */
+.import-note{display:flex; gap:12px; padding:14px 16px 14px 18px; border-radius:12px; background:var(--panel-2); border:1px solid var(--line); margin-bottom:16px; position:relative; overflow:hidden;}
+.import-note::before{content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--brand-gradient);}
+.import-note .in-ic{width:30px; height:30px; border-radius:9px; background:var(--panel); box-shadow:var(--shadow-sm); display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0;}
+.import-note .in-body{font-size:12px; line-height:1.55; color:var(--ink-soft); padding-top:2px;}
 .import-note .in-body b{color:var(--ink); font-weight:600;}
-.import-note .in-lock{display:flex; gap:7px; align-items:flex-start; margin-top:8px; padding-top:8px; border-top:1px dashed var(--line-strong); font-size:11.5px; line-height:1.5; color:var(--ink-soft);}
+.import-note .in-lock{display:flex; gap:8px; align-items:flex-start; margin-top:10px; padding:9px 11px; border-radius:9px; background:var(--amber-bg); font-size:11.5px; line-height:1.5; color:var(--ink);}
 .import-note .in-lock .in-lock-ic{flex-shrink:0;}
 .import-note .in-lock b{color:var(--ink);}
-.import-result{margin-top:14px; padding:12px 14px; border-radius:8px; background:var(--panel-2); border:1px solid var(--line); font-size:12.5px; display:none;}
+.import-result{margin-top:18px; display:none;}
 .import-result.show{display:block;}
-.import-result.error{background:var(--red-bg); border-color:var(--red); color:var(--red);}
-.import-stat-row{display:flex; gap:14px; flex-wrap:wrap;}
-.import-stat{display:flex; align-items:center; gap:5px;}
-.import-stat b{font-family:'JetBrains Mono',monospace;}
-.import-unmatched{font-size:11.5px; color:var(--red); margin-top:8px; line-height:1.5; background:var(--red-bg); border:1px solid var(--red); border-radius:8px; padding:8px 10px;}
-.import-skipped-detail{font-size:11.5px; color:var(--red); margin-top:8px; line-height:1.6; background:var(--red-bg); border:1px solid var(--red); border-radius:8px; padding:8px 10px;}
-.import-skipped-detail ul{margin:4px 0 0; padding-left:18px;}
-.import-skipped-detail li{margin-bottom:2px;}
-.import-stat.stat-danger{color:var(--red); font-weight:700;}
-.import-log-row{padding:9px 0; border-bottom:1px solid var(--line); text-align:left;}
-.import-log-row:last-child{border-bottom:none;}
-.import-log-row.error{color:var(--red);}
-.import-log-row .il-file{color:var(--ink-soft);}
-.import-route-note{font-size:11.5px; color:var(--amber); margin-top:3px;}
-.il-delete{background:none; border:none; cursor:pointer; font-size:13px; opacity:0.55; padding:2px 4px; border-radius:5px; flex-shrink:0; line-height:1;}
-.il-delete:hover{opacity:1; background:var(--red-bg);}
-.il-delete.confirm{opacity:1; background:var(--red); color:#fff; font-size:11px; font-weight:700; padding:4px 8px; white-space:nowrap;}
-.il-delete.confirm:hover{background:var(--red);}
-.il-clear-row{text-align:right; padding-bottom:6px;}
-.il-clear-all{background:none; border:none; cursor:pointer; font-size:11px; font-weight:700; color:var(--ink-soft); text-decoration:underline; padding:0;}
-.il-clear-all:hover{color:var(--red);}
-.il-clear-all.confirm{color:var(--red); text-decoration:none; background:var(--red-bg); padding:4px 8px; border-radius:5px;}
-.il-history-head{display:flex; align-items:center; justify-content:space-between; gap:10px; padding-bottom:8px;}
-.il-count{font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em; white-space:nowrap;}
-.il-search-wrap{position:relative; flex:1; max-width:220px;}
-.il-search{font:inherit; font-size:12px; padding:6px 10px 6px 26px; border:1px solid var(--line); border-radius:20px; background:var(--panel); width:100%; box-sizing:border-box;}
-.il-search:focus{outline:none; border-color:var(--gold);}
-.il-search-ic{position:absolute; left:9px; top:50%; transform:translateY(-50%); font-size:11px; opacity:.5; pointer-events:none;}
-.il-scroll{max-height:340px; overflow-y:auto; padding-right:2px; margin-right:-2px;}
+.import-result.error{background:var(--red-bg); border:1px solid var(--red); color:var(--red); border-radius:10px; padding:12px 14px;}
+/* toolbar: upload count + optional search + clear-all, sitting above the history list */
+.il-history-head{display:flex; align-items:center; justify-content:space-between; gap:8px 10px; flex-wrap:wrap; padding:0 1px 10px; margin-bottom:10px; border-bottom:1px solid var(--line);}
+.il-count{font-size:10.5px; font-weight:800; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.05em; background:var(--panel-2); border:1px solid var(--line); padding:4px 10px; border-radius:20px; white-space:nowrap;}
+/* flex-basis lets the search box drop to its own full-width line on narrow/mobile screens
+   (where .modal goes 100% width) instead of squeezing to an unreadable sliver next to the
+   count badge and Clear-all button. */
+.il-search-wrap{position:relative; flex:1 1 150px; min-width:150px;}
+.il-search{font:inherit; font-size:12px; padding:7px 12px 7px 28px; border:1px solid var(--line); border-radius:20px; background:var(--panel); width:100%; box-sizing:border-box; transition:border-color .15s, box-shadow .15s;}
+.il-search:focus{outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(255,138,61,0.16);}
+.il-search-ic{position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:11px; opacity:.5; pointer-events:none;}
+.il-clear-all{background:var(--panel); border:1px solid var(--line); cursor:pointer; font-size:11px; font-weight:700; color:var(--ink-soft); padding:6px 11px; border-radius:8px; white-space:nowrap; transition:all .15s;}
+.il-clear-all:hover{color:var(--red); border-color:var(--red); background:var(--red-bg);}
+.il-clear-all.confirm{color:#fff; background:var(--red); border-color:var(--red);}
+/* scrollable list of past uploads, each rendered as its own card */
+.il-scroll{max-height:380px; overflow-y:auto; padding:2px 4px; margin:-2px -4px; }
 .il-scroll::-webkit-scrollbar{width:6px;}
 .il-scroll::-webkit-scrollbar-thumb{background:var(--line-strong); border-radius:3px;}
-.il-empty-filtered{padding:14px 0; text-align:center; font-size:12px; color:var(--ink-soft);}
+.il-empty-filtered{padding:22px 0; text-align:center; font-size:12px; color:var(--ink-soft);}
+.import-log-row{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:10px; text-align:left; box-shadow:var(--shadow-sm); transition:box-shadow .15s, border-color .15s;}
+.import-log-row:hover{box-shadow:var(--shadow-md); border-color:var(--line-strong);}
+.import-log-row:last-child{margin-bottom:0;}
+.import-log-row.error{border-color:var(--red); background:var(--red-bg);}
+.import-log-row.success{border-color:var(--forest); background:var(--forest-bg);}
+.import-log-row .il-file{color:var(--ink-soft);}
+.il-row-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+.il-row-title{display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12.5px;}
+.il-row-ic{width:26px; height:26px; border-radius:8px; background:var(--panel-2); display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0;}
+.import-stat-row{display:flex; gap:7px; flex-wrap:wrap; margin-top:9px;}
+.import-stat{display:inline-flex; align-items:center; gap:5px; background:var(--panel-2); border:1px solid var(--line); border-radius:20px; padding:4px 10px; font-size:11.5px; font-weight:600; color:var(--ink-soft);}
+.import-stat b{font-family:'JetBrains Mono',monospace; color:var(--ink); font-weight:700;}
+.import-stat.stat-good{background:var(--forest-bg); border-color:transparent; color:var(--forest);}
+.import-stat.stat-good b{color:var(--forest);}
+.import-stat.stat-info{background:var(--blue-bg); border-color:transparent; color:var(--blue);}
+.import-stat.stat-info b{color:var(--blue);}
+.import-stat.stat-muted{background:var(--panel-2); border-color:var(--line); color:var(--ink-soft);}
+.import-stat.stat-muted b{color:var(--ink-soft);}
+.import-stat.stat-danger{background:var(--red-bg); border-color:transparent; color:var(--red); font-weight:700;}
+.import-stat.stat-danger b{color:var(--red);}
+.import-unmatched{font-size:11.5px; color:var(--amber); margin-top:10px; line-height:1.5; background:var(--amber-bg); border-radius:10px; padding:9px 12px;}
+.import-skipped-detail{font-size:11.5px; color:var(--red); margin-top:10px; line-height:1.6; background:var(--red-bg); border:1px solid var(--red); border-radius:10px; padding:10px 12px;}
+.import-skipped-detail ul{margin:6px 0 0; padding-left:18px;}
+.import-skipped-detail li{margin-bottom:3px;}
+.import-route-note{font-size:11.5px; color:var(--amber); margin-top:8px; padding:6px 10px; background:var(--amber-bg); border-radius:8px; display:inline-block;}
+.il-delete{background:var(--panel-2); border:1px solid var(--line); cursor:pointer; font-size:12.5px; opacity:1; width:28px; height:28px; border-radius:8px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; color:var(--ink-soft); line-height:1; transition:all .15s;}
+.il-delete:hover{border-color:var(--red); color:var(--red); background:var(--red-bg);}
+.il-delete.confirm{width:auto; opacity:1; background:var(--red); border-color:var(--red); color:#fff; font-size:11px; font-weight:700; padding:6px 10px; white-space:nowrap;}
+.il-delete.confirm:hover{background:var(--red);}
 
 .status-pill.outofstock{background:var(--maroon-deep); color:#fff;}
 .status-pill.available{background:var(--forest-bg); color:var(--forest);}
@@ -9569,8 +9585,10 @@ function clearAllImportHistory(kind){
     persistState();
   }
 }
+const MEESHO_KIND_ICON = {orders:"📦", payments:"💰", returns:"↩️", inventory:"📥", rawmaterial:"🧵"};
 function buildImportLogRow(e){
   const label = MEESHO_KIND_LABEL[e.kind] + " file";
+  const kindIcon = MEESHO_KIND_ICON[e.kind] || "📄";
   const delTitleMap = {orders:"Delete this raw data — removes the orders it added/updated too", returns:"Delete this raw data — removes the return records it captured", payments:"Delete this raw data — removes/reverts the orders it touched", inventory:"Delete this raw data — removes the purchase batches it added", rawmaterial:"Delete this raw data — removes the purchase batches it added"};
   const delTitle = delTitleMap[e.kind] || "Remove this from the upload history";
   const isPending = pendingDeleteIds.has(e.id);
@@ -9578,18 +9596,18 @@ function buildImportLogRow(e){
     ? `<button class="il-delete confirm" data-log-id="${e.id}" title="Click again to confirm — this can't be undone">⚠ Confirm delete</button>`
     : `<button class="il-delete" data-log-id="${e.id}" title="${delTitle}">🗑</button>`;
   if(e.error){
-    return `<div class="import-log-row error"><div style="display:flex; justify-content:space-between; gap:8px;"><span><b>${label}</b> — <span class="il-file mono" style="font-size:11px;">${esc(e.filename)}</span></span>${delBtn}</div><div style="margin-top:3px;">Import failed: ${esc(e.error)}</div></div>`;
+    return `<div class="import-log-row error"><div class="il-row-head"><span class="il-row-title"><span class="il-row-ic">${kindIcon}</span><b>${label}</b> — <span class="il-file mono" style="font-size:11px;">${esc(e.filename)}</span></span>${delBtn}</div><div style="margin-top:7px;">Import failed: ${esc(e.error)}</div></div>`;
   }
   const s = e.stats;
   let statHtml = `<span class="import-stat">📄 <b>${s.total}</b> rows</span>`;
-  if(s.added!=null) statHtml += ` <span class="import-stat" style="color:var(--forest);">➕ <b>${s.added}</b> added</span>`;
-  if(s.updated!=null) statHtml += ` <span class="import-stat" style="color:var(--blue);">🔄 <b>${s.updated}</b> updated</span>`;
-  if(s.matched!=null) statHtml += ` <span class="import-stat" style="color:var(--blue);">🔗 <b>${s.matched}</b> matched to existing order</span>`;
-  if(s.created!=null) statHtml += ` <span class="import-stat" style="color:var(--forest);">➕ <b>${s.created}</b> new order</span>`;
-  if(s.captured!=null) statHtml += ` <span class="import-stat" style="color:var(--forest);">📋 <b>${s.captured}</b> captured to dashboard</span>`;
-  if(s.ordersUpdated!=null) statHtml += ` <span class="import-stat" style="color:var(--blue);">🔗 <b>${s.ordersUpdated}</b> order status synced</span>`;
-  if(s.newItems!=null) statHtml += ` <span class="import-stat" style="color:var(--forest);">🆕 <b>${s.newItems}</b> new ${e.kind==="rawmaterial"?"material(s)":"item(s)"} created</span>`;
-  if(s.locked) statHtml += ` <span class="import-stat" style="color:var(--ink-soft);">🔒 <b>${s.locked}</b> already imported — left unchanged</span>`;
+  if(s.added!=null) statHtml += ` <span class="import-stat stat-good">➕ <b>${s.added}</b> added</span>`;
+  if(s.updated!=null) statHtml += ` <span class="import-stat stat-info">🔄 <b>${s.updated}</b> updated</span>`;
+  if(s.matched!=null) statHtml += ` <span class="import-stat stat-info">🔗 <b>${s.matched}</b> matched to existing order</span>`;
+  if(s.created!=null) statHtml += ` <span class="import-stat stat-good">➕ <b>${s.created}</b> new order</span>`;
+  if(s.captured!=null) statHtml += ` <span class="import-stat stat-good">📋 <b>${s.captured}</b> captured to dashboard</span>`;
+  if(s.ordersUpdated!=null) statHtml += ` <span class="import-stat stat-info">🔗 <b>${s.ordersUpdated}</b> order status synced</span>`;
+  if(s.newItems!=null) statHtml += ` <span class="import-stat stat-good">🆕 <b>${s.newItems}</b> new ${e.kind==="rawmaterial"?"material(s)":"item(s)"} created</span>`;
+  if(s.locked) statHtml += ` <span class="import-stat stat-muted">🔒 <b>${s.locked}</b> already imported — left unchanged</span>`;
   const isStockKind = e.kind==="inventory" || e.kind==="rawmaterial";
   if(s.skipped) statHtml += ` <span class="import-stat stat-danger">⛔ <b>${s.skipped}</b> skipped${isStockKind ? "" : " — missing Sub Order No"}</span>`;
   const routeNote = e.autoRouted ? `<div class="import-route-note">⚠ This looked like a ${MEESHO_KIND_LABEL[e.kind]} file by its columns, not a ${MEESHO_KIND_LABEL[e.intendedKind]} file — imported as ${MEESHO_KIND_LABEL[e.kind]} automatically.</div>` : "";
@@ -9603,7 +9621,7 @@ function buildImportLogRow(e){
       <ul>${shown.map(d=>`<li>Row ${d.row}${d.sku?` — SKU: ${esc(d.sku)}`:""}${d.product?` — ${isStockKind?"Name":"Product"}: ${esc(d.product)}`:""}${d.reason?` — ${esc(d.reason)}`:""}</li>`).join("")}${more}</ul>
       ${skippedTail}</div>`;
   }
-  return `<div class="import-log-row"><div style="display:flex; justify-content:space-between; gap:8px;"><span><b>${label}</b> — <span class="il-file mono" style="font-size:11px;">${esc(e.filename)}</span></span>${delBtn}</div><div class="import-stat-row" style="margin-top:4px;">${statHtml}</div>${routeNote}${unmatchedNote}${skippedNote}</div>`;
+  return `<div class="import-log-row"><div class="il-row-head"><span class="il-row-title"><span class="il-row-ic">${kindIcon}</span><b>${label}</b> — <span class="il-file mono" style="font-size:11px;">${esc(e.filename)}</span></span>${delBtn}</div><div class="import-stat-row">${statHtml}</div>${routeNote}${unmatchedNote}${skippedNote}</div>`;
 }
 /* Each import modal (Orders / Payments / Returns) only ever renders its own entries — filtered
    strictly by e.intendedKind, the dropzone the file was actually dropped into — so a Payments
@@ -9629,15 +9647,15 @@ function renderImportResult(){
     if(lastDeleteNotice && lastDeleteNotice.kind===kind){
       const n = lastDeleteNotice;
       if(n.kind==="orders"){
-        noticeHtml = `<div class="import-log-row" style="border-color:var(--forest); background:var(--forest-bg);">✓ Removed <b>${n.removed}</b> order(s) that came from <span class="il-file mono" style="font-size:11px;">${esc(n.filename)}</span>${n.kept?` · kept <b>${n.kept}</b> order(s) a newer Orders file has since updated`:""}</div>`;
+        noticeHtml = `<div class="import-log-row success">✓ Removed <b>${n.removed}</b> order(s) that came from <span class="il-file mono" style="font-size:11px;">${esc(n.filename)}</span>${n.kept?` · kept <b>${n.kept}</b> order(s) a newer Orders file has since updated`:""}</div>`;
       } else if(n.kind==="returns"){
-        noticeHtml = `<div class="import-log-row" style="border-color:var(--forest); background:var(--forest-bg);">✓ Removed <b>${n.removed}</b> return record(s) that came from <span class="il-file mono" style="font-size:11px;">${esc(n.filename)}</span>${n.kept?` · kept <b>${n.kept}</b> a newer Returns file has since updated`:""}</div>`;
+        noticeHtml = `<div class="import-log-row success">✓ Removed <b>${n.removed}</b> return record(s) that came from <span class="il-file mono" style="font-size:11px;">${esc(n.filename)}</span>${n.kept?` · kept <b>${n.kept}</b> a newer Returns file has since updated`:""}</div>`;
       } else if(n.kind==="payments"){
-        noticeHtml = `<div class="import-log-row" style="border-color:var(--forest); background:var(--forest-bg);">✓ From <span class="il-file mono" style="font-size:11px;">${esc(n.filename)}</span>: removed <b>${n.removed}</b> payment-only order(s), reverted payment fields on <b>${n.reverted}</b> order(s)${n.kept?` · kept <b>${n.kept}</b> a newer Payments file has since updated`:""}</div>`;
+        noticeHtml = `<div class="import-log-row success">✓ From <span class="il-file mono" style="font-size:11px;">${esc(n.filename)}</span>: removed <b>${n.removed}</b> payment-only order(s), reverted payment fields on <b>${n.reverted}</b> order(s)${n.kept?` · kept <b>${n.kept}</b> a newer Payments file has since updated`:""}</div>`;
       } else if(n.kind==="inventory"){
-        noticeHtml = `<div class="import-log-row" style="border-color:var(--forest); background:var(--forest-bg);">✓ Removed <b>${n.removed}</b> purchase batch(es) that came from <span class="il-file mono" style="font-size:11px;">${esc(n.filename)}</span>${n.itemsRemoved?` · <b>${n.itemsRemoved}</b> item(s) removed entirely (this import was their only purchase)`:""}</div>`;
+        noticeHtml = `<div class="import-log-row success">✓ Removed <b>${n.removed}</b> purchase batch(es) that came from <span class="il-file mono" style="font-size:11px;">${esc(n.filename)}</span>${n.itemsRemoved?` · <b>${n.itemsRemoved}</b> item(s) removed entirely (this import was their only purchase)`:""}</div>`;
       } else if(n.kind==="rawmaterial"){
-        noticeHtml = `<div class="import-log-row" style="border-color:var(--forest); background:var(--forest-bg);">✓ Removed <b>${n.removed}</b> purchase batch(es) that came from <span class="il-file mono" style="font-size:11px;">${esc(n.filename)}</span>${n.itemsRemoved?` · <b>${n.itemsRemoved}</b> material(s) removed entirely (this import was their only purchase)`:""}</div>`;
+        noticeHtml = `<div class="import-log-row success">✓ Removed <b>${n.removed}</b> purchase batch(es) that came from <span class="il-file mono" style="font-size:11px;">${esc(n.filename)}</span>${n.itemsRemoved?` · <b>${n.itemsRemoved}</b> material(s) removed entirely (this import was their only purchase)`:""}</div>`;
       }
       lastDeleteNotice = null;
     }
