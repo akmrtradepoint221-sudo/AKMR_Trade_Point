@@ -10110,9 +10110,18 @@ const CLOUD_DOC = ()=> _cloudDb.collection("akmrTradePoint").doc("sharedState");
    orders/payments get imported over the life of the business, so this can't recur. Every other
    function in the app is unaffected: collectPersistedState()/applyPersistedJSON() still work with
    one plain `orders` array, exactly like before — chunking only happens at this Firestore I/O
-   boundary, via fetchFullCloudState()/writeFullCloudState() below. */
+   boundary, via fetchFullCloudState()/writeFullCloudState() below.
+
+   `inventory` gets the exact same treatment for a different reason: each item can carry an
+   embedded photo as a base64 data URL (tens of KB apiece even after the client-side resize), and
+   unlike orders that data was still sitting inline in the main doc — so once enough items had
+   photos attached, the very same "doc too large, write silently rejected" failure started
+   happening again, just triggered by photos instead of order count. Chunking it the same way
+   fixes it the same way. */
 const ORDERS_PER_CHUNK = 120; // ~120 rich orders serializes to well under 1 MiB, leaving generous headroom
 const ORDERS_CHUNK_DOC = (i)=> _cloudDb.collection("akmrTradePoint").doc("sharedState_orders_"+i);
+const INVENTORY_PER_CHUNK = 15; // each item can carry a ~30-50KB embedded photo, so this stays well under 1 MiB per chunk
+const INVENTORY_CHUNK_DOC = (i)=> _cloudDb.collection("akmrTradePoint").doc("sharedState_inventory_"+i);
 
 function splitOrdersIntoChunks(ordersArr){
   const arr = Array.isArray(ordersArr) ? ordersArr : [];
@@ -10120,17 +10129,23 @@ function splitOrdersIntoChunks(ordersArr){
   for(let i=0; i<arr.length; i+=ORDERS_PER_CHUNK) chunks.push(arr.slice(i, i+ORDERS_PER_CHUNK));
   return chunks;
 }
+function splitInventoryIntoChunks(inventoryArr){
+  const arr = Array.isArray(inventoryArr) ? inventoryArr : [];
+  const chunks = [];
+  for(let i=0; i<arr.length; i+=INVENTORY_PER_CHUNK) chunks.push(arr.slice(i, i+INVENTORY_PER_CHUNK));
+  return chunks;
+}
 
-/* Reads the main doc plus every orders-chunk doc it currently references, and reassembles them
-   into one full state object/JSON string — the same shape this app has always worked with.
-   Pass an active Firestore transaction so a concurrent save can't be read half-written (all of a
-   transaction's reads have to happen before any of its writes, which is why persistState() below
-   does every chunk read before its first transaction.set()); pass null for a plain one-off read
-   (startup load, or reacting to someone else's update). */
+/* Reads the main doc plus every orders-chunk and inventory-chunk doc it currently references, and
+   reassembles them into one full state object/JSON string — the same shape this app has always
+   worked with. Pass an active Firestore transaction so a concurrent save can't be read
+   half-written (all of a transaction's reads have to happen before any of its writes, which is
+   why persistState() below does every chunk read before its first transaction.set()); pass null
+   for a plain one-off read (startup load, or reacting to someone else's update). */
 async function fetchFullCloudState(transactionOrNull){
   const getDoc = (ref)=> transactionOrNull ? transactionOrNull.get(ref) : ref.get();
   const mainDoc = await getDoc(CLOUD_DOC());
-  if(!mainDoc.exists) return { fullJSON: null, chunkCount: 0 };
+  if(!mainDoc.exists) return { fullJSON: null, chunkCount: 0, inventoryChunkCount: 0 };
   const mainData = mainDoc.data() || {};
   // No `json` field at all means there's genuinely nothing saved yet (a stray/corrupted doc, or
   // one that predates this app ever writing to it) — same as "doesn't exist" to every caller.
@@ -10138,19 +10153,21 @@ async function fetchFullCloudState(transactionOrNull){
   // matters because returning a synthesized empty state here instead of null would make
   // startApp() treat "nothing saved" as "real empty data" and load a blank state over the
   // safe on-screen sample data, instead of leaving it alone like before.
-  if(!mainData.json) return { fullJSON: null, chunkCount: 0 };
+  if(!mainData.json) return { fullJSON: null, chunkCount: 0, inventoryChunkCount: 0 };
   let restState = {};
   try{ restState = JSON.parse(mainData.json); }catch(e){ restState = {}; }
   const chunkCount = typeof mainData.ordersChunkCount === "number" ? mainData.ordersChunkCount : 0;
-  if(chunkCount === 0){
-    /* Either a doc with settings but no orders yet, or one saved by the pre-chunking version of
-       this app — which kept `orders` embedded directly inside restState.json. In both cases
-       restState.orders (an array, or undefined) is already the right answer; there's nothing in
-       chunk docs to reassemble yet. Getting this branch wrong would silently replace a real,
-       pre-existing orders array with an empty one on the very first load after this fix ships —
-       exactly the kind of data loss this whole change exists to prevent — so this is deliberately
-       its own early return rather than falling through into the chunk-reconstruction logic below. */
-    return { fullJSON: JSON.stringify({...restState, orders: Array.isArray(restState.orders) ? restState.orders : []}), chunkCount };
+  const inventoryChunkCount = typeof mainData.inventoryChunkCount === "number" ? mainData.inventoryChunkCount : 0;
+  if(chunkCount === 0 && inventoryChunkCount === 0){
+    /* Either a doc with settings but no orders/inventory chunked yet, or one saved by the
+       pre-chunking version of this app — which kept `orders` (and `inventory`) embedded directly
+       inside restState.json. In both cases restState.orders/restState.inventory (an array, or
+       undefined) is already the right answer; there's nothing in chunk docs to reassemble yet.
+       Getting this branch wrong would silently replace a real, pre-existing array with an empty
+       one on the very first load after this fix ships — exactly the kind of data loss this whole
+       change exists to prevent — so this is deliberately its own early return rather than falling
+       through into the chunk-reconstruction logic below. */
+    return { fullJSON: JSON.stringify({...restState, orders: Array.isArray(restState.orders) ? restState.orders : [], inventory: Array.isArray(restState.inventory) ? restState.inventory : []}), chunkCount, inventoryChunkCount };
   }
   let orders = [];
   for(let i=0; i<chunkCount; i++){
@@ -10159,30 +10176,49 @@ async function fetchFullCloudState(transactionOrNull){
       try{ orders = orders.concat(JSON.parse(chunkDoc.data().json)); }catch(e){ /* skip an unreadable chunk rather than fail the whole load */ }
     }
   }
-  return { fullJSON: JSON.stringify({...restState, orders}), chunkCount };
+  let inventory = Array.isArray(restState.inventory) ? restState.inventory : [];
+  if(inventoryChunkCount > 0){
+    inventory = [];
+    for(let i=0; i<inventoryChunkCount; i++){
+      const chunkDoc = await getDoc(INVENTORY_CHUNK_DOC(i));
+      if(chunkDoc.exists && chunkDoc.data() && chunkDoc.data().json){
+        try{ inventory = inventory.concat(JSON.parse(chunkDoc.data().json)); }catch(e){ /* skip an unreadable chunk rather than fail the whole load */ }
+      }
+    }
+  }
+  return { fullJSON: JSON.stringify({...restState, orders, inventory}), chunkCount, inventoryChunkCount };
 }
 
-/* Writes a full state object (with a normal, un-sharded `orders` array) back out across the main
-   doc plus as many orders-chunk docs as it now takes, and deletes any chunk docs left over from
-   before that are no longer needed (e.g. a merge or a bulk delete shrank the order count). Must be
-   called only after every one of the transaction's reads (see fetchFullCloudState above) — that's
-   a hard Firestore requirement, not just a style preference. */
-function writeFullCloudState(transaction, fullState, previousChunkCount){
-  const { orders, ...restState } = fullState;
-  const chunks = splitOrdersIntoChunks(orders);
+/* Writes a full state object (with normal, un-sharded `orders`/`inventory` arrays) back out across
+   the main doc plus as many orders-chunk and inventory-chunk documents as it now takes, and
+   deletes any chunk docs left over from before that are no longer needed (e.g. a merge or a bulk
+   delete shrank the count). Must be called only after every one of the transaction's reads (see
+   fetchFullCloudState above) — that's a hard Firestore requirement, not just a style preference. */
+function writeFullCloudState(transaction, fullState, previousChunkCount, previousInventoryChunkCount){
+  const { orders, inventory, ...restState } = fullState;
+  const orderChunks = splitOrdersIntoChunks(orders);
+  const inventoryChunks = splitInventoryIntoChunks(inventory);
   transaction.set(CLOUD_DOC(), {
     json: JSON.stringify(restState),
-    ordersChunkCount: chunks.length,
+    ordersChunkCount: orderChunks.length,
+    inventoryChunkCount: inventoryChunks.length,
     passcode: APP_PASSCODE,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   });
-  chunks.forEach((chunk, i)=>{
+  orderChunks.forEach((chunk, i)=>{
     transaction.set(ORDERS_CHUNK_DOC(i), { json: JSON.stringify(chunk) });
   });
-  for(let i=chunks.length; i<previousChunkCount; i++){
+  for(let i=orderChunks.length; i<previousChunkCount; i++){
     transaction.delete(ORDERS_CHUNK_DOC(i));
   }
+  inventoryChunks.forEach((chunk, i)=>{
+    transaction.set(INVENTORY_CHUNK_DOC(i), { json: JSON.stringify(chunk) });
+  });
+  for(let i=inventoryChunks.length; i<previousInventoryChunkCount; i++){
+    transaction.delete(INVENTORY_CHUNK_DOC(i));
+  }
 }
+
 
 let _cloudWriteFailed = false;
 /* The last remote state (same shape as collectPersistedState()) this device has actually reconciled
@@ -11249,14 +11285,14 @@ function persistState(force){
     setSaveStatus("saving");
     let mergedJSON = json;
     _cloudDb.runTransaction(async transaction=>{
-        const { fullJSON, chunkCount } = await fetchFullCloudState(transaction);
+        const { fullJSON, chunkCount, inventoryChunkCount } = await fetchFullCloudState(transaction);
         let remoteState = null;
         if(fullJSON){
           try{ remoteState = JSON.parse(fullJSON); }catch(err){ remoteState = null; }
         }
         const mergedState = mergeStateWithRemote(localState, remoteState, _syncBaseState);
         mergedJSON = JSON.stringify(mergedState);
-        writeFullCloudState(transaction, mergedState, chunkCount);
+        writeFullCloudState(transaction, mergedState, chunkCount, inventoryChunkCount);
       }
     ).then(()=>{
       _cloudWriteFailed = false;
