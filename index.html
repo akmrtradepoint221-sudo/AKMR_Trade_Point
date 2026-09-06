@@ -10099,53 +10099,55 @@ try{
 const CLOUD_DOC = ()=> _cloudDb.collection("akmrTradePoint").doc("sharedState"); // shared with the AKMR Trade Point dashboard — same collection/doc on purpose
 
 /* Firestore hard-caps every single document at 1 MiB. This whole app used to serialize its ENTIRE
-   state — including every order and that order's full Meesho paymentDetails — into one `json`
-   string on ONE document. That worked fine while the data was small, then started silently
-   failing every save once `orders` (by far the fastest-growing, richest-schema array — 80+
-   numeric/text fields per paid order) pushed the combined JSON past ~1 MiB. Firestore rejects the
-   whole write in that case (no partial save), which is exactly the "saved fine for a while, then
-   every subsequent save silently fails and a refresh loses everything" symptom this was causing.
-   Fix: `orders` is now stored across as many separate small "chunk" documents as it takes, instead
-   of inline in the main doc — each chunk stays far under the 1 MiB ceiling no matter how many
-   orders/payments get imported over the life of the business, so this can't recur. Every other
+   state into one `json` string on ONE document. That worked fine while the data was small, then
+   started silently failing every save once one of its arrays grew enough to push the combined
+   JSON past ~1 MiB — first `orders` (80+ fields per paid order), then `inventory` (each item can
+   carry an embedded base64 photo), then `rawMaterials` (each item's `batches` purchase history
+   keeps growing forever). Firestore rejects the whole write in that case (no partial save), which
+   is exactly the "saved fine for a while, then every subsequent save silently fails and a refresh
+   loses everything" symptom this was causing — and chasing it one array at a time every time a
+   different one happened to grow past the limit first was never going to end.
+
+   Fix, generalized once and for all: every array in CHUNKED_STATE_FIELDS below is stored across as
+   many separate small "chunk" documents as it takes, instead of inline in the main doc — each
+   chunk stays far under the 1 MiB ceiling no matter how large that array grows over the life of
+   the business. Adding another field here later (if some other array turns out to grow unbounded
+   too) is a one-line change, not another round of copy-pasted read/write/merge logic. Every other
    function in the app is unaffected: collectPersistedState()/applyPersistedJSON() still work with
-   one plain `orders` array, exactly like before — chunking only happens at this Firestore I/O
-   boundary, via fetchFullCloudState()/writeFullCloudState() below.
-
-   `inventory` gets the exact same treatment for a different reason: each item can carry an
-   embedded photo as a base64 data URL (tens of KB apiece even after the client-side resize), and
-   unlike orders that data was still sitting inline in the main doc — so once enough items had
-   photos attached, the very same "doc too large, write silently rejected" failure started
-   happening again, just triggered by photos instead of order count. Chunking it the same way
-   fixes it the same way. */
-const ORDERS_PER_CHUNK = 120; // ~120 rich orders serializes to well under 1 MiB, leaving generous headroom
-const ORDERS_CHUNK_DOC = (i)=> _cloudDb.collection("akmrTradePoint").doc("sharedState_orders_"+i);
-const INVENTORY_PER_CHUNK = 15; // each item can carry a ~30-50KB embedded photo, so this stays well under 1 MiB per chunk
-const INVENTORY_CHUNK_DOC = (i)=> _cloudDb.collection("akmrTradePoint").doc("sharedState_inventory_"+i);
-
-function splitOrdersIntoChunks(ordersArr){
-  const arr = Array.isArray(ordersArr) ? ordersArr : [];
+   plain arrays, exactly like before — chunking only happens at this Firestore I/O boundary, via
+   fetchFullCloudState()/writeFullCloudState() below. */
+const CHUNKED_STATE_FIELDS = [
+  // key: the field name in the app's state object.
+  // perChunk: how many array elements per chunk document — tuned per field to how big each
+  //   element tends to be, so every chunk comfortably clears the 1 MiB ceiling.
+  // chunkCountField: the field on the main doc that records how many chunk docs currently exist
+  //   for this key, so reads know how many to fetch and writes know how many stale ones to delete.
+  // docPrefix: the Firestore document id prefix each chunk is stored under.
+  { key: "orders",       perChunk: 120, chunkCountField: "ordersChunkCount",       docPrefix: "sharedState_orders_" },
+  { key: "inventory",    perChunk: 15,  chunkCountField: "inventoryChunkCount",    docPrefix: "sharedState_inventory_" },
+  { key: "rawMaterials", perChunk: 60,  chunkCountField: "rawMaterialsChunkCount", docPrefix: "sharedState_rawmaterials_" },
+];
+const chunkDocRef = (field, i)=> _cloudDb.collection("akmrTradePoint").doc(field.docPrefix+i);
+function splitIntoChunks(arr, perChunk){
+  const a = Array.isArray(arr) ? arr : [];
   const chunks = [];
-  for(let i=0; i<arr.length; i+=ORDERS_PER_CHUNK) chunks.push(arr.slice(i, i+ORDERS_PER_CHUNK));
-  return chunks;
-}
-function splitInventoryIntoChunks(inventoryArr){
-  const arr = Array.isArray(inventoryArr) ? inventoryArr : [];
-  const chunks = [];
-  for(let i=0; i<arr.length; i+=INVENTORY_PER_CHUNK) chunks.push(arr.slice(i, i+INVENTORY_PER_CHUNK));
+  for(let i=0; i<a.length; i+=perChunk) chunks.push(a.slice(i, i+perChunk));
   return chunks;
 }
 
-/* Reads the main doc plus every orders-chunk and inventory-chunk doc it currently references, and
-   reassembles them into one full state object/JSON string — the same shape this app has always
-   worked with. Pass an active Firestore transaction so a concurrent save can't be read
-   half-written (all of a transaction's reads have to happen before any of its writes, which is
-   why persistState() below does every chunk read before its first transaction.set()); pass null
-   for a plain one-off read (startup load, or reacting to someone else's update). */
+/* Reads the main doc plus every chunk doc (for every field in CHUNKED_STATE_FIELDS) it currently
+   references, and reassembles them into one full state object/JSON string — the same shape this
+   app has always worked with. Pass an active Firestore transaction so a concurrent save can't be
+   read half-written (all of a transaction's reads have to happen before any of its writes, which
+   is why persistState() below does every chunk read before its first transaction.set()); pass null
+   for a plain one-off read (startup load, or reacting to someone else's update). Returns
+   { fullJSON, chunkCounts } where chunkCounts is a {key: count} map for writeFullCloudState to
+   compare against when deciding which stale chunk docs to delete. */
 async function fetchFullCloudState(transactionOrNull){
   const getDoc = (ref)=> transactionOrNull ? transactionOrNull.get(ref) : ref.get();
+  const emptyChunkCounts = ()=> Object.fromEntries(CHUNKED_STATE_FIELDS.map(f=>[f.key, 0]));
   const mainDoc = await getDoc(CLOUD_DOC());
-  if(!mainDoc.exists) return { fullJSON: null, chunkCount: 0, inventoryChunkCount: 0 };
+  if(!mainDoc.exists) return { fullJSON: null, chunkCounts: emptyChunkCounts() };
   const mainData = mainDoc.data() || {};
   // No `json` field at all means there's genuinely nothing saved yet (a stray/corrupted doc, or
   // one that predates this app ever writing to it) — same as "doesn't exist" to every caller.
@@ -10153,70 +10155,69 @@ async function fetchFullCloudState(transactionOrNull){
   // matters because returning a synthesized empty state here instead of null would make
   // startApp() treat "nothing saved" as "real empty data" and load a blank state over the
   // safe on-screen sample data, instead of leaving it alone like before.
-  if(!mainData.json) return { fullJSON: null, chunkCount: 0, inventoryChunkCount: 0 };
+  if(!mainData.json) return { fullJSON: null, chunkCounts: emptyChunkCounts() };
   let restState = {};
   try{ restState = JSON.parse(mainData.json); }catch(e){ restState = {}; }
-  const chunkCount = typeof mainData.ordersChunkCount === "number" ? mainData.ordersChunkCount : 0;
-  const inventoryChunkCount = typeof mainData.inventoryChunkCount === "number" ? mainData.inventoryChunkCount : 0;
-  if(chunkCount === 0 && inventoryChunkCount === 0){
-    /* Either a doc with settings but no orders/inventory chunked yet, or one saved by the
-       pre-chunking version of this app — which kept `orders` (and `inventory`) embedded directly
-       inside restState.json. In both cases restState.orders/restState.inventory (an array, or
-       undefined) is already the right answer; there's nothing in chunk docs to reassemble yet.
-       Getting this branch wrong would silently replace a real, pre-existing array with an empty
-       one on the very first load after this fix ships — exactly the kind of data loss this whole
-       change exists to prevent — so this is deliberately its own early return rather than falling
-       through into the chunk-reconstruction logic below. */
-    return { fullJSON: JSON.stringify({...restState, orders: Array.isArray(restState.orders) ? restState.orders : [], inventory: Array.isArray(restState.inventory) ? restState.inventory : []}), chunkCount, inventoryChunkCount };
+  const chunkCounts = {};
+  CHUNKED_STATE_FIELDS.forEach(f=>{ chunkCounts[f.key] = typeof mainData[f.chunkCountField] === "number" ? mainData[f.chunkCountField] : 0; });
+  const anyChunked = CHUNKED_STATE_FIELDS.some(f=>chunkCounts[f.key] > 0);
+  if(!anyChunked){
+    /* Either a doc with settings but nothing chunked yet, or one saved by an earlier version of
+       this app — which kept these arrays embedded directly inside restState.json. In both cases
+       restState[key] (an array, or undefined) is already the right answer; there's nothing in
+       chunk docs to reassemble yet. Getting this branch wrong would silently replace a real,
+       pre-existing array with an empty one on the very first load after this fix ships — exactly
+       the kind of data loss this whole change exists to prevent — so this is deliberately its own
+       early return rather than falling through into the chunk-reconstruction logic below. */
+    const filled = {...restState};
+    CHUNKED_STATE_FIELDS.forEach(f=>{ filled[f.key] = Array.isArray(restState[f.key]) ? restState[f.key] : []; });
+    return { fullJSON: JSON.stringify(filled), chunkCounts };
   }
-  let orders = [];
-  for(let i=0; i<chunkCount; i++){
-    const chunkDoc = await getDoc(ORDERS_CHUNK_DOC(i));
-    if(chunkDoc.exists && chunkDoc.data() && chunkDoc.data().json){
-      try{ orders = orders.concat(JSON.parse(chunkDoc.data().json)); }catch(e){ /* skip an unreadable chunk rather than fail the whole load */ }
-    }
-  }
-  let inventory = Array.isArray(restState.inventory) ? restState.inventory : [];
-  if(inventoryChunkCount > 0){
-    inventory = [];
-    for(let i=0; i<inventoryChunkCount; i++){
-      const chunkDoc = await getDoc(INVENTORY_CHUNK_DOC(i));
-      if(chunkDoc.exists && chunkDoc.data() && chunkDoc.data().json){
-        try{ inventory = inventory.concat(JSON.parse(chunkDoc.data().json)); }catch(e){ /* skip an unreadable chunk rather than fail the whole load */ }
+  const reassembled = {...restState};
+  for(const f of CHUNKED_STATE_FIELDS){
+    const count = chunkCounts[f.key];
+    if(count > 0){
+      let arr = [];
+      for(let i=0; i<count; i++){
+        const chunkDoc = await getDoc(chunkDocRef(f, i));
+        if(chunkDoc.exists && chunkDoc.data() && chunkDoc.data().json){
+          try{ arr = arr.concat(JSON.parse(chunkDoc.data().json)); }catch(e){ /* skip an unreadable chunk rather than fail the whole load */ }
+        }
       }
+      reassembled[f.key] = arr;
+    } else {
+      reassembled[f.key] = Array.isArray(restState[f.key]) ? restState[f.key] : [];
     }
   }
-  return { fullJSON: JSON.stringify({...restState, orders, inventory}), chunkCount, inventoryChunkCount };
+  return { fullJSON: JSON.stringify(reassembled), chunkCounts };
 }
 
-/* Writes a full state object (with normal, un-sharded `orders`/`inventory` arrays) back out across
-   the main doc plus as many orders-chunk and inventory-chunk documents as it now takes, and
-   deletes any chunk docs left over from before that are no longer needed (e.g. a merge or a bulk
-   delete shrank the count). Must be called only after every one of the transaction's reads (see
-   fetchFullCloudState above) — that's a hard Firestore requirement, not just a style preference. */
-function writeFullCloudState(transaction, fullState, previousChunkCount, previousInventoryChunkCount){
-  const { orders, inventory, ...restState } = fullState;
-  const orderChunks = splitOrdersIntoChunks(orders);
-  const inventoryChunks = splitInventoryIntoChunks(inventory);
-  transaction.set(CLOUD_DOC(), {
-    json: JSON.stringify(restState),
-    ordersChunkCount: orderChunks.length,
-    inventoryChunkCount: inventoryChunks.length,
+/* Writes a full state object (with normal, un-sharded arrays for every CHUNKED_STATE_FIELDS key)
+   back out across the main doc plus as many chunk documents per field as it now takes, and deletes
+   any chunk docs left over from before that are no longer needed (e.g. a merge or a bulk delete
+   shrank the count). Must be called only after every one of the transaction's reads (see
+   fetchFullCloudState above) — that's a hard Firestore requirement, not just a style preference.
+   previousChunkCounts is the {key: count} map fetchFullCloudState returned for this same read. */
+function writeFullCloudState(transaction, fullState, previousChunkCounts){
+  const restState = {...fullState};
+  const mainDocFields = {
     passcode: APP_PASSCODE,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  CHUNKED_STATE_FIELDS.forEach(f=>{
+    const chunks = splitIntoChunks(fullState[f.key], f.perChunk);
+    delete restState[f.key];
+    mainDocFields[f.chunkCountField] = chunks.length;
+    chunks.forEach((chunk, i)=>{
+      transaction.set(chunkDocRef(f, i), { json: JSON.stringify(chunk) });
+    });
+    const previousCount = (previousChunkCounts && previousChunkCounts[f.key]) || 0;
+    for(let i=chunks.length; i<previousCount; i++){
+      transaction.delete(chunkDocRef(f, i));
+    }
   });
-  orderChunks.forEach((chunk, i)=>{
-    transaction.set(ORDERS_CHUNK_DOC(i), { json: JSON.stringify(chunk) });
-  });
-  for(let i=orderChunks.length; i<previousChunkCount; i++){
-    transaction.delete(ORDERS_CHUNK_DOC(i));
-  }
-  inventoryChunks.forEach((chunk, i)=>{
-    transaction.set(INVENTORY_CHUNK_DOC(i), { json: JSON.stringify(chunk) });
-  });
-  for(let i=inventoryChunks.length; i<previousInventoryChunkCount; i++){
-    transaction.delete(INVENTORY_CHUNK_DOC(i));
-  }
+  mainDocFields.json = JSON.stringify(restState);
+  transaction.set(CLOUD_DOC(), mainDocFields);
 }
 
 
@@ -11285,14 +11286,14 @@ function persistState(force){
     setSaveStatus("saving");
     let mergedJSON = json;
     _cloudDb.runTransaction(async transaction=>{
-        const { fullJSON, chunkCount, inventoryChunkCount } = await fetchFullCloudState(transaction);
+        const { fullJSON, chunkCounts } = await fetchFullCloudState(transaction);
         let remoteState = null;
         if(fullJSON){
           try{ remoteState = JSON.parse(fullJSON); }catch(err){ remoteState = null; }
         }
         const mergedState = mergeStateWithRemote(localState, remoteState, _syncBaseState);
         mergedJSON = JSON.stringify(mergedState);
-        writeFullCloudState(transaction, mergedState, chunkCount, inventoryChunkCount);
+        writeFullCloudState(transaction, mergedState, chunkCounts);
       }
     ).then(()=>{
       _cloudWriteFailed = false;
