@@ -438,6 +438,8 @@ tbody tr.clickable:hover td:first-child{box-shadow:inset 3px 0 0 var(--maroon);}
 .import-result{margin-top:18px; display:none;}
 .import-result.show{display:block;}
 .import-result.error{background:var(--red-bg); border:1px solid var(--red); color:var(--red); border-radius:10px; padding:12px 14px;}
+.import-batch-note{display:none; margin-top:14px; padding:9px 13px; border-radius:9px; background:var(--forest-bg); color:var(--forest); font-size:12.5px; font-weight:700; text-align:center;}
+.import-batch-note.show{display:block;}
 /* toolbar: upload count + optional search + clear-all, sitting above the history list */
 .il-history-head{display:flex; align-items:center; justify-content:space-between; gap:8px 10px; flex-wrap:wrap; padding:0 1px 10px; margin-bottom:10px; border-bottom:1px solid var(--line);}
 .il-count{font-size:10.5px; font-weight:800; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.05em; background:var(--panel-2); border:1px solid var(--line); padding:4px 10px; border-radius:20px; white-space:nowrap;}
@@ -1711,8 +1713,9 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
         <div class="iz-badge">💰</div>
         <div class="iz-title">Drop your Meesho payments file here, or click to browse</div>
         <div class="iz-sub">.csv, .xlsx, or .xls — orders with no payment yet get filled in; ones already paid are left untouched.</div>
-        <input type="file" id="importFilePayments" accept=".csv,.xlsx,.xls">
+        <input type="file" id="importFilePayments" accept=".csv,.xlsx,.xls" multiple>
       </label>
+      <div class="import-batch-note" id="importBatchNotePayments"></div>
       <div class="import-result" id="importResultPayments"></div>
     </div>
   </div>
@@ -1866,8 +1869,9 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
         <div class="iz-badge">📦</div>
         <div class="iz-title">Drop your Meesho orders file here, or click to browse</div>
         <div class="iz-sub">.csv, .xlsx, or .xls — new Sub Order Nos are added; ones already imported are left untouched.</div>
-        <input type="file" id="importFileOrders" accept=".csv,.xlsx,.xls">
+        <input type="file" id="importFileOrders" accept=".csv,.xlsx,.xls" multiple>
       </label>
+      <div class="import-batch-note" id="importBatchNoteOrders"></div>
       <div class="import-result" id="importResult"></div>
     </div>
   </div>
@@ -1892,8 +1896,9 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
         <div class="iz-badge">↩️</div>
         <div class="iz-title">Drop your Meesho returns file here, or click to browse</div>
         <div class="iz-sub">.csv, .xlsx, or .xls — if the matching order hasn't been imported yet, a placeholder is created and filled in once the Orders file is uploaded.</div>
-        <input type="file" id="importFileReturns" accept=".csv,.xlsx,.xls">
+        <input type="file" id="importFileReturns" accept=".csv,.xlsx,.xls" multiple>
       </label>
+      <div class="import-batch-note" id="importBatchNoteReturns"></div>
       <div class="import-result" id="importResultReturns"></div>
     </div>
   </div>
@@ -1919,8 +1924,9 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
         <div class="iz-badge">📦</div>
         <div class="iz-title">Drop your Inventory Excel file here, or click to browse</div>
         <div class="iz-sub">.csv, .xlsx, or .xls — rows missing an item name, quantity, or price are skipped and listed below.</div>
-        <input type="file" id="importFileInventory" accept=".csv,.xlsx,.xls">
+        <input type="file" id="importFileInventory" accept=".csv,.xlsx,.xls" multiple>
       </label>
+      <div class="import-batch-note" id="importBatchNoteInventory"></div>
       <div class="import-result" id="importResultInventory"></div>
     </div>
   </div>
@@ -1946,8 +1952,9 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
         <div class="iz-badge">🧵</div>
         <div class="iz-title">Drop your Raw Materials Excel file here, or click to browse</div>
         <div class="iz-sub">.csv, .xlsx, or .xls — rows missing a material name, quantity, or cost are skipped and listed below.</div>
-        <input type="file" id="importFileRaw" accept=".csv,.xlsx,.xls">
+        <input type="file" id="importFileRaw" accept=".csv,.xlsx,.xls" multiple>
       </label>
+      <div class="import-batch-note" id="importBatchNoteRaw"></div>
       <div class="import-result" id="importResultRaw"></div>
     </div>
   </div>
@@ -9388,25 +9395,29 @@ function exportRawMaterialsToExcel(){
 }
 /* ---- entry point for the Inventory/Raw Material dropzones — unlike handleMeeshoFile, there's no
    auto-detection between kinds here since both file shapes are similar free-form spreadsheets;
-   whichever dropzone the file lands in is respected as-is. ---- */
-function handleStockImportFile(file, kind){
+   whichever dropzone the file lands in is respected as-is. onDone (optional) fires once this file
+   is fully processed — success or error — so a multi-file batch (see importFilesBatch below) knows
+   when it's safe to start the next file. ---- */
+function handleStockImportFile(file, kind, onDone){
   readMeeshoFile(file, (rows)=>{
     const stats = kind==="inventory" ? processInventoryImportRows(rows, file.name) : processRawImportRows(rows, file.name);
     logImportResult({kind, intendedKind:kind, filename:file.name, stats});
+    if(onDone) onDone();
   }, (error)=>{
     logImportResult({kind, intendedKind:kind, filename:file.name, error});
+    if(onDone) onDone();
   });
 }
 function wireStockImportZone(zoneId, inputId, kind){
   const zone = document.getElementById(zoneId);
   const input = document.getElementById(inputId);
-  input.addEventListener("change", (e)=>{ if(e.target.files[0]) handleStockImportFile(e.target.files[0], kind); e.target.value=""; });
+  const process = (files)=> importFilesBatch(files, kind, handleStockImportFile);
+  input.addEventListener("change", (e)=>{ process(e.target.files); e.target.value=""; });
   zone.addEventListener("dragover", (e)=>{ e.preventDefault(); zone.classList.add("dragover"); });
   zone.addEventListener("dragleave", ()=> zone.classList.remove("dragover"));
   zone.addEventListener("drop", (e)=>{
     e.preventDefault(); zone.classList.remove("dragover");
-    const file = e.dataTransfer.files && e.dataTransfer.files[0];
-    if(file) handleStockImportFile(file, kind);
+    process(e.dataTransfer.files);
   });
 }
 
@@ -9414,8 +9425,8 @@ const MEESHO_KIND_LABEL = {orders:"Orders", returns:"Returns", payments:"Payment
 
 /* ---- entry point for all 3 dropzones: reads the file, auto-detects its real type from the header
    row (so a file dropped in the wrong box still routes correctly), runs the matching processor,
-   and logs the result. ---- */
-function handleMeeshoFile(file, intendedKind){
+   and logs the result. onDone — see handleStockImportFile above. ---- */
+function handleMeeshoFile(file, intendedKind, onDone){
   readMeeshoFile(file, (rows)=>{
     const detected = detectMeeshoFileType(rows);
     const kind = detected || intendedKind;
@@ -9425,9 +9436,52 @@ function handleMeeshoFile(file, intendedKind){
     else if(kind==="payments") stats = processMeeshoPaymentRows(rows, file.name);
     else stats = processMeeshoRows(rows, file.name);
     logImportResult({kind, filename:file.name, stats, autoRouted, intendedKind});
+    if(onDone) onDone();
   }, (error)=>{
     logImportResult({kind:intendedKind, intendedKind, filename:file.name, error});
+    if(onDone) onDone();
   });
+}
+
+/* Maps each import kind to the small "N files imported" banner sitting above that modal's
+   import-result history — see importFilesBatch() below. */
+const IMPORT_BATCH_NOTE_EL_ID = {
+  orders: "importBatchNoteOrders",
+  payments: "importBatchNotePayments",
+  returns: "importBatchNoteReturns",
+  inventory: "importBatchNoteInventory",
+  rawmaterial: "importBatchNoteRaw",
+};
+
+/* Runs every file from a multi-select or multi-file drop through the given per-file handler ONE
+   AT A TIME, never in parallel — each file's renderAll()/persistState() (triggered inside the
+   processMeesho*Rows functions) fully finishes before the next file starts. That matters for
+   correctness, not just tidiness: if the same Sub Order No appears in two files dropped in the
+   same batch, the second file needs to see the "already locked" order the first file just wrote,
+   not a stale pre-import snapshot from before either file ran — running them one after another is
+   what guarantees that. Once every file in the batch has finished (success or error each count as
+   "finished" — errors are already shown per-file in the result history below), a short "N files
+   imported" banner appears; single-file drops/selections keep working exactly as before, with no
+   banner, since the existing single-file result card already says what happened. */
+function importFilesBatch(fileList, kind, handler, noteElId){
+  const files = Array.from(fileList || []);
+  if(!files.length) return;
+  const elId = noteElId || IMPORT_BATCH_NOTE_EL_ID[kind];
+  const noteEl = elId ? document.getElementById(elId) : null;
+  if(noteEl){ noteEl.classList.remove("show"); noteEl.textContent = ""; }
+  let idx = 0;
+  const runNext = ()=>{
+    if(idx >= files.length){
+      if(noteEl && files.length>1){
+        noteEl.textContent = `✓ ${files.length} files imported`;
+        noteEl.classList.add("show");
+      }
+      return;
+    }
+    const file = files[idx++];
+    handler(file, kind, runNext);
+  };
+  runNext();
 }
 
 /* ---- running log of imports this session, newest first ---- */
@@ -9737,13 +9791,13 @@ function renderImportResult(){
 function wireImportZone(zoneId, inputId, kind){
   const zone = document.getElementById(zoneId);
   const input = document.getElementById(inputId);
-  input.addEventListener("change", (e)=>{ if(e.target.files[0]) handleMeeshoFile(e.target.files[0], kind); e.target.value=""; });
+  const process = (files)=> importFilesBatch(files, kind, handleMeeshoFile);
+  input.addEventListener("change", (e)=>{ process(e.target.files); e.target.value=""; });
   zone.addEventListener("dragover", (e)=>{ e.preventDefault(); zone.classList.add("dragover"); });
   zone.addEventListener("dragleave", ()=> zone.classList.remove("dragover"));
   zone.addEventListener("drop", (e)=>{
     e.preventDefault(); zone.classList.remove("dragover");
-    const file = e.dataTransfer.files && e.dataTransfer.files[0];
-    if(file) handleMeeshoFile(file, kind);
+    process(e.dataTransfer.files);
   });
 }
 wireImportZone("importZoneOrders", "importFileOrders", "orders");
@@ -10027,6 +10081,92 @@ try{
 }catch(err){ console.error("AKMR Trade Point: cloud sync could not start — falling back to this browser only.", err); }
 const CLOUD_DOC = ()=> _cloudDb.collection("akmrTradePoint").doc("sharedState"); // shared with the AKMR Trade Point dashboard — same collection/doc on purpose
 
+/* Firestore hard-caps every single document at 1 MiB. This whole app used to serialize its ENTIRE
+   state — including every order and that order's full Meesho paymentDetails — into one `json`
+   string on ONE document. That worked fine while the data was small, then started silently
+   failing every save once `orders` (by far the fastest-growing, richest-schema array — 80+
+   numeric/text fields per paid order) pushed the combined JSON past ~1 MiB. Firestore rejects the
+   whole write in that case (no partial save), which is exactly the "saved fine for a while, then
+   every subsequent save silently fails and a refresh loses everything" symptom this was causing.
+   Fix: `orders` is now stored across as many separate small "chunk" documents as it takes, instead
+   of inline in the main doc — each chunk stays far under the 1 MiB ceiling no matter how many
+   orders/payments get imported over the life of the business, so this can't recur. Every other
+   function in the app is unaffected: collectPersistedState()/applyPersistedJSON() still work with
+   one plain `orders` array, exactly like before — chunking only happens at this Firestore I/O
+   boundary, via fetchFullCloudState()/writeFullCloudState() below. */
+const ORDERS_PER_CHUNK = 120; // ~120 rich orders serializes to well under 1 MiB, leaving generous headroom
+const ORDERS_CHUNK_DOC = (i)=> _cloudDb.collection("akmrTradePoint").doc("sharedState_orders_"+i);
+
+function splitOrdersIntoChunks(ordersArr){
+  const arr = Array.isArray(ordersArr) ? ordersArr : [];
+  const chunks = [];
+  for(let i=0; i<arr.length; i+=ORDERS_PER_CHUNK) chunks.push(arr.slice(i, i+ORDERS_PER_CHUNK));
+  return chunks;
+}
+
+/* Reads the main doc plus every orders-chunk doc it currently references, and reassembles them
+   into one full state object/JSON string — the same shape this app has always worked with.
+   Pass an active Firestore transaction so a concurrent save can't be read half-written (all of a
+   transaction's reads have to happen before any of its writes, which is why persistState() below
+   does every chunk read before its first transaction.set()); pass null for a plain one-off read
+   (startup load, or reacting to someone else's update). */
+async function fetchFullCloudState(transactionOrNull){
+  const getDoc = (ref)=> transactionOrNull ? transactionOrNull.get(ref) : ref.get();
+  const mainDoc = await getDoc(CLOUD_DOC());
+  if(!mainDoc.exists) return { fullJSON: null, chunkCount: 0 };
+  const mainData = mainDoc.data() || {};
+  // No `json` field at all means there's genuinely nothing saved yet (a stray/corrupted doc, or
+  // one that predates this app ever writing to it) — same as "doesn't exist" to every caller.
+  // The original single-doc code had this exact guard (`data && data.json`); keeping it exact
+  // matters because returning a synthesized empty state here instead of null would make
+  // startApp() treat "nothing saved" as "real empty data" and load a blank state over the
+  // safe on-screen sample data, instead of leaving it alone like before.
+  if(!mainData.json) return { fullJSON: null, chunkCount: 0 };
+  let restState = {};
+  try{ restState = JSON.parse(mainData.json); }catch(e){ restState = {}; }
+  const chunkCount = typeof mainData.ordersChunkCount === "number" ? mainData.ordersChunkCount : 0;
+  if(chunkCount === 0){
+    /* Either a doc with settings but no orders yet, or one saved by the pre-chunking version of
+       this app — which kept `orders` embedded directly inside restState.json. In both cases
+       restState.orders (an array, or undefined) is already the right answer; there's nothing in
+       chunk docs to reassemble yet. Getting this branch wrong would silently replace a real,
+       pre-existing orders array with an empty one on the very first load after this fix ships —
+       exactly the kind of data loss this whole change exists to prevent — so this is deliberately
+       its own early return rather than falling through into the chunk-reconstruction logic below. */
+    return { fullJSON: JSON.stringify({...restState, orders: Array.isArray(restState.orders) ? restState.orders : []}), chunkCount };
+  }
+  let orders = [];
+  for(let i=0; i<chunkCount; i++){
+    const chunkDoc = await getDoc(ORDERS_CHUNK_DOC(i));
+    if(chunkDoc.exists && chunkDoc.data() && chunkDoc.data().json){
+      try{ orders = orders.concat(JSON.parse(chunkDoc.data().json)); }catch(e){ /* skip an unreadable chunk rather than fail the whole load */ }
+    }
+  }
+  return { fullJSON: JSON.stringify({...restState, orders}), chunkCount };
+}
+
+/* Writes a full state object (with a normal, un-sharded `orders` array) back out across the main
+   doc plus as many orders-chunk docs as it now takes, and deletes any chunk docs left over from
+   before that are no longer needed (e.g. a merge or a bulk delete shrank the order count). Must be
+   called only after every one of the transaction's reads (see fetchFullCloudState above) — that's
+   a hard Firestore requirement, not just a style preference. */
+function writeFullCloudState(transaction, fullState, previousChunkCount){
+  const { orders, ...restState } = fullState;
+  const chunks = splitOrdersIntoChunks(orders);
+  transaction.set(CLOUD_DOC(), {
+    json: JSON.stringify(restState),
+    ordersChunkCount: chunks.length,
+    passcode: APP_PASSCODE,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  chunks.forEach((chunk, i)=>{
+    transaction.set(ORDERS_CHUNK_DOC(i), { json: JSON.stringify(chunk) });
+  });
+  for(let i=chunks.length; i<previousChunkCount; i++){
+    transaction.delete(ORDERS_CHUNK_DOC(i));
+  }
+}
+
 let _cloudWriteFailed = false;
 /* The last remote state (same shape as collectPersistedState()) this device has actually reconciled
    against — i.e. what we believe is currently sitting in Firestore. Used as the "base" of a 3-way
@@ -10042,10 +10182,20 @@ let _cloudWriteFailed = false;
 let _syncBaseState = null;
 function initCloudSync(){
   if(!_cloudEnabled) return;
-  CLOUD_DOC().onSnapshot(doc=>{
+  CLOUD_DOC().onSnapshot(async doc=>{
     if(!doc.exists) return;
-    const data = doc.data();
-    if(!data || !data.json || data.json === _lastSavedJSON) return; // ignore the echo of our own write
+    // The main doc no longer carries `orders` inline (see fetchFullCloudState above) — every
+    // reaction to a change has to pull it back together with the current orders-chunk docs first.
+    let fullJSON;
+    try{
+      const result = await fetchFullCloudState(null);
+      fullJSON = result.fullJSON;
+    }catch(fetchErr){
+      console.error("AKMR Trade Point: could not read the shared cloud data (including orders) for this update.", fetchErr);
+      setSaveStatus("error", fetchErr);
+      return;
+    }
+    if(!fullJSON || fullJSON === _lastSavedJSON) return; // ignore the echo of our own write
     if(_cloudWriteFailed){
       /* Our last save to the cloud was rejected (e.g. a Firestore Rules/passcode mismatch), so this
          incoming snapshot is stale, older data — NOT a real update from someone else. Applying it
@@ -10062,16 +10212,16 @@ function initCloudSync(){
          it into this particular snapshot yet. Applying the snapshot as-is would silently erase
          that, so merge by id first, same as every save does, and push the result back up if the
          merge kept something the snapshot didn't have. */
-      let mergedJSON = data.json;
+      let mergedJSON = fullJSON;
       let remoteStateForBase = null;
       try{
         const localState = collectPersistedState();
-        const remoteState = JSON.parse(data.json);
+        const remoteState = JSON.parse(fullJSON);
         remoteStateForBase = remoteState;
         mergedJSON = JSON.stringify(mergeStateWithRemote(localState, remoteState, _syncBaseState));
       }catch(mergeErr){
         console.error("AKMR Trade Point: could not merge local data with an incoming cloud update — using the cloud copy as-is.", mergeErr);
-        try{ remoteStateForBase = JSON.parse(data.json); }catch(e2){ /* leave as null */ }
+        try{ remoteStateForBase = JSON.parse(fullJSON); }catch(e2){ /* leave as null */ }
       }
       if(applyPersistedJSON(mergedJSON)){
         // Whatever we just reconciled against is now our new "last known remote" baseline.
@@ -10079,7 +10229,7 @@ function initCloudSync(){
         showCloudSyncWarning(false);
         renderAll();
         refreshOpenBatchModalIfNeeded();
-        if(mergedJSON !== data.json) persistState(true); // local had something this snapshot didn't — sync it up (force: bypass the just-set _lastSavedJSON guard)
+        if(mergedJSON !== fullJSON) persistState(true); // local had something this snapshot didn't — sync it up (force: bypass the just-set _lastSavedJSON guard)
       }
       else showCloudSyncWarning(true);
     } finally {
@@ -10087,7 +10237,7 @@ function initCloudSync(){
     }
   }, err=>{
     console.error("AKMR Trade Point: lost connection to the shared cloud data.", err);
-    setSaveStatus("error");
+    setSaveStatus("error", err);
   });
 }
 /* One-time cleanup: earlier versions of this file shipped with 5 sample orders baked in, and
@@ -10099,14 +10249,20 @@ const LEGACY_DEMO_ORDER_IDS = new Set([
   "302064843593620993_1","302460928372578496_1"
 ]);
 
-function setSaveStatus(state){
+function setSaveStatus(state, err){
   const dot = document.getElementById("saveStatusDot");
   const text = document.getElementById("saveStatusText");
   if(!dot || !text) return;
   dot.classList.remove("saving","error");
-  if(state==="saving"){ dot.classList.add("saving"); text.textContent = "Saving…"; }
-  else if(state==="error"){ dot.classList.add("error"); text.textContent = "Not saved"; }
-  else { text.textContent = "All changes saved"; }
+  if(state==="saving"){ dot.classList.add("saving"); text.textContent = "Saving…"; text.title = ""; }
+  else if(state==="error"){
+    dot.classList.add("error"); text.textContent = "Not saved";
+    // Surfacing the real Firestore error as a tooltip (instead of only in the console) means a
+    // future save failure — of any cause, not just the doc-too-large one this file used to hit —
+    // is diagnosable at a glance instead of just showing as a generic, unexplained "Not saved".
+    text.title = (err && (err.message || err.code)) ? ("Save failed: " + (err.message || err.code)) : "";
+  }
+  else { text.textContent = "All changes saved"; text.title = ""; }
 }
 
 function showStorageWarning(show){
@@ -11075,18 +11231,16 @@ function persistState(force){
   if(_cloudEnabled){
     setSaveStatus("saving");
     let mergedJSON = json;
-    _cloudDb.runTransaction(transaction=>
-      transaction.get(CLOUD_DOC()).then(doc=>{
+    _cloudDb.runTransaction(async transaction=>{
+        const { fullJSON, chunkCount } = await fetchFullCloudState(transaction);
         let remoteState = null;
-        if(doc.exists){
-          const remoteRaw = doc.data();
-          if(remoteRaw && remoteRaw.json){
-            try{ remoteState = JSON.parse(remoteRaw.json); }catch(err){ remoteState = null; }
-          }
+        if(fullJSON){
+          try{ remoteState = JSON.parse(fullJSON); }catch(err){ remoteState = null; }
         }
-        mergedJSON = JSON.stringify(mergeStateWithRemote(localState, remoteState, _syncBaseState));
-        transaction.set(CLOUD_DOC(), { json: mergedJSON, passcode: APP_PASSCODE, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-      })
+        const mergedState = mergeStateWithRemote(localState, remoteState, _syncBaseState);
+        mergedJSON = JSON.stringify(mergedState);
+        writeFullCloudState(transaction, mergedState, chunkCount);
+      }
     ).then(()=>{
       _cloudWriteFailed = false;
       // mergedJSON is now what's actually sitting in Firestore — that's our new reconciliation baseline.
@@ -11102,7 +11256,7 @@ function persistState(force){
     }).catch(err=>{
       console.error("AKMR Trade Point: could not sync to the shared cloud data — check that your Firestore Rules passcode matches APP_PASSCODE exactly, and that the rule was Published.", err);
       _cloudWriteFailed = true;
-      setSaveStatus("error");
+      setSaveStatus("error", err);
     });
   } else {
     setSaveStatus("saved");
@@ -11277,28 +11431,25 @@ function startApp(){
   };
 
   if(_cloudEnabled){
-    CLOUD_DOC().get().then(doc=>{
-      if(doc.exists){
-        const data = doc.data();
-        if(data && data.json){
-          _applyingRemoteUpdate = true;
-          try{
-            // Nothing local to merge against on a fresh boot (no local-storage cache any more) —
-            // Firestore's copy IS the state. Just load it as-is.
-            const ok = applyPersistedJSON(data.json);
-            if(ok){
-              try{ _syncBaseState = JSON.parse(data.json); }catch(e3){ _syncBaseState = null; }
-              renderAll();
-              refreshOpenBatchModalIfNeeded();
-            }
-            else{
-              // The data saved online exists but this version of the app couldn't read it — do NOT
-              // let finishBoot() re-enable autosave below, or the next save overwrites the good
-              // online data with whatever got rendered from the sample-data fallback.
-              showCloudSyncWarning(true);
-            }
-          } finally{ _applyingRemoteUpdate = false; }
-        }
+    fetchFullCloudState(null).then(({fullJSON})=>{
+      if(fullJSON){
+        _applyingRemoteUpdate = true;
+        try{
+          // Nothing local to merge against on a fresh boot (no local-storage cache any more) —
+          // Firestore's copy IS the state. Just load it as-is.
+          const ok = applyPersistedJSON(fullJSON);
+          if(ok){
+            try{ _syncBaseState = JSON.parse(fullJSON); }catch(e3){ _syncBaseState = null; }
+            renderAll();
+            refreshOpenBatchModalIfNeeded();
+          }
+          else{
+            // The data saved online exists but this version of the app couldn't read it — do NOT
+            // let finishBoot() re-enable autosave below, or the next save overwrites the good
+            // online data with whatever got rendered from the sample-data fallback.
+            showCloudSyncWarning(true);
+          }
+        } finally{ _applyingRemoteUpdate = false; }
       }
     }).catch(err=>{
       console.error("AKMR Trade Point: could not load the shared cloud data on startup.", err);
