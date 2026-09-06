@@ -8846,6 +8846,20 @@ function getField(row, candidates){
   }
   return "";
 }
+/* Meesho's Payments/Orders/Returns exports often carry one extra row right after the real header —
+   a spreadsheet "Total" / summary line (sometimes shown with Excel data-bar formatting on the
+   numeric columns) that sums up the settlement/sale columns but was never a real order to begin
+   with. It has no Sub Order No, and — unlike an actual order row with a genuine data-entry gap —
+   it also has no SKU and no product name, because there's no real order behind it at all. A row
+   this empty of identity is filler from the export, not a mistake the seller needs to go fix, so
+   it's dropped silently: not counted as "skipped", not listed as a row needing repair, and not
+   included in the file's row total. A row that's missing only the Sub Order No but still carries a
+   SKU or product name is a genuine gap and is still reported as before. */
+function isMeeshoFillerRow(row, fieldMap){
+  const sku = (getField(row, fieldMap.sku)||"").toString().trim();
+  const product = (getField(row, fieldMap.productName)||"").toString().trim();
+  return !sku && !product;
+}
 function normalizeDate(v){
   if(v===undefined || v===null || v==="") return new Date().toISOString().slice(0,10);
   const s = v.toString().trim();
@@ -8883,7 +8897,8 @@ function processMeeshoRows(rows, filename){
   const unmatchedSet = new Set();
   const touchedIds = [];
   const skippedDetails = [];
-  rows.forEach((row, i)=>{
+  const usableRows = rows.filter(row=>!isMeeshoFillerRow(row, MEESHO_FIELD_MAP) || (getField(row, MEESHO_FIELD_MAP.subOrderNo)||"").toString().trim());
+  usableRows.forEach((row, i)=>{
     const subOrderNo = (getField(row, MEESHO_FIELD_MAP.subOrderNo)||"").toString().trim();
     if(!subOrderNo){
       skipped++;
@@ -8933,7 +8948,7 @@ function processMeeshoRows(rows, filename){
   inventory.forEach(recomputeInvFields);
   renderAll();
   populateProductSelect();
-  return {added, updated, skipped, unmatched, locked, unmatchedList:[...unmatchedSet], total:rows.length, orderIds: touchedIds, skippedDetails};
+  return {added, updated, skipped, unmatched, locked, unmatchedList:[...unmatchedSet], total:usableRows.length, orderIds: touchedIds, skippedDetails};
 }
 
 /* ---- 2) RETURNS file: captures the raw return row directly — SKU, Category, Qty, Sub Order No,
@@ -8946,7 +8961,8 @@ function processMeeshoReturnRows(rows, filename){
   let captured=0, ordersUpdated=0, skipped=0, locked=0;
   const touchedIds = [];
   const skippedDetails = [];
-  rows.forEach((row, i)=>{
+  const usableRows = rows.filter(row=>!isMeeshoFillerRow(row, MEESHO_RETURN_FIELD_MAP) || (getField(row, MEESHO_RETURN_FIELD_MAP.subOrderNo)||"").toString().trim());
+  usableRows.forEach((row, i)=>{
     const subOrderNo = (getField(row, MEESHO_RETURN_FIELD_MAP.subOrderNo)||"").toString().trim();
     if(!subOrderNo){
       skipped++;
@@ -8999,7 +9015,7 @@ function processMeeshoReturnRows(rows, filename){
   inventory.forEach(recomputeInvFields);
   renderAll();
   populateProductSelect();
-  return {captured, ordersUpdated, skipped, locked, total:rows.length, recordIds: touchedIds, skippedDetails};
+  return {captured, ordersUpdated, skipped, locked, total:usableRows.length, recordIds: touchedIds, skippedDetails};
 }
 
 /* ---- 3) PAYMENTS file: matches an existing order by Sub Order No and updates bank settlement,
@@ -9013,7 +9029,8 @@ function processMeeshoPaymentRows(rows, filename){
   const touchedIds = [];
   const skippedDetails = [];
   const num = (v)=>{ const n=parseFloat(v); return isNaN(n)?null:n; };
-  rows.forEach((row, i)=>{
+  const usableRows = rows.filter(row=>!isMeeshoFillerRow(row, MEESHO_PAYMENT_FIELD_MAP) || (getField(row, MEESHO_PAYMENT_FIELD_MAP.subOrderNo)||"").toString().trim());
+  usableRows.forEach((row, i)=>{
     const subOrderNo = (getField(row, MEESHO_PAYMENT_FIELD_MAP.subOrderNo)||"").toString().trim();
     if(!subOrderNo){
       skipped++;
@@ -9136,7 +9153,7 @@ function processMeeshoPaymentRows(rows, filename){
   document.querySelectorAll("#view-payments thead th[data-sort]").forEach(t=>t.classList.remove("sorted"));
   renderAll();
   populateProductSelect();
-  return {matched, created, skipped, unmatched, locked, unmatchedList:[...unmatchedSet], total:rows.length, orderIds: touchedIds, skippedDetails};
+  return {matched, created, skipped, unmatched, locked, unmatchedList:[...unmatchedSet], total:usableRows.length, orderIds: touchedIds, skippedDetails};
 }
 
 /* ---- Meesho's raw exports often have extra rows ABOVE the real column-name row — the Payments
