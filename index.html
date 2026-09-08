@@ -3451,13 +3451,14 @@ function renderHomeHero(){
   if(homeSelMonth===-1) homeSelDay = 0;
   if(homeSelDay > maxDay) homeSelDay = 0;
 
-  const periodOrders = visible.filter(o=>{
+  const dateInPeriod = (o)=>{
     const d = new Date(o.date+"T00:00:00");
     if(d.getFullYear()!==homeSelYear) return false;
     if(homeSelMonth!==-1 && d.getMonth()!==homeSelMonth) return false;
     if(homeSelMonth!==-1 && homeSelDay!==0 && d.getDate()!==homeSelDay) return false;
     return true;
-  });
+  };
+  const periodOrders = visible.filter(dateInPeriod);
   const periodRevenue = periodOrders.reduce((s,o)=>s+(o.sell||0)*o.qty, 0);
   const pendingPayments = visible.filter(o=>o.bank==null && !["Cancelled","RTO","RTO_LOCKED"].includes(o.status)).length;
 
@@ -3467,15 +3468,33 @@ function renderHomeHero(){
      Payments dashboard or the order table. RTO/RTO_LOCKED and Customer Return are excluded from
      the Net Profit figure (they never completed as a real sale) and shown as their own loss totals
      instead, mirroring the Payments tab's success-vs-loss split. */
-  const deliveredOrders = periodOrders.filter(o=>o.status==="Delivered");
-  const rtoOrders = periodOrders.filter(o=>o.status==="RTO" || o.status==="RTO_LOCKED");
-  const customerReturnOrders = periodOrders.filter(o=>o.status==="Customer Return");
-  const isLossStatus = (o)=> o.status==="RTO" || o.status==="RTO_LOCKED" || o.status==="Customer Return" || o.status==="Lost";
+  const deliveredOrders = periodOrders.filter(o=>getPaymentStatus(o)==="Delivered");
 
-  const settledSuccessOrders = periodOrders.filter(o=>o.paymentDetails && !isLossStatus(o));
+  /* RTO / Customer Return / settlement figures use the FULL order list (including paymentOnly
+     stub orders created from unmatched Payments-file rows or manual payment entries), not the
+     Orders-tab-only "visible" list — the same scope computePaymentsSummary uses on the Payments
+     tab. paymentOnly rows are, per design, "real for Payments/dashboard purposes" (see
+     getVisibleOrders' comment); leaving them out here was making Home's RTO/Return counts and
+     Net Bank Settlement/Net Profit undercount whenever a manual or unmatched payment fell in the
+     selected period. */
+  const periodOrdersForPayments = orders.filter(dateInPeriod);
+  /* Classified by getPaymentStatus(o), NOT the raw o.status — same rule computePaymentsSummary
+     uses (see getPaymentStatus's own comment above). Using o.status here let this "mirrors the
+     Payments tab" section actually disagree with the Payments tab whenever an order's status
+     hadn't been promoted yet (e.g. still "Shipped" in Orders while the Payments file's liveStatus
+     already says RTO/Delivered) — the exact drift this whole section's comment promises won't happen. */
+  const rtoOrders = periodOrdersForPayments.filter(o=>["RTO","RTO_LOCKED"].includes(getPaymentStatus(o)));
+  const customerReturnOrders = periodOrdersForPayments.filter(o=>getPaymentStatus(o)==="Customer Return");
+  const isLossStatus = (o)=> ["RTO","RTO_LOCKED","Customer Return","Lost"].includes(getPaymentStatus(o));
+
+  const settledSuccessOrders = periodOrdersForPayments.filter(o=>o.paymentDetails && !isLossStatus(o));
   const successFigures = settledSuccessOrders.map(getPaymentRowFigures);
-  const periodReceived = successFigures.reduce((s,rf)=>s+(rf.settlementAmt||0),0);
-  const unsettledSuccessCount = periodOrders.filter(o=>!o.paymentDetails && !isLossStatus(o)).length;
+  /* Match the Payments tab's "Final Settlement Amount (Overall)" rule exactly — only positive
+     settlement amounts are added (see computePaymentsSummary's totalActualReceived). Summing every
+     settlementAmt unconditionally (including negative ones) was making the Home page's Net Bank
+     Settlement / Net Profit figures drift away from the numbers shown on the Payments tab. */
+  const periodReceived = successFigures.reduce((s,rf)=> (rf.settlementAmt!=null && rf.settlementAmt>0) ? s+rf.settlementAmt : s, 0);
+  const unsettledSuccessCount = periodOrdersForPayments.filter(o=>!o.paymentDetails && !isLossStatus(o)).length;
 
   const rtoLoss = rtoOrders.filter(o=>o.paymentDetails).map(getPaymentRowFigures).reduce((s,rf)=>s+(rf.netProfitVal||0),0);
   const customerReturnLoss = customerReturnOrders.filter(o=>o.paymentDetails).map(getPaymentRowFigures).reduce((s,rf)=>s+(rf.netProfitVal||0),0);
@@ -4583,6 +4602,12 @@ document.getElementById("stockModalSave").addEventListener("click", ()=>{
     // Editing an existing item from this modal only ever touches identity fields (name/HSN/photo) —
     // the purchase itself is appended as a brand-new, dated batch rather than overwriting history.
     const item = inventory.find(i=>i.id===editingStockId);
+    if(!item){
+      // Another device deleted this item (or a merge dropped it) while this modal was open — there's
+      // nothing left to attach the edit to. Bail out instead of crashing on a null item.
+      alert("This item was deleted on another device. Your change wasn't saved — please re-check Inventory.");
+      closeStockModal(); renderAll(); return;
+    }
     item.name = name; item.hsn = hsn; item.photo = currentStockPhotoData || null;
     if(!item.batches) item.batches = [];
     item.batches.push({id:newId("ib"), date: purchaseDate, addedAt: todayStr(), qty: totalReceived, pricePerUnit: purchase, gstPct, shippingCost, supplier});
@@ -4912,7 +4937,12 @@ document.getElementById("listingModalSave").addEventListener("click", ()=>{
   };
 
   if(editingListingId){
-    Object.assign(listing.find(l=>l.id===editingListingId), payload);
+    const l = listing.find(l=>l.id===editingListingId);
+    if(!l){
+      alert("This listing was deleted on another device. Your change wasn't saved — please re-check the Listing tab.");
+      closeListingModal(); renderAll(); return;
+    }
+    Object.assign(l, payload);
   } else {
     listing.push(Object.assign({id:"lst"+(nextListingId++)}, payload));
   }
@@ -5558,6 +5588,11 @@ document.getElementById("rawModalSave").addEventListener("click", ()=>{
     // Editing an existing material from this modal only touches identity fields (name/category/unit) —
     // the purchase itself is appended as a brand-new, dated batch rather than overwriting history.
     const m = rawMaterials.find(x=>x.id===editingRawId);
+    if(!m){
+      // Another device deleted this material while this modal was open — nothing left to attach the edit to.
+      alert("This material was deleted on another device. Your change wasn't saved — please re-check Raw Materials.");
+      closeRawModal(); renderAll(); return;
+    }
     m.name = name; m.category = category; m.unit = unit;
     if(!m.batches) m.batches = [];
     m.batches.push({id:newId("rb"), date: dateRaw, addedAt: todayStr(), qty, costPerPiece: cost, gstPct1, gstPct2, rounding, supplier: details});
@@ -8513,6 +8548,12 @@ document.getElementById("orderModalSave").addEventListener("click", ()=>{
      file import can't quietly overwrite what was typed in by hand. */
   if(editingOrderId){
     const existing = orders.find(o=>o.id===editingOrderId);
+    if(!existing){
+      // Another device deleted this order while the modal was open — nothing left to attach the edit
+      // to. Bail out instead of crashing on Object.assign(undefined, ...).
+      alert("This order was deleted on another device. Your change wasn't saved — please re-check Orders.");
+      closeOrderModal(); renderAll(); populateProductSelect(); return;
+    }
     Object.assign(existing, orderPatch, {id: idVal, orderDataLocked:true, returnDataLocked:true});
   } else {
     orders.push({id: idVal, fee:0, ...orderPatch, orderDataLocked:true, returnDataLocked:true});
@@ -8646,6 +8687,13 @@ document.getElementById("offlineSaleSaveBtn").addEventListener("click", ()=>{
 
   if(editingOfflineSaleId){
     const idx = orders.findIndex(o=>o.id===editingOfflineSaleId);
+    if(idx<0){
+      // Another device deleted this sale while the modal was open. Without this guard `orders[-1] =
+      // ...` would silently stash the edit on a non-index property instead of a real array element —
+      // it would vanish from every render/save with no error at all.
+      alert("This sale was deleted on another device. Your change wasn't saved — please re-check Offline Sales.");
+      closeOfflineSaleModal(); renderAll(); populateProductSelect(); return;
+    }
     orders[idx] = {...orders[idx], ...salePatch};
   } else {
     orders.push({id: "OFF" + Date.now(), ...salePatch});
@@ -9847,9 +9895,12 @@ function computeOrderDayPayStatus(dateStr, ordersForDate, now){
   now = now || new Date();
   const orderDateObj = new Date(dateStr+"T00:00:00");
   const diffDays = Math.floor((now - orderDateObj) / 86400000);
+  // Same convention as everywhere else: RTO, RTO_LOCKED and Cancelled orders never earn a payout,
+  // so one with no paymentDetails is a real ₹0, not "unpaid" — it shouldn't turn the day yellow/red.
+  const noPayoutStatuses = ["RTO","RTO_LOCKED","Cancelled"];
   let anyUnpaid = false, anyOverdue = false;
   ordersForDate.forEach(o=>{
-    if(!o.paymentDetails){
+    if(!o.paymentDetails && !noPayoutStatuses.includes(o.status)){
       anyUnpaid = true;
       if(diffDays > 30) anyOverdue = true;
     }
@@ -9941,9 +9992,14 @@ function buildCalDayBody(dateStr){
   const now = new Date();
   const orderDateObj = new Date(dateStr+"T00:00:00");
   const diffDays = Math.floor((now - orderDateObj) / 86400000);
+  /* Same convention as the Orders tab and Home hero: RTO, RTO_LOCKED and Cancelled orders never
+     earn a payout, so one sitting with no paymentDetails isn't "pending" or "overdue" — it's a
+     real ₹0. Without this, a Cancelled order placed a month ago permanently tinted its calendar
+     day red and inflated the "Overdue" chip, even though there was never anything to collect. */
+  const noPayoutStatuses = ["RTO","RTO_LOCKED","Cancelled"];
   const paidOrdersToday = ordersToday.filter(o=> !!o.paymentDetails);
-  const pendingOrdersToday = ordersToday.filter(o=> !o.paymentDetails && diffDays<=30);
-  const overdueOrdersToday = ordersToday.filter(o=> !o.paymentDetails && diffDays>30);
+  const pendingOrdersToday = ordersToday.filter(o=> !o.paymentDetails && diffDays<=30 && !noPayoutStatuses.includes(o.status));
+  const overdueOrdersToday = ordersToday.filter(o=> !o.paymentDetails && diffDays>30 && !noPayoutStatuses.includes(o.status));
   const receivedForOrdersToday = paidOrdersToday.reduce((sum,o)=> sum + (o.bank!=null ? o.bank : (o.paymentDetails.settlementAmount||0)), 0);
 
   const payStatus = computeOrderDayPayStatus(dateStr, ordersToday, now);
@@ -9965,7 +10021,11 @@ function buildCalDayBody(dateStr){
   </div>`;
 
   const payPillFor = (o)=>{
-    if(!o.paymentDetails) return diffDays>30 ? `<span class="cal-pill overdue">Overdue</span>` : `<span class="cal-pill pending">Pending</span>`;
+    if(!o.paymentDetails){
+      // RTO, RTO_LOCKED and Cancelled orders never earn a payout — show ₹0, not "Pending"/"Overdue".
+      if(["RTO","RTO_LOCKED","Cancelled"].includes(o.status)) return `<span class="cal-pill neutral">${fmt(0)}</span>`;
+      return diffDays>30 ? `<span class="cal-pill overdue">Overdue</span>` : `<span class="cal-pill pending">Pending</span>`;
+    }
     const amt = o.bank!=null ? o.bank : (o.paymentDetails.settlementAmount||0);
     return amt < 0 ? `<span class="cal-pill loss">Paid · ${fmt(amt)}</span>` : `<span class="cal-pill paid">Paid · ${fmt(amt)}</span>`;
   };
