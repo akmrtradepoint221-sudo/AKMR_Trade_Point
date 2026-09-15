@@ -1917,6 +1917,7 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
         <div class="in-body">
           Upload a .csv/.xlsx/.xls with one row per stock line. Expected columns (names are flexible — e.g. "Item Name" or "Product Name" both work): <b>Item Name</b>, <b>Quantity</b>, <b>Price Per Unit</b>, and optionally <b>HSN</b>, <b>GST %</b>, <b>Shipping Cost</b>, <b>Supplier</b>, <b>Purchase Date</b>.
           <div class="in-lock"><span class="in-lock-ic">🔗</span><span>If the Item Name already exists in Inventory (matched case-insensitively), the row is added as a <b>new purchase batch</b> on that item instead of creating a duplicate. A new name creates a new item.</span></div>
+          <div class="in-lock"><span class="in-lock-ic">🔒</span><span>Once a file is imported it's <b>locked</b> — re-uploading it (even an edited version) won't add or change anything, so stock can never be double-counted. A row already brought in by an earlier file is left untouched too. To import it again, delete that upload from the history below first.</span></div>
           <div class="in-lock"><span class="in-lock-ic">⬇</span><span>Not sure of the format? Close this and click <b>Export Excel</b> on the Inventory toolbar to download your current stock in this exact layout, edit it, then re-import.</span></div>
         </div>
       </div>
@@ -2850,8 +2851,9 @@ function recomputeInvFields(item){
   item.qty = Math.max(0, item.totalReceived - sold - (item.damaged||0)); // remaining/available stock — RTO/Customer Return units were never subtracted, so they're already counted as available
   item.purchase = item.totalReceived * item.pricePerP; // cost basis is on everything ever received, not just what's left
   item.gstPaid = item.purchase * item.gstPct;
-  item.totalPurchase = item.purchase + item.gstPaid;
-  item.perPiece = item.totalReceived>0 ? item.totalPurchase/item.totalReceived : item.pricePerP;
+  const goodsValue = item.purchase + item.gstPaid; // goods + GST, before inbound shipping
+  item.totalPurchase = goodsValue + (item.shippingCost||0); // landed cost — shipping charges included
+  item.perPiece = item.totalReceived>0 ? goodsValue/item.totalReceived : item.pricePerP; // unit cost stays goods+GST so order profit math is unchanged
   return item;
 }
 inventory.forEach(recomputeInvFields);
@@ -9293,9 +9295,19 @@ function readMeeshoFile(file, onRows, onError){
 /* ===================== INVENTORY / RAW MATERIAL EXCEL IMPORT =====================
    Simpler than the 3-way Meesho import above: every row is just a purchase — matched to an
    existing item by name (case-insensitive) and appended as a new dated batch, or used to create
-   a brand-new item if no name matches. Nothing is ever "locked"; re-uploading the same file just
-   adds the same batches again as a fresh purchase, same as re-entering them by hand would. Column
-   names are matched flexibly via getField(), same helper the Meesho imports use. */
+   a brand-new item if no name matches. Column names are matched flexibly via getField(), same
+   helper the Meesho imports use.
+
+   LOCKING — matches the Orders/Payments/Returns behaviour: once a file has been imported into
+   Inventory it is locked, and re-uploading it (even an edited version) will NOT add its rows
+   again. Two independent guards, so a rename or a partial re-upload can't sneak duplicates in:
+     1. Filename lock — a file whose name already appears in the Inventory import history (and
+        which actually created batches) is skipped wholesale.
+     2. Row lock — any individual row matching a purchase batch that a previous import already
+        created (same item name + purchase date + qty + price per unit) is left unchanged.
+   Deleting that import from the history below — the only manual escape hatch — removes its
+   batches, which is exactly what clears both locks, since the locks are derived from the batches
+   themselves rather than from a separate registry that could drift out of sync. */
 const INVENTORY_IMPORT_FIELD_MAP = {
   name: ["item name","product name","name"],
   hsn: ["hsn code","hsn"],
@@ -9330,10 +9342,41 @@ function parsePctFlexible(v){
   if(hadPercentSign) return n/100;
   return n>1 ? n/100 : n;
 }
+/* Identity of one imported purchase line: item name + purchase date + qty + price per unit. Two
+   rows that agree on all four are the same purchase as far as the lock is concerned. */
+function invImportRowKey(name, date, qty, price){
+  return [(name||"").toString().trim().toLowerCase(), date||"", +qty||0, +price||0].join("|");
+}
+/* Keys of every purchase batch that came in through an Excel import and is still present. Batches
+   added by hand (no importSource) are deliberately excluded — manually entering a purchase should
+   never block a later import of that same line from a file. */
+function importedInvRowKeys(){
+  const set = new Set();
+  inventory.forEach(it=>{
+    (it.batches||[]).forEach(b=>{ if(b.importSource) set.add(invImportRowKey(it.name, b.date, b.qty, b.pricePerUnit)); });
+  });
+  return set;
+}
+/* True once this exact filename has already been imported into Inventory and still has its log
+   entry. A re-import that was itself fully locked creates no batches, so it never becomes a lock
+   of its own — only the upload that actually brought the data in does. */
+function inventoryFileAlreadyImported(filename){
+  return importLog.some(e=> e.intendedKind==="inventory" && !e.error && e.filename===filename
+    && e.stats && e.stats.batchIds && e.stats.batchIds.length);
+}
 function processInventoryImportRows(rows, filename){
-  let added=0, newItems=0, skipped=0;
+  let added=0, newItems=0, skipped=0, locked=0;
   const skippedDetails = [];
   const batchIds = [];
+  /* Guard 1 — whole file already imported. Nothing is touched, so an edited re-upload can't
+     quietly rewrite or duplicate what's already in stock; delete that import first. */
+  if(inventoryFileAlreadyImported(filename)){
+    return {added:0, newItems:0, skipped:0, locked:rows.length, total:rows.length, batchIds:[], skippedDetails:[], fileLocked:true};
+  }
+  /* Guard 2 — row-level, snapshotted once before the loop so duplicate rows *within* this one
+     file still import (the user listed them deliberately); only rows already brought in by an
+     earlier import are locked out. */
+  const lockedRowKeys = importedInvRowKeys();
   rows.forEach((row,i)=>{
     const name = (getField(row, INVENTORY_IMPORT_FIELD_MAP.name)||"").toString().trim();
     const qty = parseFloat(getField(row, INVENTORY_IMPORT_FIELD_MAP.qty));
@@ -9347,6 +9390,10 @@ function processInventoryImportRows(rows, filename){
     const shippingCost = parseFloat(getField(row, INVENTORY_IMPORT_FIELD_MAP.shipping)) || 0;
     const supplier = (getField(row, INVENTORY_IMPORT_FIELD_MAP.supplier)||"").toString().trim();
     const purchaseDate = normalizeDate(getField(row, INVENTORY_IMPORT_FIELD_MAP.date));
+    if(lockedRowKeys.has(invImportRowKey(name, purchaseDate, qty, price))){
+      locked++; // this purchase line is already in stock from an earlier import — leave it alone
+      return;
+    }
     const batch = {id:newId("ib"), date:purchaseDate, addedAt:todayStr(), qty, pricePerUnit:price, gstPct, shippingCost, supplier, importSource:filename};
 
     let item = inventory.find(x=> x.name.trim().toLowerCase()===name.toLowerCase());
@@ -9365,7 +9412,7 @@ function processInventoryImportRows(rows, filename){
   });
   renderAll();
   populateProductSelect();
-  return {added, newItems, skipped, total:rows.length, batchIds, skippedDetails};
+  return {added, newItems, skipped, locked, total:rows.length, batchIds, skippedDetails};
 }
 function processRawImportRows(rows, filename){
   let added=0, newItems=0, skipped=0;
@@ -9761,6 +9808,7 @@ function buildImportLogRow(e){
   if(s.locked) statHtml += ` <span class="import-stat stat-muted">🔒 <b>${s.locked}</b> already imported — left unchanged</span>`;
   const isStockKind = e.kind==="inventory" || e.kind==="rawmaterial";
   if(s.skipped) statHtml += ` <span class="import-stat stat-danger">⛔ <b>${s.skipped}</b> skipped${isStockKind ? "" : " — missing Sub Order No"}</span>`;
+  const fileLockedNote = s.fileLocked ? `<div class="import-route-note">🔒 This file was already imported, so nothing in Inventory was added or changed. To bring it in again — or to re-import a corrected version — delete the earlier upload of this file from the history below first.</div>` : "";
   const routeNote = e.autoRouted ? `<div class="import-route-note">⚠ This looked like a ${MEESHO_KIND_LABEL[e.kind]} file by its columns, not a ${MEESHO_KIND_LABEL[e.intendedKind]} file — imported as ${MEESHO_KIND_LABEL[e.kind]} automatically.</div>` : "";
   const unmatchedNote = s.unmatched ? `<div class="import-unmatched">⚠ <b>${s.unmatched}</b> order(s) had a product that didn't match your Inventory list, so cost/profit couldn't be linked automatically: <i>${esc(s.unmatchedList.slice(0,6).join(", "))}${s.unmatchedList.length>6?"…":""}</i>. Use the ✎ edit button on those orders to correct the product name and link the cost.</div>` : "";
   let skippedNote = "";
@@ -9772,7 +9820,7 @@ function buildImportLogRow(e){
       <ul>${shown.map(d=>`<li>Row ${d.row}${d.sku?` — SKU: ${esc(d.sku)}`:""}${d.product?` — ${isStockKind?"Name":"Product"}: ${esc(d.product)}`:""}${d.reason?` — ${esc(d.reason)}`:""}</li>`).join("")}${more}</ul>
       ${skippedTail}</div>`;
   }
-  return `<div class="import-log-row"><div class="il-row-head"><span class="il-row-title"><span class="il-row-ic">${kindIcon}</span><b>${label}</b> — <span class="il-file mono" style="font-size:11px;">${esc(e.filename)}</span></span>${delBtn}</div><div class="import-stat-row">${statHtml}</div>${routeNote}${unmatchedNote}${skippedNote}</div>`;
+  return `<div class="import-log-row"><div class="il-row-head"><span class="il-row-title"><span class="il-row-ic">${kindIcon}</span><b>${label}</b> — <span class="il-file mono" style="font-size:11px;">${esc(e.filename)}</span></span>${delBtn}</div><div class="import-stat-row">${statHtml}</div>${fileLockedNote}${routeNote}${unmatchedNote}${skippedNote}</div>`;
 }
 /* Each import modal (Orders / Payments / Returns) only ever renders its own entries — filtered
    strictly by e.intendedKind, the dropzone the file was actually dropped into — so a Payments
