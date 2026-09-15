@@ -123,6 +123,7 @@ button{font-family:inherit;}
 .nav-item[data-view="orders"] .ic{color:var(--blue);}
 .nav-item[data-view="inventory"] .ic{color:var(--forest);}
 .nav-item[data-view="rawmat"] .ic{color:var(--teal);}
+.nav-item[data-view="packcalc"] .ic{color:var(--teal);}
 .nav-item[data-view="returns"] .ic{color:var(--pink);}
 .nav-item[data-view="offline"] .ic{color:var(--red);}
 .nav-item[data-view="payments"] .ic{color:var(--gold);}
@@ -861,6 +862,7 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
       <button class="nav-item" data-view="orders"><span class="ic">▤</span> Orders <span class="nav-badge" id="navOrdersBadge">0</span></button>
       <button class="nav-item" data-view="inventory"><span class="ic">▣</span> Inventory <span class="nav-badge" id="navInvBadge">0</span></button>
       <button class="nav-item" data-view="rawmat"><span class="ic">◧</span> Raw Materials</button>
+      <button class="nav-item" data-view="packcalc"><span class="ic">📦</span> Packing Cost Calculator</button>
       <button class="nav-item" data-view="returns"><span class="ic">↺</span> Returns / RTO</button>
       <button class="nav-item" data-view="offline"><span class="ic">🛍️</span> Offline Sales</button>
       <button class="nav-item" data-view="customers"><span class="ic">👥</span> Customers</button>
@@ -1085,6 +1087,10 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
             </table>
           </div>
         </div>
+      </div>
+
+      <!-- ===================== PACKING COST CALCULATOR ===================== -->
+      <div class="view" id="view-packcalc">
         <div class="card" id="packCalcCard">
           <div class="card-head"><h3>📦 Packing Cost Calculator</h3><span class="meta">Per product — pick materials, set qty &amp; cost</span></div>
           <div class="pack-calc-wrap">
@@ -3103,7 +3109,8 @@ const titles = {
   home:["Home","Today's snapshot across Meesho"],
   orders:["Orders","Track, search and filter every order"],
   inventory:["Inventory","Stock on hand, by product — from the Inventory sheet"],
-  rawmat:["Raw Materials","Packaging & supply purchases, and per-piece packing cost"],
+  rawmat:["Raw Materials","Packaging & supply purchases, by line item"],
+  packcalc:["Packing Cost Calculator","Per product — pick materials, set qty & cost, and see saved breakdowns"],
   returns:["Returns / RTO","Reverse shipping costs when a parcel comes back"],
   offline:["Offline Sales","Sales made in person or outside Meesho — cash, UPI or bank, recorded here"],
   listing:["Listing","What to list each product for on Meesho, and the bank settlement once it sells — costs pulled live from Inventory"],
@@ -3162,6 +3169,13 @@ function setView(view){
   }
   if(view==="listing"){
     renderListing();
+  }
+  if(view==="rawmat"){
+    renderRawMaterials();
+  }
+  if(view==="packcalc"){
+    renderPackCalc();
+    renderPackHistory();
   }
   if(view==="reports"){
     renderPL();
