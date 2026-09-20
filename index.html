@@ -2673,7 +2673,7 @@ inventory.forEach(i=> i.id = "inv"+(nextInvId++));
    DERIVED aggregates computed live from the batches — so every existing calculation elsewhere
    (break-even, listing, valuation, dashboard) keeps working unchanged. */
 let nextInvBatchId = 1, nextRawBatchId = 1;
-function todayStr(){ return new Date().toISOString().slice(0,10); }
+function todayStr(){ return toLocalISODate(new Date()); }
 function isBatchLocked(batch){ return (batch.addedAt || batch.date || "") !== todayStr(); }
 /* Collision-resistant id for anything created by a user action (as opposed to the one-time seed
    data below). Two people adding a purchase on two different devices at the same moment must never
@@ -2779,7 +2779,7 @@ let packingCosts = {};
         cover ? {material:cover.name, qty:1, cost:cover.costPerPiece} : {material:"Cover", qty:1, cost:2},
         sticker ? {material:sticker.name, qty:1, cost:sticker.costPerPiece} : {material:"Sticker", qty:1, cost:1},
       ],
-      updated: new Date().toISOString().slice(0,10),
+      updated: toLocalISODate(new Date()),
     };
   }
 })();
@@ -3072,7 +3072,7 @@ const ORIGINAL_INVENTORY_COMPUTED = JSON.parse(JSON.stringify(inventory));
    just because its total lifetime stock is low. daysOfStock = qty ÷ velocity. ---- */
 function salesVelocityFor(name){
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-30);
-  const cutoffStr = cutoff.toISOString().slice(0,10);
+  const cutoffStr = toLocalISODate(cutoff);
   const nameLower = name.trim().toLowerCase();
   const recentUnits = orders.filter(o=> o.product && o.product.trim().toLowerCase()===nameLower && QUALIFYING_SOLD_STATUSES.includes(o.status) && o.date && o.date>=cutoffStr).reduce((s,o)=>s+o.qty,0);
   return recentUnits/30;
@@ -3462,7 +3462,7 @@ function openAddPaymentModal(){
   document.getElementById("ap-orderid").value = "";
   document.getElementById("ap-product").value = "";
   document.getElementById("ap-qty").value = 1;
-  document.getElementById("ap-date").value = new Date().toISOString().slice(0,10);
+  document.getElementById("ap-date").value = toLocalISODate(new Date());
   document.getElementById("ap-settlement").value = "";
   document.getElementById("ap-saleamount").value = "";
   document.getElementById("ap-gstpct").value = "";
@@ -3493,7 +3493,7 @@ document.getElementById("addPaymentSave").addEventListener("click", ()=>{
   if(settlement===null || settlement<0){ document.getElementById("err-ap-settlement").textContent = "Enter a valid settlement amount (0 or more)."; document.getElementById("ap-settlement").classList.add("invalid"); hasError = true; }
   if(hasError) return;
 
-  const paymentDate = document.getElementById("ap-date").value || new Date().toISOString().slice(0,10);
+  const paymentDate = document.getElementById("ap-date").value || toLocalISODate(new Date());
   const saleAmount = num(document.getElementById("ap-saleamount").value);
   const gstPct = num(document.getElementById("ap-gstpct").value);
   const tcs = num(document.getElementById("ap-tcs").value);
@@ -4530,7 +4530,7 @@ function renderInventory(){
     const delta = val - prevDamaged;
     if(delta !== 0){
       const costPerUnit = invPerPiece(item); // purchase price + GST already paid on that unit
-      damageLog.push({id:"dmg"+(nextDamageLogId++), invId:item.id, itemName:item.name.trim(), date:new Date().toISOString().slice(0,10), qty:delta, costPerUnit, loss:+(delta*costPerUnit).toFixed(2)});
+      damageLog.push({id:"dmg"+(nextDamageLogId++), invId:item.id, itemName:item.name.trim(), date:toLocalISODate(new Date()), qty:delta, costPerUnit, loss:+(delta*costPerUnit).toFixed(2)});
     }
     editingDamagedId = null;
     recomputeInvFields(item);
@@ -4747,7 +4747,7 @@ function openStockModal(id){
     gstCustom.value = item ? +(item.gstPct*100).toFixed(2) : "";
   }
   document.getElementById("m-hsn").value = item ? item.hsn : "7117";
-  document.getElementById("m-purchase-date").value = item ? (item.purchaseDate || "") : new Date().toISOString().slice(0,10);
+  document.getElementById("m-purchase-date").value = item ? (item.purchaseDate || "") : toLocalISODate(new Date());
   currentStockPhotoData = item ? (item.photo || null) : null;
   document.getElementById("m-photo").value = "";
   renderStockPhotoPreview();
@@ -4832,7 +4832,7 @@ document.getElementById("stockModalSave").addEventListener("click", ()=>{
     gstPct = parseFloat(gstSelectVal)||0;
   }
   const hsn = document.getElementById("m-hsn").value.trim() || 7117;
-  const purchaseDate = document.getElementById("m-purchase-date").value || new Date().toISOString().slice(0,10);
+  const purchaseDate = document.getElementById("m-purchase-date").value || toLocalISODate(new Date());
   const supplier = document.getElementById("m-supplier").value.trim();
   const shippingRaw = document.getElementById("m-shipping").value;
   const shippingCost = shippingRaw==="" ? 0 : (parseFloat(shippingRaw)||0);
@@ -5633,7 +5633,7 @@ document.getElementById("pcSaveBtn").addEventListener("click", ()=>{
   const itemsCopy = pcDraftItems.map(it=>({material:it.material, qty:parseFloat(it.qty)||0, cost:parseFloat(it.cost)||0}));
   packingCosts[pcCurrentProductId] = {
     items: itemsCopy,
-    updated: new Date().toISOString().slice(0,10),
+    updated: toLocalISODate(new Date()),
   };
   // Remember this list as the starting point for the next product that hasn't been
   // customized yet — add/remove here once and it carries forward automatically.
@@ -5758,7 +5758,7 @@ function openRawModal(id){
     rGst2Custom.style.display = "none";
     rGst2Custom.value = "";
   }
-  document.getElementById("r-date").value = m ? (m.purchaseDate||"") : new Date().toISOString().slice(0,10);
+  document.getElementById("r-date").value = m ? (m.purchaseDate||"") : toLocalISODate(new Date());
   document.getElementById("r-details").value = m ? (m.details||"") : "";
   document.getElementById("rawModalOverlay").classList.add("show");
   document.getElementById("r-name").focus();
@@ -7328,7 +7328,7 @@ function plPeriodKey(dateStr, period){
   if(period==="weekly"){
     const dow = (d.getDay()+6)%7; // 0=Mon...6=Sun
     const monday = new Date(d); monday.setDate(d.getDate()-dow);
-    return monday.toISOString().slice(0,10);
+    return toLocalISODate(monday);
   }
   return dateStr.slice(0,10); // daily
 }
@@ -8848,7 +8848,7 @@ document.getElementById("addOrderBtn").addEventListener("click", ()=>{
   if(orderId && orders.find(o=>o.id===orderId)){ warnEl.textContent = `An order with Order No "${orderId}" already exists.`; return; }
   if(!orderId) orderId = "MAN" + Date.now();
 
-  const iso = new Date().toISOString().slice(0,10);
+  const iso = toLocalISODate(new Date());
   orders.push({id:orderId, platform, date:iso, product, qty, sell, cost, status, fee:0});
 
   if(invItem){ recomputeInvFields(invItem); } // qty (remaining) recalculates from updated order history automatically
@@ -8962,7 +8962,7 @@ function openOrderModal(id){
   document.getElementById("orderModalTitle").textContent = o ? "Edit Order" : "Add Order";
   document.getElementById("o-id").value = o ? o.id : "";
   document.getElementById("o-platform").value = o ? o.platform : "Meesho";
-  document.getElementById("o-date").value = o ? o.date : new Date().toISOString().slice(0,10);
+  document.getElementById("o-date").value = o ? o.date : toLocalISODate(new Date());
   document.getElementById("o-status").value = o ? o.status : "Pending";
   document.getElementById("o-product").value = o ? o.product.trim() : "";
   document.getElementById("o-qty").value = o ? o.qty : 1;
@@ -9104,7 +9104,7 @@ function openOfflineSaleModal(id){
   const o = id ? orders.find(x=>x.id===id) : null;
   document.getElementById("offlineSaleModalTitle").textContent = o ? "Edit offline sale" : "Record offline sale";
   document.getElementById("os-stock-warn").textContent = "";
-  document.getElementById("os-date").value = o ? o.date : new Date().toISOString().slice(0,10);
+  document.getElementById("os-date").value = o ? o.date : toLocalISODate(new Date());
   document.getElementById("os-product").value = o ? o.product.trim() : "";
   document.getElementById("os-qty").value = o ? o.qty : 1;
   document.getElementById("os-price").value = o ? o.sell : "";
@@ -9124,7 +9124,7 @@ document.getElementById("offlineSaleModalOverlay").addEventListener("click", (e)
 document.getElementById("offlineSaleSaveBtn").addEventListener("click", ()=>{
   const warnEl = document.getElementById("os-stock-warn");
   warnEl.textContent = "";
-  const dateVal = document.getElementById("os-date").value || new Date().toISOString().slice(0,10);
+  const dateVal = document.getElementById("os-date").value || toLocalISODate(new Date());
   const product = document.getElementById("os-product").value.trim();
   const qty = Math.max(1, parseInt(document.getElementById("os-qty").value||"1", 10));
   const sellRaw = document.getElementById("os-price").value;
@@ -9381,24 +9381,80 @@ function isMeeshoFillerRow(row, fieldMap){
   const product = (getField(row, fieldMap.productName)||"").toString().trim();
   return !sku && !product;
 }
+/* ===================== LOCAL-CALENDAR-DATE HELPER (fixes a systemic off-by-one-day bug) =====================
+   `someDate.toISOString().slice(0,10)` looks like an innocent way to get "YYYY-MM-DD" from a Date,
+   but toISOString() always converts to UTC first. For anyone in a timezone ahead of UTC (India is
+   UTC+5:30) that silently rolls the date back by one for any Date built from LOCAL midnight — which
+   is exactly what `new Date("20-Jul-2026")`, `new Date("Jul 20, 2026")`, `new Date()` for "today",
+   or any non-ISO-prefixed date string parses to. The result: dates imported from a Payments/Orders/
+   Returns file (or "today" on any date picker) could come out one calendar day earlier than the
+   file/browser clock actually says — invisible in most single-date views, but it stacks up into a
+   *consistent* one-day shift wherever two independently-normalized dates get compared, which is
+   exactly what made the Bank Reconciliation feature above show mismatches on every single row.
+   toLocalISODate/toLocalISOMonth read the Date's own LOCAL year/month/day instead, which always
+   matches what the browser/device clock and the imported file agree the calendar date actually is. */
+function toLocalISODate(d){
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function toLocalISOMonth(d){
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0");
+}
+/* ===================== DAY-FIRST DATE PARSING (fixes a second, distinct date bug) =====================
+   Excel/CSV exports (Meesho Orders, Payments, Returns) almost always write dates day-first —
+   dd/mm/yyyy, dd-mm-yyyy, dd.mm.yyyy — because that's the Indian convention. Handing a string like
+   that straight to the native Date() constructor is a trap: Date() defaults to the US month-first
+   reading, so "01/07/2026" silently became 7 January instead of 1 July with no error at all, and
+   "20/07/2026" (day 20, which can't be a month) returned an outright Invalid Date — which
+   normalizeDate() was then quietly papering over by substituting *today's* date, so an unreadable
+   date from the file could turn into a completely wrong one on screen instead of raising a flag.
+   This checks the day-first shapes explicitly, the same way parseBankDate() already does further
+   below for bank statements, before ever falling back to the native parser for other formats
+   (like "20 July 2026" or a full timestamp). */
+const FLEXIBLE_DATE_MONTH_ABBR = {jan:"01",feb:"02",mar:"03",apr:"04",may:"05",jun:"06",jul:"07",aug:"08",sep:"09",oct:"10",nov:"11",dec:"12"};
+function parseFlexibleDayFirstDate(s){
+  if(!s) return "";
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if(m){
+    let [, d, mo, y] = m;
+    if(y.length===2) y = (parseInt(y,10) > 50 ? "19" : "20") + y;
+    if(+d>31 || +mo>12) return ""; // neither reading is a valid calendar date — let the caller decide what to do instead of guessing
+    return `${y}-${mo.padStart(2,"0")}-${d.padStart(2,"0")}`;
+  }
+  m = s.match(/^(\d{1,2})[\s-]([A-Za-z]{3,})['.\s-]*(\d{2,4})$/);
+  if(m){
+    let [, d, monName, y] = m;
+    const mo = FLEXIBLE_DATE_MONTH_ABBR[monName.slice(0,3).toLowerCase()];
+    if(mo){
+      if(y.length===2) y = (parseInt(y,10) > 50 ? "19" : "20") + y;
+      return `${y}-${mo}-${d.padStart(2,"0")}`;
+    }
+  }
+  return "";
+}
 function normalizeDate(v){
-  if(v===undefined || v===null || v==="") return new Date().toISOString().slice(0,10);
+  if(v===undefined || v===null || v==="") return toLocalISODate(new Date());
+  if(v instanceof Date && !isNaN(v.getTime())) return toLocalISODate(v);
   const s = v.toString().trim();
-  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  const flexible = parseFlexibleDayFirstDate(s);
+  if(flexible) return flexible;
   const d = new Date(s);
-  if(!isNaN(d.getTime())) return d.toISOString().slice(0,10);
-  return new Date().toISOString().slice(0,10);
+  if(!isNaN(d.getTime())) return toLocalISODate(d);
+  return toLocalISODate(new Date());
 }
 /* Like normalizeDate but returns "" instead of faking today's date when the source cell is
    empty or unparseable — used for fields like Dispatch Date where a missing value should stay
    blank in the UI rather than silently showing today. */
 function normalizeDateOptional(v){
   if(v===undefined || v===null || v==="") return "";
+  if(v instanceof Date && !isNaN(v.getTime())) return toLocalISODate(v);
   const s = v.toString().trim();
   if(!s) return "";
-  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  const flexible = parseFlexibleDayFirstDate(s);
+  if(flexible) return flexible;
   const d = new Date(s);
-  if(!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+  if(!isNaN(d.getTime())) return toLocalISODate(d);
   return "";
 }
 
@@ -9997,7 +10053,7 @@ function parseBankAmount(v){
 const BANK_STMT_MONTHS = {jan:"01",feb:"02",mar:"03",apr:"04",may:"05",jun:"06",jul:"07",aug:"08",sep:"09",oct:"10",nov:"11",dec:"12"};
 function parseBankDate(v){
   if(v===undefined || v===null || v==="") return "";
-  if(v instanceof Date && !isNaN(v.getTime())) return v.toISOString().slice(0,10);
+  if(v instanceof Date && !isNaN(v.getTime())) return toLocalISODate(v);
   const s = v.toString().trim();
   if(!s) return "";
   let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -10018,7 +10074,7 @@ function parseBankDate(v){
     }
   }
   const d2 = new Date(s);
-  if(!isNaN(d2.getTime())) return d2.toISOString().slice(0,10);
+  if(!isNaN(d2.getTime())) return toLocalISODate(d2);
   return "";
 }
 /* Bank exports commonly carry several account-info rows (holder name, account number, statement
@@ -10384,7 +10440,7 @@ function reconcileMeeshoVsBank(){
       outer: for(let d=1; d<=reconToleranceDays; d++){
         for(const sign of [1,-1]){
           const cand = new Date(base); cand.setDate(cand.getDate()+d*sign);
-          const candStr = cand.toISOString().slice(0,10);
+          const candStr = toLocalISODate(cand);
           if(bankDatesUsed.has(candStr)) continue;
           const candAmt = bankByDate[candStr] || 0;
           if(candAmt>0 && Math.abs(candAmt-meeshoAmt) <= RECON_AMOUNT_TOLERANCE){
@@ -11093,7 +11149,7 @@ function renderCalendarInto(labelElId, gridElId, year, month, onDayClick){
   const dayMap = calDayStatsMap();
   const firstDow = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month+1, 0).getDate();
-  const todayStr = new Date().toISOString().slice(0,10);
+  const todayStr = toLocalISODate(new Date());
   let html = "";
   for(let i=0;i<firstDow;i++) html += `<div class="cal-day empty"></div>`;
   for(let d=1; d<=daysInMonth; d++){
@@ -11657,7 +11713,7 @@ function renderCapital(){
     const now = new Date();
     for(let i=5;i>=0;i--){
       const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-      months.push(d.toISOString().slice(0,7));
+      months.push(toLocalISOMonth(d));
     }
     if(capitalTransactions.length===0){
       chartWrap.innerHTML = `<p class="subtle-note" style="padding:0;">Add a capital entry below to see your monthly in/out flow here.</p>`;
@@ -12303,7 +12359,7 @@ function deleteInsurancePolicy(id){
 }
 function insurancePoliciesDueSoonCount(){
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate()+30);
-  const cutoffStr = cutoff.toISOString().slice(0,10);
+  const cutoffStr = toLocalISODate(cutoff);
   const today = todayISO();
   return businessInsurance.filter(p=>p.renewalDate && p.renewalDate<=cutoffStr).length +
     (businessInsurance.length===0 && inventoryTotalValue()>0 ? 1 : 0); // no policy at all, with real stock at risk
@@ -12331,7 +12387,7 @@ function renderBusinessInsuranceCard(){
       ${rows.length ? `<div class="table-scroll"><table><thead><tr><th>Policy</th><th>Insurer</th><th style="text-align:right;">Coverage</th><th style="text-align:right;">Premium</th><th>Renewal</th><th></th></tr></thead><tbody>
         ${rows.map(p=>{
           const overdue = p.renewalDate && p.renewalDate<today;
-          const dueSoon = p.renewalDate && !overdue && p.renewalDate<=(new Date(Date.now()+30*86400000)).toISOString().slice(0,10);
+          const dueSoon = p.renewalDate && !overdue && p.renewalDate<=toLocalISODate(new Date(Date.now()+30*86400000));
           const badge = overdue ? `<span class="status-pill" style="background:var(--red-bg); color:var(--red);">Expired</span>` : dueSoon ? `<span class="status-pill" style="background:var(--amber-bg); color:var(--amber);">Renew soon</span>` : `<span class="status-pill" style="background:var(--forest-bg); color:var(--forest);">Active</span>`;
           return `<tr>
             <td>${esc(p.policyName)}</td><td>${esc(p.insurer)||"—"}</td>
@@ -12488,6 +12544,16 @@ function persistState(force){
      could silently reintroduce that stale, poorer copy and win the "local edits win" merge below,
      erasing payment data that was actually fine in the cloud. Making Firestore the single source
      of truth for boot removes that path entirely — see loadPersistedState(). */
+  /* Set provisionally so a second persistState() call fired before this one's transaction settles
+     (e.g. two quick imports back to back) doesn't re-send an identical, still-in-flight write.
+     This gets OVERWRITTEN with the actual post-merge mergedJSON once the transaction resolves below
+     — that second assignment is what the realtime listener's "ignore the echo of our own write"
+     check actually depends on. Leaving it at this pre-merge value was a real bug: any time the
+     transaction's merge changed anything at all (even harmlessly, e.g. just re-ordering an array to
+     match the cloud copy), fullJSON from the resulting Firestore update would never match this
+     value, so the listener treated our own completed save as a brand-new external update and
+     re-ran the whole fetch → merge → re-render cycle against it roughly a second later — which is
+     what made freshly-imported totals appear to change shortly after showing correctly. */
   _lastSavedJSON = json;
   if(_cloudEnabled){
     setSaveStatus("saving");
@@ -12504,8 +12570,12 @@ function persistState(force){
       }
     ).then(()=>{
       _cloudWriteFailed = false;
-      // mergedJSON is now what's actually sitting in Firestore — that's our new reconciliation baseline.
+      // mergedJSON is now what's actually sitting in Firestore — that's our new reconciliation baseline
+      // AND the value the realtime listener below needs to recognize as "my own write, not new data
+      // from elsewhere". Updating _lastSavedJSON here (not just at the top of this function, before
+      // the merge ran) is what makes that recognition actually work — see the bug note above _lastSavedJSON.
       try{ _syncBaseState = JSON.parse(mergedJSON); }catch(e){ /* keep previous base */ }
+      _lastSavedJSON = mergedJSON;
       if(mergedJSON !== json){
         // The cloud had records this device didn't have yet (e.g. a purchase added on another
         // device/tab) — pull the merged result back in so this screen reflects the full picture.
