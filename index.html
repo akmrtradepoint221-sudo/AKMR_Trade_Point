@@ -1504,6 +1504,26 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
           <button class="icon-btn" id="openAddPaymentBtn" title="Add a payment manually" style="width:34px; height:34px; font-size:16px;">➕</button>
           <button class="icon-btn" id="openPaymentsImportBtn" title="Import Meesho payments" style="width:34px; height:34px; font-size:16px;">💰</button>
         </div>
+
+        <!-- The one number sellers open this tab to check first: everything Meesho has actually
+             paid out, from every payment file ever imported — including rows the file carried that
+             don't tie back to any Sub Order No / Orders-tab entry (adjustments, recoveries, or a row
+             the file just didn't attach an order number to). Nothing from an imported file is left
+             out of this figure just because it didn't match an order. -->
+        <div class="card" id="paymentsReceivedHero" style="margin-bottom:16px; background:linear-gradient(135deg, var(--panel), var(--panel-2)); border:1.5px solid var(--gold);">
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; padding:20px 22px;">
+            <div>
+              <div class="meta" style="font-weight:700; text-transform:uppercase; letter-spacing:.04em; font-size:11px; margin-bottom:5px;">💰 Total Payments Received (all imported files)</div>
+              <div id="paymentsReceivedHeroValue" style="font-size:32px; font-weight:800; color:var(--heading); font-family:'Marcellus',serif; line-height:1.1;">₹0</div>
+              <div class="meta" id="paymentsReceivedHeroNote" style="margin-top:5px;"></div>
+            </div>
+            <div id="paymentsReceivedHeroOrphanBox" style="display:none; text-align:right; padding:10px 14px; border-radius:10px; background:var(--gold-bg); border:1px solid var(--gold);">
+              <div style="font-size:11px; font-weight:700; color:var(--amber);" id="paymentsReceivedHeroOrphanLabel"></div>
+              <div style="font-size:17px; font-weight:800; color:var(--amber);" id="paymentsReceivedHeroOrphanValue"></div>
+            </div>
+          </div>
+        </div>
+
         <div class="card" style="margin-bottom:16px;">
           <div class="status-dash" id="paymentTabs" style="border-bottom:none;"></div>
         </div>
@@ -1511,6 +1531,20 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
         <div class="summary-grid" id="paymentsKpiStrip"></div>
         <p class="subtle-note" style="margin:18px 0 8px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; font-size:11.5px; letter-spacing:.03em;">RTO / Return / Lost Loss — kept separate from the sales figures above</p>
         <div class="summary-grid" id="returnLossKpiStrip" style="margin-bottom:16px;"></div>
+
+        <!-- Rows a Payments file carried that couldn't be tied to any Sub Order No — captured in
+             full rather than silently dropped, since that money is still real and still counted in
+             the hero total above. Hidden automatically when there are none. -->
+        <div class="card" style="margin-bottom:16px; display:none;" id="paymentsOrphanCard">
+          <div class="card-head"><h3>⚠️ Other entries from imported files (no order number)</h3><span class="meta">Every row your Payments files carried that had no Sub Order No to attach to — still captured, and already included in the Total Payments Received figure above</span></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Payment Date</th><th>Product / SKU</th><th style="text-align:right;">Amount (₹)</th><th>Source file</th><th style="text-align:right;">Actions</th></tr></thead>
+              <tbody id="paymentsOrphanBody"></tbody>
+              <tfoot><tr class="tot-row" id="paymentsOrphanFoot"></tr></tfoot>
+            </table>
+          </div>
+        </div>
         <div class="card" style="margin-bottom:16px; display:none;" id="tcsTdsCard">
           <div class="card-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
             <div><h3>TCS / TDS credit reconciliation</h3><span class="meta">What platforms deducted vs what's actually showing in your GST portal / 26AS</span></div>
@@ -2885,6 +2919,10 @@ let nextTcsTdsClaimId = 1;
 let orders = [
   /* Sample orders removed — this now starts empty until you import a Meesho file or add an order manually. */
 ];
+/* Payment file rows that carried real data (SKU/product present) but no Sub Order No to attach to
+   any Orders-tab entry — captured on their own instead of being silently discarded, so their
+   amount still counts toward Total Payments Received and shows up for review on the Payments tab. */
+let meeshoOrphanPaymentRows = []; // {id, paymentDate, product, sku, amount, sourceFile, importedAt}
 /* Returns & RTO tab is driven ONLY by rows actually present in an uploaded Meesho Returns file —
    never inferred from an order's own status column. This array is populated exclusively inside
    processMeeshoReturnRows(); nothing else writes to it. */
@@ -6926,10 +6964,50 @@ function computePaymentsSummary(paymentDateFilter){
   const returnOrders = paidOrdersAll.filter(o=> getPaymentStatus(o)==="Customer Return");
   const returnSettlement = returnOrders.reduce((s,o)=>s+(getPaymentRowFigures(o).settlementAmt||0),0);
   const netBankSettlement = totalActualReceived - Math.abs(returnSettlement);
-  /* Net Profit (Overall) = Net Bank Settlement − Price per Unit − Other Expense. */
+  /* Net Profit (Overall) = Net Bank Settlement − Price per Unit − Other Expense. Deliberately left
+     untouched by orphan payment rows below — those have no known cost basis or fulfillment status,
+     so folding them in here would distort profit/margin rather than clarify it. */
   const totalNetProfit = netBankSettlement - totalPricePerUnit - totalOtherExpense;
   const overallMargin = netBankSettlement>0 ? (totalNetProfit/netBankSettlement*100) : null;
-  return {totalListingPrice, totalActualReceived, totalPricePerUnit, totalOtherExpense, netBankSettlement, totalNetProfit, overallMargin, settledCount: paidOrdersAll.length};
+  /* Payment file rows with real data but no Sub Order No (see meeshoOrphanPaymentRows) — added on
+     top as its own figure, for the "Total Payments Received" hero banner and the bank reconciliation
+     feature, where the goal is "does every rupee the file mentioned show up" rather than per-order
+     profit accounting. Filtered by the same Payment Date picker as everything else on this tab. */
+  const orphanRowsInScope = meeshoOrphanPaymentRows.filter(o=> !paymentDateFilter || o.paymentDate===paymentDateFilter);
+  const orphanTotal = orphanRowsInScope.reduce((s,o)=>s+(o.amount||0),0);
+  const grandTotalReceived = netBankSettlement + orphanTotal;
+  return {totalListingPrice, totalActualReceived, totalPricePerUnit, totalOtherExpense, netBankSettlement, totalNetProfit, overallMargin, settledCount: paidOrdersAll.length, orphanTotal, orphanCount: orphanRowsInScope.length, grandTotalReceived};
+}
+/* Renders the "Other entries from imported files (no order number)" table on the Payments tab —
+   see meeshoOrphanPaymentRows above for what these are and why they're captured at all. */
+function renderPaymentsOrphanTable(paymentDateFilter){
+  const card = document.getElementById("paymentsOrphanCard");
+  const body = document.getElementById("paymentsOrphanBody");
+  const foot = document.getElementById("paymentsOrphanFoot");
+  if(!card || !body) return;
+  const rows = meeshoOrphanPaymentRows
+    .filter(o=> !paymentDateFilter || o.paymentDate===paymentDateFilter)
+    .sort((a,b)=> (b.paymentDate||"").localeCompare(a.paymentDate||""));
+  card.style.display = rows.length ? "block" : "none";
+  if(!rows.length) return;
+  body.innerHTML = rows.map(o=>`
+    <tr>
+      <td>${o.paymentDate ? esc(fmtDateFull(o.paymentDate)) : "—"}</td>
+      <td>${esc(o.product||"—")}${o.sku ? ` <span class="meta">(${esc(o.sku)})</span>` : ""}</td>
+      <td style="text-align:right; ${o.amount>=0?"color:var(--forest);":"color:var(--red);"} font-weight:600;">${fmt(o.amount)}</td>
+      <td class="mono" style="font-size:11px; color:var(--ink-soft);">${esc(o.sourceFile||"")}</td>
+      <td style="text-align:right;"><button class="btn small secondary" onclick="deletePaymentsOrphanRow('${o.id}')" title="Remove this entry">🗑</button></td>
+    </tr>
+  `).join("");
+  const total = rows.reduce((s,o)=>s+(o.amount||0),0);
+  foot.innerHTML = `<td colspan="2" style="text-align:right;"><b>Total (${rows.length} entr${rows.length===1?"y":"ies"})</b></td><td style="text-align:right;"><b>${fmt(total)}</b></td><td colspan="2"></td>`;
+}
+function deletePaymentsOrphanRow(id){
+  const idx = meeshoOrphanPaymentRows.findIndex(o=>o.id===id);
+  if(idx===-1) return;
+  meeshoOrphanPaymentRows.splice(idx,1);
+  renderPayments();
+  persistState();
 }
 function renderPaymentTabs(){
   const wrap = document.getElementById("paymentTabs");
@@ -7158,7 +7236,27 @@ function renderPayments(){
   const totalTds = successOrders.reduce((s,o)=>s+(o.paymentDetails.tds||0),0);
   const successFigures = successOrders.map(o=>getPaymentRowFigures(o));
   const paySummary = computePaymentsSummary(paymentDateFilter);
-  const {totalListingPrice, totalActualReceived, totalPricePerUnit, totalOtherExpense, netBankSettlement, totalNetProfit, overallMargin} = paySummary;
+  const {totalListingPrice, totalActualReceived, totalPricePerUnit, totalOtherExpense, netBankSettlement, totalNetProfit, overallMargin, orphanTotal, orphanCount, grandTotalReceived} = paySummary;
+
+  /* The hero banner up top — the one number sellers open this tab to check first, so it's rendered
+     before anything else below and includes every rupee an imported file mentioned, whether or not
+     that row tied back to an order. */
+  const heroValueEl = document.getElementById("paymentsReceivedHeroValue");
+  if(heroValueEl) heroValueEl.textContent = fmt(grandTotalReceived);
+  const heroNoteEl = document.getElementById("paymentsReceivedHeroNote");
+  if(heroNoteEl) heroNoteEl.textContent = `From ${paidOrdersAll.length} order${paidOrdersAll.length===1?"":"s"} with payment data${orphanCount ? ` + ${orphanCount} other file entr${orphanCount===1?"y":"ies"}` : ""}${paymentDateFilter ? ` · ${fmtDateFull(paymentDateFilter)} only` : ""}`;
+  const orphanBoxEl = document.getElementById("paymentsReceivedHeroOrphanBox");
+  if(orphanBoxEl){
+    if(orphanCount){
+      orphanBoxEl.style.display = "block";
+      document.getElementById("paymentsReceivedHeroOrphanLabel").textContent = `⚠ Includes ${orphanCount} entr${orphanCount===1?"y":"ies"} with no order no.`;
+      document.getElementById("paymentsReceivedHeroOrphanValue").textContent = fmt(orphanTotal);
+    } else {
+      orphanBoxEl.style.display = "none";
+    }
+  }
+  renderPaymentsOrphanTable(paymentDateFilter);
+
   /* "Lost" here is just the loss slice of the sales above — sums only the orders where Net
      Profit came out negative, so a few loss-making sales don't hide inside the netted Net
      Profit total. RTO/Return loss is intentionally NOT included here — that's shown in its own
@@ -9447,19 +9545,40 @@ function processMeeshoReturnRows(rows, filename){
    Meesho settlement breakdown (revenue, TCS/TDS, compensation/claims/recovery) into
    o.paymentDetails so it can be shown in the payment breakdown drawer. ---- */
 function processMeeshoPaymentRows(rows, filename){
-  let matched=0, created=0, skipped=0, unmatched=0, locked=0;
+  let matched=0, created=0, skipped=0, unmatched=0, locked=0, captured=0;
   const unmatchedSet = new Set();
   const touchedIds = [];
   const skippedDetails = [];
+  const capturedOrphanIds = [];
   const num = (v)=>{ const n=parseFloat(v); return isNaN(n)?null:n; };
   const usableRows = rows.filter(row=>!isMeeshoFillerRow(row, MEESHO_PAYMENT_FIELD_MAP) || (getField(row, MEESHO_PAYMENT_FIELD_MAP.subOrderNo)||"").toString().trim());
+  const existingOrphanKeys = new Set(meeshoOrphanPaymentRows.map(orphanPaymentRowKey));
   usableRows.forEach((row, i)=>{
     const subOrderNo = (getField(row, MEESHO_PAYMENT_FIELD_MAP.subOrderNo)||"").toString().trim();
     if(!subOrderNo){
-      skipped++;
+      // No Sub Order No to attach this row to an Orders-tab entry — but the row still carried real
+      // data (it passed the filler check above), so it's captured as its own record rather than
+      // just being logged as skipped and losing whatever amount it represents. Deduped by content
+      // so re-uploading the same file doesn't double this row's amount into the totals.
       const skuGuess = (getField(row, MEESHO_PAYMENT_FIELD_MAP.sku)||"").toString().trim();
       const productGuess = (getField(row, MEESHO_PAYMENT_FIELD_MAP.productName)||"").toString().trim();
-      skippedDetails.push({row:i+2, sku:skuGuess, product:productGuess, reason:"Missing Sub Order No"});
+      const orphanDate = normalizeDateOptional(getField(row, MEESHO_PAYMENT_FIELD_MAP.paymentDate)) || normalizeDateOptional(getField(row, MEESHO_PAYMENT_FIELD_MAP.orderDate));
+      const orphanAmt = num(getField(row, MEESHO_PAYMENT_FIELD_MAP.settlementAmount));
+      const orphan = {
+        id: newId("mop"), paymentDate: orphanDate, product: productGuess, sku: skuGuess,
+        amount: orphanAmt!=null ? orphanAmt : 0, sourceFile: filename, importedAt: new Date().toISOString(),
+      };
+      const key = orphanPaymentRowKey(orphan);
+      if(existingOrphanKeys.has(key)){
+        skipped++;
+        skippedDetails.push({row:i+2, sku:skuGuess, product:productGuess, reason:"Missing Sub Order No (already captured earlier)"});
+      } else {
+        existingOrphanKeys.add(key);
+        meeshoOrphanPaymentRows.push(orphan);
+        capturedOrphanIds.push(orphan.id);
+        captured++;
+        skippedDetails.push({row:i+2, sku:skuGuess, product:productGuess, reason:"Missing Sub Order No — captured separately, see \"Other entries\" on the Payments tab"});
+      }
       return;
     }
     const paymentDate = normalizeDateOptional(getField(row, MEESHO_PAYMENT_FIELD_MAP.paymentDate));
@@ -9576,7 +9695,13 @@ function processMeeshoPaymentRows(rows, filename){
   document.querySelectorAll("#view-payments thead th[data-sort]").forEach(t=>t.classList.remove("sorted"));
   renderAll();
   populateProductSelect();
-  return {matched, created, skipped, unmatched, locked, unmatchedList:[...unmatchedSet], total:usableRows.length, orderIds: touchedIds, skippedDetails};
+  return {matched, created, skipped, unmatched, locked, captured, unmatchedList:[...unmatchedSet], total:usableRows.length, orderIds: touchedIds, skippedDetails, capturedOrphanIds};
+}
+/* Content-based dedupe key for an orphan (no Sub Order No) payment row — same idea as
+   bankStmtRowKey — so re-uploading the same Payments file never double-counts these into the
+   Total Payments Received figure. */
+function orphanPaymentRowKey(o){
+  return [o.paymentDate||"", (o.sku||"").trim().toLowerCase(), (o.product||"").trim().toLowerCase(), +o.amount||0].join("|");
 }
 
 /* ---- Meesho's raw exports often have extra rows ABOVE the real column-name row — the Payments
@@ -10233,6 +10358,13 @@ function reconcileMeeshoVsBank(){
     const amt = getPaymentRowFigures(o).settlementAmt;
     if(amt==null) return;
     meeshoByDate[o.paymentDate] = (meeshoByDate[o.paymentDate]||0) + amt;
+  });
+  // Payment file rows with no Sub Order No (meeshoOrphanPaymentRows) are still real money Meesho's
+  // file said moved on a given date, so they're folded into the same per-day totals here — otherwise
+  // this reconciliation would show a false "mismatch" against the bank for exactly that amount.
+  meeshoOrphanPaymentRows.forEach(o=>{
+    if(!o.paymentDate || !o.amount) return;
+    meeshoByDate[o.paymentDate] = (meeshoByDate[o.paymentDate]||0) + o.amount;
   });
   const bankByDate = {}; // "YYYY-MM-DD" -> total credited that day per the bank statement
   bankStatementEntries.forEach(e=>{
@@ -12230,6 +12362,7 @@ function collectPersistedState(){
     advanceTaxPayments, estimatedTaxLiability,
     tcsTdsClaims, nextTcsTdsClaimId,
     orders, returnRecords, damageLog, nextDamageLogId, labelCustomerDirectory,
+    meeshoOrphanPaymentRows,
     importLog, importLogSeq,
     bankStatementEntries, nextBankStmtId, bankStmtImportLog,
     seenOrdersCount, seenLowStockIds: Array.from(seenLowStockIds),
@@ -12471,6 +12604,8 @@ function applyPersistedJSON(raw){
     // merge (mergeArraysById needs every record to have one) — same reason as the other backfills
     // in this function.
     bankStatementEntries.forEach(e=>{ if(e && e.id==null) e.id = "bs"+(nextBankStmtId++); });
+    if(Array.isArray(data.meeshoOrphanPaymentRows)) meeshoOrphanPaymentRows = data.meeshoOrphanPaymentRows;
+    meeshoOrphanPaymentRows.forEach(e=>{ if(e && e.id==null) e.id = newId("mop"); });
     if(typeof data.seenOrdersCount==="number") seenOrdersCount = data.seenOrdersCount;
     if(Array.isArray(data.seenLowStockIds)) seenLowStockIds = new Set(data.seenLowStockIds);
     if(typeof data.defaultWeightBucketIdx==="number") defaultWeightBucketIdx = data.defaultWeightBucketIdx;
