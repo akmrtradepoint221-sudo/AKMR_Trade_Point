@@ -1447,6 +1447,55 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
           </div>
           <div class="empty-state" id="bankStmtEmpty" style="display:none;"><div class="ic">🏛️</div><b>No bank statement uploaded yet</b>Click "Import Statement" and upload your bank's .csv/.xlsx/.xls export — Tran Date, Narration, Cheque/RefNum, Credit (INR), Debit (INR) and Balance (INR) are picked up automatically, even with a few account-info rows above the header.</div>
         </div>
+
+        <!-- ============ MEESHO ↔ BANK RECONCILIATION ============
+             Answers "did what Meesho says it credited actually land in the bank?" by comparing the
+             Payment Date + settlement amount on each Meesho-paid order against the credit side of
+             this bank statement, day by day. -->
+        <div class="card" style="margin-top:16px;">
+          <div class="card-head"><h3>🔄 Meesho Payments ↔ Bank reconciliation</h3><span class="meta">Matches what Meesho says it credited (by Payment Date) against what actually landed in this bank statement</span></div>
+          <div id="reconIssueBanner" style="display:none; align-items:center; gap:10px; margin:0 18px 4px; padding:11px 14px; border-radius:10px; background:var(--red-bg); border:1px solid var(--red); color:var(--red); font-size:12.5px; font-weight:600;"></div>
+          <div class="toolbar">
+            <div class="summary-grid" id="reconSummaryGrid" style="flex:1; min-width:280px;"></div>
+            <label style="font-size:11.5px; color:var(--ink-soft); display:flex; flex-direction:column; gap:2px;">Match within
+              <select class="filter-select" id="reconToleranceSelect">
+                <option value="0">Same day only</option>
+                <option value="1">±1 day</option>
+                <option value="2" selected>±2 days</option>
+                <option value="3">±3 days</option>
+                <option value="5">±5 days</option>
+                <option value="7">±7 days</option>
+              </select>
+            </label>
+            <label style="font-size:11.5px; color:var(--ink-soft); display:flex; align-items:center; gap:6px; margin-left:auto;">
+              <input type="checkbox" id="reconIssuesOnlyToggle"> Show only issues
+            </label>
+          </div>
+          <p class="meta" style="padding:0 18px 6px; margin:0;">Meesho usually credits a lump sum a day or two after the Payment Date shown against each order, so an exact same-day match is rare — widen the window above if everything shows as "awaiting bank credit".</p>
+          <div class="table-scroll">
+            <table>
+              <thead><tr>
+                <th>Meesho Payment Date</th>
+                <th style="text-align:right;">Meesho Credited (₹)</th>
+                <th>Matched Bank Date</th>
+                <th style="text-align:right;">Bank Received (₹)</th>
+                <th style="text-align:right;">Difference (₹)</th>
+                <th>Status</th>
+              </tr></thead>
+              <tbody id="reconBody"></tbody>
+            </table>
+          </div>
+          <div class="empty-state" id="reconEmpty" style="display:none;"><div class="ic">🔄</div><b>Nothing to reconcile yet</b>This fills in once you have both Meesho payment records (Payments tab) and a bank statement uploaded above.</div>
+
+          <div class="card-head" style="border-top:1px solid var(--line); margin-top:6px;"><h3 style="font-size:13.5px;">Bank credits with no matching Meesho payout</h3><span class="meta">Money that came in on a day/amount that doesn't line up with any Meesho payment — other income, a refund, or a Meesho date outside your matching window</span></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Bank Date</th><th style="text-align:right;">Amount Received (₹)</th><th>Narration</th></tr></thead>
+              <tbody id="reconUnexplainedBody"></tbody>
+            </table>
+          </div>
+          <div class="empty-state" id="reconUnexplainedEmpty" style="display:none; padding-bottom:18px;"><div class="ic">✅</div><b>Nothing unexplained</b>Every bank credit lines up with a Meesho payout, or there's no bank data yet.</div>
+        </div>
       </div>
 
       <!-- ===================== PAYMENTS ===================== -->
@@ -10150,6 +10199,7 @@ function renderBankStatement(){
   foot.innerHTML = `<td colspan="3" style="text-align:right;"><b>Totals (${list.length} shown)</b></td><td style="text-align:right;"><b>${fmt(fCredit)}</b></td><td style="text-align:right;"><b>${fmt(fDebit)}</b></td><td colspan="3"></td>`;
 
   renderBankStmtImportResult();
+  renderMeeshoBankReconciliation();
 }
 function deleteBankStmtEntry(id){
   const idx = bankStatementEntries.findIndex(e=>e.id===id);
@@ -10161,6 +10211,140 @@ function deleteBankStmtEntry(id){
   renderBankStatement();
   persistState();
 }
+
+/* ===================== MEESHO PAYMENTS ↔ BANK RECONCILIATION =====================
+   Answers "did what Meesho says it credited actually show up in the bank?" by comparing, day by
+   day, the Payment Date + settlement amount on every Meesho-paid order (o.paymentDate / the same
+   settlementAmt shown in the Payments tab) against the credit side of this bank statement.
+
+   Meesho pays out a lump sum per settlement cycle rather than one bank transfer per order, and that
+   transfer typically lands a day or two after the Payment Date shown against each order — so this
+   matches by TOTAL per day rather than order-by-order, and lets the seller widen a day-tolerance
+   window (rather than forcing an exact same-day match, which would show almost everything as a
+   "mismatch" even when the money arrived exactly as expected, just a little later). */
+let reconToleranceDays = 2;
+let reconIssuesOnly = false;
+const RECON_AMOUNT_TOLERANCE = 2; // ₹ — absorbs paisa-level rounding between Meesho's figure and the bank's
+
+function reconcileMeeshoVsBank(){
+  const meeshoByDate = {}; // "YYYY-MM-DD" -> total settlement amount Meesho recorded that day
+  orders.forEach(o=>{
+    if(!o.paymentDetails || !o.paymentDate) return;
+    const amt = getPaymentRowFigures(o).settlementAmt;
+    if(amt==null) return;
+    meeshoByDate[o.paymentDate] = (meeshoByDate[o.paymentDate]||0) + amt;
+  });
+  const bankByDate = {}; // "YYYY-MM-DD" -> total credited that day per the bank statement
+  bankStatementEntries.forEach(e=>{
+    if(!e.date || !(e.credit>0)) return;
+    bankByDate[e.date] = (bankByDate[e.date]||0) + e.credit;
+  });
+
+  const bankDatesUsed = new Set();
+  const rows = Object.keys(meeshoByDate).sort().map(md=>{
+    const meeshoAmt = meeshoByDate[md];
+    let bankDate = null, bankAmt = 0, status;
+    const sameDayAmt = bankByDate[md] || 0;
+    if(sameDayAmt>0 && Math.abs(sameDayAmt-meeshoAmt) <= RECON_AMOUNT_TOLERANCE){
+      bankDate = md; bankAmt = sameDayAmt;
+    } else if(reconToleranceDays>0){
+      const base = new Date(md+"T00:00:00");
+      outer: for(let d=1; d<=reconToleranceDays; d++){
+        for(const sign of [1,-1]){
+          const cand = new Date(base); cand.setDate(cand.getDate()+d*sign);
+          const candStr = cand.toISOString().slice(0,10);
+          if(bankDatesUsed.has(candStr)) continue;
+          const candAmt = bankByDate[candStr] || 0;
+          if(candAmt>0 && Math.abs(candAmt-meeshoAmt) <= RECON_AMOUNT_TOLERANCE){
+            bankDate = candStr; bankAmt = candAmt;
+            break outer;
+          }
+        }
+      }
+    }
+    if(bankDate){
+      bankDatesUsed.add(bankDate);
+      status = "matched";
+    } else if(sameDayAmt>0){
+      // Money did move that day, just not by an amount that lines up — surface it for a manual look
+      // rather than silently treating it as "no bank activity at all" (status: pending would hide it).
+      bankDate = md; bankAmt = sameDayAmt; status = "mismatch";
+    } else {
+      status = "pending";
+    }
+    return {meeshoDate: md, meeshoAmt, bankDate, bankAmt, status};
+  });
+
+  const unexplained = Object.keys(bankByDate)
+    .filter(d=> !bankDatesUsed.has(d) && !(rows.some(r=>r.status==="mismatch" && r.bankDate===d)))
+    .map(d=>({bankDate:d, bankAmt:bankByDate[d]}))
+    .sort((a,b)=> b.bankDate.localeCompare(a.bankDate));
+
+  return {rows, unexplained};
+}
+function reconStatusBadge(status){
+  if(status==="matched") return `<span style="color:var(--forest); font-weight:700;">✅ Matched</span>`;
+  if(status==="mismatch") return `<span style="color:var(--gold); font-weight:700;">⚠ Amount differs</span>`;
+  return `<span style="color:var(--red); font-weight:700;">⏳ Awaiting bank credit</span>`;
+}
+function reconRowStyle(status){
+  if(status==="pending") return `background:var(--red-bg); box-shadow:inset 3px 0 0 var(--red);`;
+  if(status==="mismatch") return `background:var(--gold-bg); box-shadow:inset 3px 0 0 var(--amber);`;
+  return "";
+}
+function renderMeeshoBankReconciliation(){
+  const { rows, unexplained } = reconcileMeeshoVsBank();
+  const matchedCount = rows.filter(r=>r.status==="matched").length;
+  const mismatchCount = rows.filter(r=>r.status==="mismatch").length;
+  const pendingCount = rows.filter(r=>r.status==="pending").length;
+  const matchedAmt = rows.filter(r=>r.status==="matched").reduce((s,r)=>s+r.meeshoAmt,0);
+  const pendingAmt = rows.filter(r=>r.status==="pending").reduce((s,r)=>s+r.meeshoAmt,0);
+  const unexplainedAmt = unexplained.reduce((s,r)=>s+r.bankAmt,0);
+
+  document.getElementById("reconSummaryGrid").innerHTML = `
+    <div class="summary-stat remaining"><span class="s-label">Matched days</span><span class="s-value">${matchedCount} <span style="font-size:10.5px; font-weight:600;">(${fmt(matchedAmt)})</span></span></div>
+    <div class="summary-stat damaged"><span class="s-label">⚠ Amount differs</span><span class="s-value">${mismatchCount}</span></div>
+    <div class="summary-stat gst"><span class="s-label">⏳ Awaiting bank credit</span><span class="s-value">${pendingCount} <span style="font-size:10.5px; font-weight:600;">(${fmt(pendingAmt)})</span></span></div>
+    <div class="summary-stat grandtotal"><span class="s-label">❔ Unexplained bank credits</span><span class="s-value">${unexplained.length} <span style="font-size:10.5px; font-weight:600;">(${fmt(unexplainedAmt)})</span></span></div>
+  `;
+  const issueCount = mismatchCount + pendingCount + unexplained.length;
+  const bannerEl = document.getElementById("reconIssueBanner");
+  if(bannerEl){
+    bannerEl.style.display = issueCount ? "flex" : "none";
+    bannerEl.innerHTML = issueCount
+      ? `<span style="font-size:16px;">🚨</span><span><b>${issueCount} thing${issueCount===1?"":"s"} need${issueCount===1?"s":""} a look</b> — ${mismatchCount?`${mismatchCount} amount mismatch${mismatchCount===1?"":"es"}`:""}${mismatchCount&&pendingCount?", ":""}${pendingCount?`${pendingCount} payout${pendingCount===1?"":"s"} not yet in the bank`:""}${(mismatchCount||pendingCount)&&unexplained.length?", ":""}${unexplained.length?`${unexplained.length} unexplained bank credit${unexplained.length===1?"":"s"}`:""}.</span>`
+      : "";
+  }
+
+  const shown = reconIssuesOnly ? rows.filter(r=>r.status!=="matched") : rows;
+  const body = document.getElementById("reconBody");
+  body.innerHTML = shown.map(r=>{
+    const diff = r.bankDate ? (r.bankAmt - r.meeshoAmt) : null;
+    return `<tr style="${reconRowStyle(r.status)}">
+      <td>${esc(fmtDateFull(r.meeshoDate))}</td>
+      <td style="text-align:right;">${fmt(r.meeshoAmt)}</td>
+      <td>${r.bankDate ? esc(fmtDateFull(r.bankDate)) + (r.bankDate!==r.meeshoDate ? ` <span class="meta">(${Math.round((new Date(r.bankDate)-new Date(r.meeshoDate))/86400000)>0?"+":""}${Math.round((new Date(r.bankDate)-new Date(r.meeshoDate))/86400000)}d)</span>` : "") : "—"}</td>
+      <td style="text-align:right;">${r.bankDate ? fmt(r.bankAmt) : "—"}</td>
+      <td style="text-align:right; ${diff!=null && Math.abs(diff)>RECON_AMOUNT_TOLERANCE ? "color:var(--red); font-weight:800;" : ""}">${diff!=null ? fmt(diff) : "—"}</td>
+      <td>${reconStatusBadge(r.status)}</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("reconEmpty").style.display = rows.length ? "none" : "block";
+
+  const unexBody = document.getElementById("reconUnexplainedBody");
+  unexBody.innerHTML = unexplained.map(u=>{
+    const narrations = bankStatementEntries.filter(e=>e.date===u.bankDate && e.credit>0).map(e=>e.narration).filter(Boolean);
+    return `<tr style="background:var(--gold-bg); box-shadow:inset 3px 0 0 var(--amber);">
+      <td>${esc(fmtDateFull(u.bankDate))}</td>
+      <td style="text-align:right;">${fmt(u.bankAmt)}</td>
+      <td style="font-size:11.5px; color:var(--ink-soft);">${esc(narrations.slice(0,2).join("; ") || "—")}</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("reconUnexplainedEmpty").style.display = unexplained.length ? "none" : "block";
+}
+document.getElementById("reconToleranceSelect").addEventListener("change", e=>{ reconToleranceDays = +e.target.value; renderMeeshoBankReconciliation(); });
+document.getElementById("reconIssuesOnlyToggle").addEventListener("change", e=>{ reconIssuesOnly = e.target.checked; renderMeeshoBankReconciliation(); });
+
 document.getElementById("bankStmtSearch").addEventListener("input", e=>{ bankStmtSearchTerm=e.target.value.toLowerCase(); renderBankStatement(); });
 document.getElementById("bankStmtTypeFilter").addEventListener("change", e=>{ bankStmtTypeFilterVal=e.target.value; renderBankStatement(); });
 document.getElementById("bankStmtPeriodBtn").addEventListener("click", (e)=>{
@@ -12332,6 +12516,7 @@ function renderAll(){
   renderPackHistory();
   renderReturns();
   renderPayments();
+  renderBankStatement();
   renderPL();
   renderSkuReport();
   renderPurchaseReport();
