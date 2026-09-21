@@ -11350,6 +11350,10 @@ const firebaseConfig = {
 let _cloudEnabled = false;
 let _cloudDb = null;
 let _applyingRemoteUpdate = false;
+/* Random id for THIS page load. Every save stamps it into the shared document (see writeFullCloudState)
+   so the live listener can tell "that's just my own save echoing back" apart from a real change made
+   on another device/tab — see initCloudSync(). */
+const CLOUD_CLIENT_ID = "c" + Date.now().toString(36) + Math.random().toString(36).slice(2,10);
 try{
   if(firebaseConfig.apiKey !== "YOUR_API_KEY" && typeof firebase !== "undefined"){
     firebase.initializeApp(firebaseConfig);
@@ -11453,6 +11457,41 @@ async function fetchFullCloudState(transactionOrNull){
   return { fullJSON: JSON.stringify(reassembled), chunkCounts };
 }
 
+/* ---- Readable layout in the Firebase console ------------------------------------------------------
+   The data itself still lives in the `json` text fields (that stays the single source of truth, is lossless,
+   and is what older copies of the app/dashboard read). On top of that every document now carries a small
+   readable `meta` map so the console is organised and self-explanatory:
+     sharedState                      -> meta.sections (records + chunk count per section), meta.counts (every list),
+                                         meta.meesho (payment files imported, orders with payment data, last import)
+     sharedState_orders_N, _inventory_N, _rawmaterials_N
+                                      -> meta.section, chunkIndex, itemCount, firstId, lastId, ids
+   `meta` is write-only information: nothing in the app ever reads it back, so it can't affect the data. If
+   Firestore Rules ever reject the extra field, saving falls back to the old layout automatically (see persistState). */
+let _cloudMetaEnabled = true;
+function buildChunkMeta(field, chunk, i, total){
+  const ids = chunk.map(x=> (x && x.id!=null) ? String(x.id) : "").filter(Boolean);
+  return { section: field.key, chunkIndex: i, chunkCount: total, itemCount: chunk.length,
+           firstId: ids.length ? ids[0] : "", lastId: ids.length ? ids[ids.length-1] : "", ids };
+}
+function buildMainMeta(fullState, chunkTotals){
+  const counts = {};
+  Object.keys(fullState).forEach(k=>{ if(Array.isArray(fullState[k])) counts[k] = fullState[k].length; });
+  const sections = {};
+  CHUNKED_STATE_FIELDS.forEach(f=>{ sections[f.key] = { records: counts[f.key]||0, chunkDocs: chunkTotals[f.key]||0, docPrefix: f.docPrefix }; });
+  const orders = Array.isArray(fullState.orders) ? fullState.orders : [];
+  const log = Array.isArray(fullState.importLog) ? fullState.importLog : [];
+  const payLog = log.filter(e=> e && e.kind==="payments");
+  return {
+    schemaVersion: 2,
+    savedBy: CLOUD_CLIENT_ID,
+    sections, counts,
+    meesho: {
+      paymentFilesImported: payLog.length,
+      ordersWithPaymentData: orders.filter(o=> o && (o.paymentDataLocked || o.paymentDetails)).length,
+      lastPaymentImportAt: payLog.reduce((m,e)=> (typeof e.importedAt==="string" && e.importedAt>m) ? e.importedAt : m, "")
+    }
+  };
+}
 /* Writes a full state object (with normal, un-sharded arrays for every CHUNKED_STATE_FIELDS key)
    back out across the main doc plus as many chunk documents per field as it now takes, and deletes
    any chunk docs left over from before that are no longer needed (e.g. a merge or a bulk delete
@@ -11465,22 +11504,41 @@ function writeFullCloudState(transaction, fullState, previousChunkCounts){
     passcode: APP_PASSCODE,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
+  const chunkTotals = {};
   CHUNKED_STATE_FIELDS.forEach(f=>{
     const chunks = splitIntoChunks(fullState[f.key], f.perChunk);
     delete restState[f.key];
     mainDocFields[f.chunkCountField] = chunks.length;
+    chunkTotals[f.key] = chunks.length;
     chunks.forEach((chunk, i)=>{
-      transaction.set(chunkDocRef(f, i), { json: JSON.stringify(chunk) });
+      const chunkDoc = { json: JSON.stringify(chunk) };
+      if(_cloudMetaEnabled) chunkDoc.meta = buildChunkMeta(f, chunk, i, chunks.length);
+      transaction.set(chunkDocRef(f, i), chunkDoc);
     });
     const previousCount = (previousChunkCounts && previousChunkCounts[f.key]) || 0;
     for(let i=chunks.length; i<previousCount; i++){
       transaction.delete(chunkDocRef(f, i));
     }
   });
+  restState._lastWriter = CLOUD_CLIENT_ID; // lives inside the json string on purpose: no new Firestore field for Rules to reject
   mainDocFields.json = JSON.stringify(restState);
+  if(_cloudMetaEnabled){ try{ mainDocFields.meta = buildMainMeta(fullState, chunkTotals); }catch(metaErr){ /* informational only */ } }
   transaction.set(CLOUD_DOC(), mainDocFields);
 }
 
+
+/* fetchFullCloudState(null) reads the main doc and then each chunk doc one after another, so if a save
+   lands half-way through you get a TORN copy: e.g. the new list of orders but the old chunk count, or
+   the other way round. Merging a torn copy made whole chunks of orders look "deleted on another device"
+   and dropped them. Reading inside a transaction makes Firestore verify every doc is still the version
+   we read (and retry the read if not), so what comes back is always one consistent snapshot. */
+async function fetchFullCloudStateConsistent(){
+  try{
+    return await _cloudDb.runTransaction(transaction=> fetchFullCloudState(transaction));
+  }catch(txErr){
+    return await fetchFullCloudState(null);
+  }
+}
 
 let _cloudWriteFailed = false;
 /* The last remote state (same shape as collectPersistedState()) this device has actually reconciled
@@ -11495,61 +11553,129 @@ let _cloudWriteFailed = false;
    "union, nothing is ever missing on purpose" behaviour, which is the correct/safe assumption for a
    brand-new sync with nothing to compare against yet. */
 let _syncBaseState = null;
-function initCloudSync(){
-  if(!_cloudEnabled) return;
-  CLOUD_DOC().onSnapshot(async doc=>{
-    if(!doc.exists) return;
-    // The main doc no longer carries `orders` inline (see fetchFullCloudState above) — every
-    // reaction to a change has to pull it back together with the current orders-chunk docs first.
+/* ---- How saving and live-updating fit together (read this before touching either) ----------------
+   Two things touch the shared Firestore copy: SAVING this browser's edits (persistState) and APPLYING
+   what someone else saved (the live listener below). Both used to run whenever they liked, overlapping
+   each other, and that was the root cause of the Meesho Payments import bug: a multi-file import fires a
+   save after every file, so several saves were in flight at once, and each finished by overwriting the
+   live screen state with an OLDER snapshot merged with the cloud — silently rolling back the files
+   imported in the meantime (orders and import-log entries vanished, totals jumped around, the import
+   list flipped order, and Payments no longer matched the bank statement).
+   Rules now, enforced by _syncBusy:
+     1. Only ONE sync operation (a save, or applying a cloud update) runs at a time. Anything that
+        arrives meanwhile is remembered (_saveQueued / _remotePending) and runs right after.
+     2. A save's result is NEVER stamped over the live state. If nothing changed locally while it ran, only
+        genuinely cloud-only records are brought in; if the user/importer kept going, the live state is
+        3-way merged with the result instead (see afterSaveReconcile) and another save is queued.
+     3. _syncBaseState is always "what Firestore holds right now" (what we last wrote, or last applied),
+        never something that also contains local, not-yet-saved edits.
+     4. Our own saves echoing back through the listener are ignored (CLOUD_CLIENT_ID), and a real update is
+        read as one consistent snapshot (fetchFullCloudStateConsistent). */
+let _syncBusy = false;
+let _saveQueued = false, _saveQueuedForce = false, _remotePending = false;
+function _syncFinished(saveSucceeded){
+  _syncBusy = false;
+  if(_remotePending){ _remotePending = false; runRemoteSync(); return; }
+  // After a FAILED save don't immediately hammer Firestore again — the 12s timer retries (it bypasses the
+  // "nothing changed" shortcut while _cloudWriteFailed is set).
+  if(_saveQueued && saveSucceeded !== false){
+    const f = _saveQueuedForce; _saveQueued = false; _saveQueuedForce = false;
+    persistState(f);
+  } else if(_saveQueued){ _saveQueued = false; _saveQueuedForce = false; }
+}
+/* Does state `a` hold any id-keyed record (including inventory/raw-material purchase batches) that `b` lacks?
+   Used after applying a cloud update to decide whether THIS device has something the cloud doesn't yet. It
+   compares ids only, never content or ordering, so two devices can't keep bouncing saves off each other. */
+function stateHasRecordsMissingFrom(a, b){
+  const isIdArr = (arr)=> Array.isArray(arr) && arr.every(x=> x && typeof x==="object" && x.id!=null);
+  for(const key of Object.keys(a)){
+    const av = a[key], bv = b && b[key];
+    if(!isIdArr(av) || !isIdArr(bv)) continue;
+    const bById = new Map(bv.map(x=>[x.id, x]));
+    for(const x of av){
+      const y = bById.get(x.id);
+      if(!y) return true;
+      if(Array.isArray(x.batches) && isIdArr(x.batches) && isIdArr(y.batches)){
+        const ids = new Set(y.batches.map(z=>z.id));
+        if(x.batches.some(z=> !ids.has(z.id))) return true;
+      }
+    }
+  }
+  return false;
+}
+async function runRemoteSync(){
+  if(_syncBusy){ _remotePending = true; return; }
+  _syncBusy = true;
+  try{
+    // The main doc no longer carries `orders` inline (see fetchFullCloudState above) — every reaction to a
+    // change has to pull it back together with the current chunk docs first, as ONE consistent snapshot.
     let fullJSON;
     try{
-      const result = await fetchFullCloudState(null);
+      const result = await fetchFullCloudStateConsistent();
       fullJSON = result.fullJSON;
     }catch(fetchErr){
       console.error("AKMR Trade Point: could not read the shared cloud data (including orders) for this update.", fetchErr);
       setSaveStatus("error", fetchErr);
       return;
     }
-    if(!fullJSON || fullJSON === _lastSavedJSON) return; // ignore the echo of our own write
+    if(!fullJSON) return;
     if(_cloudWriteFailed){
       /* Our last save to the cloud was rejected (e.g. a Firestore Rules/passcode mismatch), so this
          incoming snapshot is stale, older data — NOT a real update from someone else. Applying it
          would silently undo whatever the person just did locally (e.g. a delete "not working").
          Keep our local version and retry pushing it instead of accepting theirs. */
-      persistState();
+      _saveQueued = true;
       return;
     }
+    let remoteState = null;
+    try{ remoteState = JSON.parse(fullJSON); }catch(e){ remoteState = null; }
+    let pushLocalExtras = false;
     _applyingRemoteUpdate = true;
     try{
-      /* MERGE, don't overwrite: this listener also fires once immediately on attach (right after
-         the startup fetch), and again whenever any device saves. In both cases this browser may
-         have local edits — e.g. something just added right before a refresh — that haven't made
-         it into this particular snapshot yet. Applying the snapshot as-is would silently erase
-         that, so merge by id first, same as every save does, and push the result back up if the
-         merge kept something the snapshot didn't have. */
-      let mergedJSON = fullJSON;
-      let remoteStateForBase = null;
-      try{
-        const localState = collectPersistedState();
-        const remoteState = JSON.parse(fullJSON);
-        remoteStateForBase = remoteState;
-        mergedJSON = JSON.stringify(mergeStateWithRemote(localState, remoteState, _syncBaseState));
-      }catch(mergeErr){
-        console.error("AKMR Trade Point: could not merge local data with an incoming cloud update — using the cloud copy as-is.", mergeErr);
-        try{ remoteStateForBase = JSON.parse(fullJSON); }catch(e2){ /* leave as null */ }
+      /* MERGE, don't overwrite: this listener also fires once immediately on attach (right after the startup
+         fetch), and again whenever another device saves. This browser may have local edits — e.g. files an
+         import has processed since the last save — that aren't in the cloud copy yet. Applying the snapshot
+         as-is would silently erase them, so merge by id first, same as every save does. */
+      const localState = collectPersistedState();
+      let changed = true, applied;
+      if(remoteState){
+        const merged = mergeStateWithRemote(localState, remoteState, _syncBaseState);
+        const mergedJSON = JSON.stringify(merged);
+        changed = (mergedJSON !== JSON.stringify(localState));
+        pushLocalExtras = stateHasRecordsMissingFrom(merged, remoteState);
+        applied = changed ? applyPersistedJSON(mergedJSON) : true;
+      } else {
+        console.error("AKMR Trade Point: could not merge local data with an incoming cloud update — using the cloud copy as-is.");
+        applied = applyPersistedJSON(fullJSON);
       }
-      if(applyPersistedJSON(mergedJSON)){
-        // Whatever we just reconciled against is now our new "last known remote" baseline.
-        try{ _syncBaseState = JSON.parse(mergedJSON); }catch(e3){ _syncBaseState = remoteStateForBase; }
+      if(applied){
+        // What the cloud holds (NOT our merged result, which may also contain local unsaved records) is the baseline.
+        if(remoteState) _syncBaseState = remoteState;
         showCloudSyncWarning(false);
-        renderAll();
-        refreshOpenBatchModalIfNeeded();
-        if(mergedJSON !== fullJSON) persistState(true); // local had something this snapshot didn't — sync it up (force: bypass the just-set _lastSavedJSON guard)
+        if(changed){ renderAll(); refreshOpenBatchModalIfNeeded(); }
+      } else {
+        showCloudSyncWarning(true);
+        pushLocalExtras = false;
       }
-      else showCloudSyncWarning(true);
     } finally {
       _applyingRemoteUpdate = false;
     }
+    // local had records this snapshot didn't — sync them up (force: applyPersistedJSON just marked them "saved")
+    if(pushLocalExtras){ _saveQueued = true; _saveQueuedForce = true; }
+  } finally {
+    _syncFinished(true);
+  }
+}
+function initCloudSync(){
+  if(!_cloudEnabled) return;
+  CLOUD_DOC().onSnapshot(doc=>{
+    if(!doc.exists) return;
+    // Every commit of ours echoes back here. persistState() already reconciled it, so ignore it — reacting to
+    // our own writes is what used to make freshly-imported totals appear to change again a moment later.
+    let ownEcho = false;
+    try{ const d = doc.data(); ownEcho = !!(d && typeof d.json==="string" && d.json.indexOf('"_lastWriter":"'+CLOUD_CLIENT_ID+'"')!==-1); }catch(e){ ownEcho = false; }
+    if(ownEcho) return;
+    runRemoteSync();
   }, err=>{
     console.error("AKMR Trade Point: lost connection to the shared cloud data.", err);
     setSaveStatus("error", err);
@@ -12452,28 +12578,31 @@ function mergeArraysById(localArr, remoteArr, baseArr){
   if(!Array.isArray(localArr)) return remoteArr;
   const canMerge = localArr.every(x=>x && typeof x==="object" && x.id!=null) && remoteArr.every(x=>x && typeof x==="object" && x.id!=null);
   if(!canMerge) return localArr; // no stable id to merge on — keep this device's version (previous behaviour)
-  const order = [], seen = new Set();
-  remoteArr.forEach(x=>{ if(!seen.has(x.id)){ order.push(x.id); seen.add(x.id); } });
-  localArr.forEach(x=>{ if(!seen.has(x.id)){ order.push(x.id); seen.add(x.id); } });
   const localById = new Map(localArr.map(x=>[x.id, x]));
   const remoteById = new Map(remoteArr.map(x=>[x.id, x]));
   // baseIds = ids that were present the last time this device reconciled with the cloud. Missing
   // from base entirely (no baseArr yet — first-ever sync this session) means we have nothing to
   // compare against, so nothing is treated as "deleted" — same as the old union behaviour.
   const baseIds = new Set(Array.isArray(baseArr) ? baseArr.filter(x=>x && typeof x==="object" && x.id!=null).map(x=>x.id) : []);
-  const result = [];
-  order.forEach(id=>{
-    const inLocal = localById.has(id), inRemote = remoteById.has(id), inBase = baseIds.has(id);
-    if(inLocal && inRemote){ result.push(localById.get(id)); return; } // both sides have it — this device's edits win
-    if(inLocal && !inRemote){
-      if(inBase) return; // it existed in our last known cloud copy and is gone from the cloud now — another device deleted it; honor that, don't keep re-adding it
-      result.push(localById.get(id)); return; // brand new locally, never synced yet — keep it
-    }
-    if(!inLocal && inRemote){
-      if(inBase) return; // it existed in our last known cloud copy and we don't have it locally anymore — WE deleted it; don't resurrect it from the cloud copy
-      result.push(remoteById.get(id)); return; // genuinely new from another device/tab — bring it in
-    }
-    // in neither — nothing to do
+  /* ORDER: this device's own order first, then records that only exist in the cloud. It used to be the other
+     way round (cloud order first, this device's new records appended), which silently re-ordered any list this
+     app builds newest-first with unshift() — most visibly the import history, which flipped to oldest-first
+     after every save — and made "did the merge change anything?" checks fire on every single save. */
+  const result = [], seen = new Set();
+  localArr.forEach(x=>{
+    const id = x.id;
+    if(seen.has(id)) return; seen.add(id);
+    const inRemote = remoteById.has(id), inBase = baseIds.has(id);
+    if(inRemote){ result.push(localById.get(id)); return; }            // both sides have it — this device's edits win
+    if(inBase) return;                                                  // it existed in our last known cloud copy and is gone from the cloud now — another device deleted it; honor that, don't keep re-adding it
+    result.push(localById.get(id));                                     // brand new locally, never synced yet — keep it
+  });
+  remoteArr.forEach(x=>{
+    const id = x.id;
+    if(seen.has(id)) return; seen.add(id);
+    if(localById.has(id)) return;
+    if(baseIds.has(id)) return;                                         // it existed in our last known cloud copy and we don't have it locally anymore — WE deleted it; don't resurrect it from the cloud copy
+    result.push(remoteById.get(id));                                    // genuinely new from another device/tab — bring it in
   });
   return result;
 }
@@ -12482,21 +12611,35 @@ function mergeItemArrays(localArr, remoteArr, baseArr){
   // instead of letting one side's whole item (and its purchase log) win outright.
   if(!Array.isArray(remoteArr)) return localArr;
   if(!Array.isArray(localArr)) return remoteArr;
-  const order = [], seen = new Set();
-  remoteArr.forEach(x=>{ if(!seen.has(x.id)){ order.push(x.id); seen.add(x.id); } });
-  localArr.forEach(x=>{ if(!seen.has(x.id)){ order.push(x.id); seen.add(x.id); } });
   const localById = new Map(localArr.map(x=>[x.id, x]));
   const remoteById = new Map(remoteArr.map(x=>[x.id, x]));
   const baseById = new Map(Array.isArray(baseArr) ? baseArr.filter(x=>x && typeof x==="object" && x.id!=null).map(x=>[x.id, x]) : []);
-  const result = [];
-  order.forEach(id=>{
+  const result = [], seen = new Set();
+  localArr.forEach(x=>{
+    const id = x.id;
+    if(seen.has(id)) return; seen.add(id);
     const l = localById.get(id), r = remoteById.get(id), inBase = baseById.has(id);
-    if(l && r){ result.push({...r, ...l, batches: mergeArraysById(l.batches, r.batches, inBase ? baseById.get(id).batches : undefined)}); return; }
+    if(l && r){
+      // keep THIS device's key order (spreading the cloud copy first changed it and made every save look like a change)
+      const item = {...l};
+      Object.keys(r).forEach(k=>{ if(!(k in item)) item[k] = r[k]; });
+      item.batches = mergeArraysById(l.batches, r.batches, inBase ? baseById.get(id).batches : undefined);
+      result.push(item); return;
+    }
     if(l && !r){ if(inBase) return; result.push(l); return; } // deleted on another device since our base — honor it
-    if(!l && r){ if(inBase) return; result.push(r); return; } // we deleted it locally since our base — don't resurrect it
+  });
+  remoteArr.forEach(x=>{
+    const id = x.id;
+    if(seen.has(id)) return; seen.add(id);
+    if(localById.has(id)) return;
+    if(baseById.has(id)) return; // we deleted it locally since our base — don't resurrect it
+    result.push(remoteById.get(id));
   });
   return result;
 }
+/* Lists this app builds newest-first with unshift(). After a merge, records that came from another device are
+   appended at the end, so put every list back into newest-first order by the time each entry was logged. */
+const NEWEST_FIRST_LOGS = ["importLog", "bankStmtImportLog"];
 function mergeStateWithRemote(localState, remoteState, baseState){
   if(!remoteState || typeof remoteState!=="object") return localState;
   const base = (baseState && typeof baseState==="object") ? baseState : null;
@@ -12508,13 +12651,48 @@ function mergeStateWithRemote(localState, remoteState, baseState){
     const lv = localState[key], rv = remoteState[key];
     if(Array.isArray(lv) && Array.isArray(rv)) merged[key] = mergeArraysById(lv, rv, base && base[key]);
   });
+  NEWEST_FIRST_LOGS.forEach(key=>{
+    const arr = merged[key];
+    if(Array.isArray(arr) && arr.length>1 && arr.every(e=> e && typeof e.importedAt==="string")){
+      merged[key] = arr.slice().sort((x,y)=> x.importedAt<y.importedAt ? 1 : (x.importedAt>y.importedAt ? -1 : 0)); // stable: ties keep their order
+    }
+  });
   return merged;
 }
 
 let _lastSavedJSON = null;
 let _suspendAutosave = false;
+/* Called after a save commits, once the live app may have moved on (see the big comment above _syncBusy).
+     sentState/sentJSON — exactly what this save captured and sent
+     cloudState/cloudJSON — what Firestore holds now (our sent state merged with whatever was already there) */
+function afterSaveReconcile(sentState, sentJSON, cloudState, cloudJSON){
+  const liveState = collectPersistedState();
+  const liveJSON = JSON.stringify(liveState);
+  if(liveJSON === sentJSON){
+    // Nothing changed on this screen while the save ran, so the only possible difference is records that
+    // came from another device/tab — bring those in (same as the old behaviour, but only when needed).
+    if(cloudJSON !== sentJSON) applyCloudResultToLive(cloudJSON);
+    return;
+  }
+  /* The screen kept changing while the save was in flight — typically the next files of a multi-file import.
+     The result of this save is OLDER than the live state, so it must never overwrite it (that was the bug).
+     Merge instead: sentState is the base, so a record the user deleted meanwhile isn't resurrected, and
+     records added meanwhile are kept. Then queue another save for whatever the cloud doesn't have yet. */
+  const reconciled = mergeStateWithRemote(liveState, cloudState, sentState);
+  const reconciledJSON = JSON.stringify(reconciled);
+  if(reconciledJSON !== liveJSON) applyCloudResultToLive(reconciledJSON);
+  _saveQueued = true; _saveQueuedForce = true; // force: applyPersistedJSON() marks whatever it applied as "saved"
+}
+function applyCloudResultToLive(json){
+  _applyingRemoteUpdate = true; // keeps renderAll()'s own persistState() call from re-saving what we just applied
+  try{ if(applyPersistedJSON(json)){ renderAll(); refreshOpenBatchModalIfNeeded(); } }
+  finally{ _applyingRemoteUpdate = false; }
+}
 function persistState(force){
   if(_suspendAutosave || _applyingRemoteUpdate) return;
+  // A save/cloud-update is already running: remember that another save is wanted and run it right after —
+  // never overlap two (see the big comment above _syncBusy).
+  if(_syncBusy){ _saveQueued = true; if(force) _saveQueuedForce = true; return; }
   let localState;
   try{
     localState = collectPersistedState();
@@ -12532,10 +12710,9 @@ function persistState(force){
     return;
   }
   /* force=true bypasses the "nothing changed" shortcut below. Needed by the post-merge catch-up
-     callers: applyPersistedJSON() (called right before them) already sets _lastSavedJSON to this
-     same merged JSON, so without force this guard would see json === _lastSavedJSON and return
-     before ever reaching the Firestore transaction — silently skipping the exact push that was
-     supposed to sync the merge result back up to the cloud for other devices. */
+     callers: applyPersistedJSON() already sets _lastSavedJSON to whatever it just applied, so without
+     force this guard would see json === _lastSavedJSON and return before ever reaching the Firestore
+     transaction — silently skipping the exact push that was supposed to sync local records up. */
   if(!force && json === _lastSavedJSON && !_cloudWriteFailed) return; // nothing changed and any previous write already succeeded
   /* Local storage is intentionally NOT used to cache this data any more. This file's Firestore
      document and local-storage key are both shared with a separate "AKMR Trade Point dashboard"
@@ -12544,54 +12721,56 @@ function persistState(force){
      could silently reintroduce that stale, poorer copy and win the "local edits win" merge below,
      erasing payment data that was actually fine in the cloud. Making Firestore the single source
      of truth for boot removes that path entirely — see loadPersistedState(). */
-  /* Set provisionally so a second persistState() call fired before this one's transaction settles
-     (e.g. two quick imports back to back) doesn't re-send an identical, still-in-flight write.
-     This gets OVERWRITTEN with the actual post-merge mergedJSON once the transaction resolves below
-     — that second assignment is what the realtime listener's "ignore the echo of our own write"
-     check actually depends on. Leaving it at this pre-merge value was a real bug: any time the
-     transaction's merge changed anything at all (even harmlessly, e.g. just re-ordering an array to
-     match the cloud copy), fullJSON from the resulting Firestore update would never match this
-     value, so the listener treated our own completed save as a brand-new external update and
-     re-ran the whole fetch → merge → re-render cycle against it roughly a second later — which is
-     what made freshly-imported totals appear to change shortly after showing correctly. */
   _lastSavedJSON = json;
-  if(_cloudEnabled){
-    setSaveStatus("saving");
-    let mergedJSON = json;
-    _cloudDb.runTransaction(async transaction=>{
+  if(!_cloudEnabled){
+    setSaveStatus("saved");
+    return;
+  }
+  setSaveStatus("saving");
+  /* Freeze exactly what this save is about. collectPersistedState() hands back the LIVE arrays, which the
+     next imported file starts mutating immediately — merging those live arrays inside the (slow, retried)
+     transaction meant the transaction wrote something different from what `json` described. */
+  const sentState = JSON.parse(json);
+  const baseAtStart = _syncBaseState; // the cloud copy this save is measured against — fixed for every retry
+  let mergedState = sentState, mergedJSON = json;
+  _syncBusy = true;
+  (async ()=>{
+    let ok = false, retryWithoutMeta = false;
+    try{
+      await _cloudDb.runTransaction(async transaction=>{
         const { fullJSON, chunkCounts } = await fetchFullCloudState(transaction);
         let remoteState = null;
         if(fullJSON){
           try{ remoteState = JSON.parse(fullJSON); }catch(err){ remoteState = null; }
         }
-        const mergedState = mergeStateWithRemote(localState, remoteState, _syncBaseState);
+        mergedState = mergeStateWithRemote(sentState, remoteState, baseAtStart);
         mergedJSON = JSON.stringify(mergedState);
         writeFullCloudState(transaction, mergedState, chunkCounts);
-      }
-    ).then(()=>{
+      });
+      ok = true;
       _cloudWriteFailed = false;
-      // mergedJSON is now what's actually sitting in Firestore — that's our new reconciliation baseline
-      // AND the value the realtime listener below needs to recognize as "my own write, not new data
-      // from elsewhere". Updating _lastSavedJSON here (not just at the top of this function, before
-      // the merge ran) is what makes that recognition actually work — see the bug note above _lastSavedJSON.
-      try{ _syncBaseState = JSON.parse(mergedJSON); }catch(e){ /* keep previous base */ }
+      // mergedState is now exactly what's sitting in Firestore — that's our new reconciliation baseline.
+      _syncBaseState = mergedState;
       _lastSavedJSON = mergedJSON;
-      if(mergedJSON !== json){
-        // The cloud had records this device didn't have yet (e.g. a purchase added on another
-        // device/tab) — pull the merged result back in so this screen reflects the full picture.
-        _applyingRemoteUpdate = true;
-        try{ if(applyPersistedJSON(mergedJSON)){ renderAll(); refreshOpenBatchModalIfNeeded(); } }
-        finally{ _applyingRemoteUpdate = false; }
-      }
+      try{ afterSaveReconcile(sentState, json, mergedState, mergedJSON); }
+      catch(reconErr){ console.error("AKMR Trade Point: saved, but could not fold the saved result back into the screen.", reconErr); }
       setSaveStatus("saved");
-    }).catch(err=>{
-      console.error("AKMR Trade Point: could not sync to the shared cloud data — check that your Firestore Rules passcode matches APP_PASSCODE exactly, and that the rule was Published.", err);
-      _cloudWriteFailed = true;
-      setSaveStatus("error", err);
-    });
-  } else {
-    setSaveStatus("saved");
-  }
+    }catch(err){
+      const code = err && err.code;
+      if(_cloudMetaEnabled && (code==="permission-denied" || code==="invalid-argument")){
+        // Rules (or a value) rejected the readable `meta` field — save again in the plain layout instead of failing.
+        console.warn("AKMR Trade Point: Firestore rejected the readable `meta` section — saving without it.", err);
+        _cloudMetaEnabled = false; retryWithoutMeta = true;
+        _saveQueued = true; _saveQueuedForce = true;
+      } else {
+        console.error("AKMR Trade Point: could not sync to the shared cloud data — check that your Firestore Rules passcode matches APP_PASSCODE exactly, and that the rule was Published.", err);
+        _cloudWriteFailed = true;
+        setSaveStatus("error", err);
+      }
+    }finally{
+      _syncFinished(ok || retryWithoutMeta);
+    }
+  })();
 }
 
 function applyPersistedJSON(raw){
@@ -12772,7 +12951,7 @@ function startApp(){
   };
 
   if(_cloudEnabled){
-    fetchFullCloudState(null).then(({fullJSON})=>{
+    fetchFullCloudStateConsistent().then(({fullJSON})=>{
       if(fullJSON){
         _applyingRemoteUpdate = true;
         try{
