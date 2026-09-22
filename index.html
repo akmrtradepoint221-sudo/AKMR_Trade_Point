@@ -127,6 +127,7 @@ button{font-family:inherit;}
 .nav-item[data-view="returns"] .ic{color:var(--pink);}
 .nav-item[data-view="offline"] .ic{color:var(--red);}
 .nav-item[data-view="payments"] .ic{color:var(--gold);}
+.nav-item[data-view="claims"] .ic{color:var(--amber);}
 .nav-item[data-view="bankstmt"] .ic{color:var(--blue);}
 .nav-parent{justify-content:flex-start;}
 .nav-parent .nav-caret{margin-left:auto; font-size:10px; opacity:0.65; transition:transform .15s;}
@@ -405,6 +406,7 @@ tbody tr.clickable:hover td:first-child{box-shadow:inset 3px 0 0 var(--maroon);}
 .status-pill.rtolocked{background:var(--pink-bg); color:var(--pink);}
 .status-pill.lost{background:var(--red); color:#fff;}
 .status-pill.returned, .status-pill.customerreturn{background:var(--purple-bg); color:var(--purple);}
+.status-pill.claim{background:var(--gold-bg); color:var(--amber);}
 .status-pill.lowstock{background:var(--red-bg); color:var(--red);}
 .status-pill.instock{background:var(--forest-bg); color:var(--forest);}
 .status-pill.nodata{background:var(--bg); color:var(--ink-soft);}
@@ -881,6 +883,7 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
       <button class="nav-parent" id="paymentsNavToggle" type="button"><span class="ic">$</span> Payments <span class="nav-caret">▾</span></button>
       <div class="nav-sub" id="paymentsNavSub">
         <button class="nav-item" data-view="payments"><span class="ic">🛍️</span> Meesho Payments</button>
+        <button class="nav-item" data-view="claims"><span class="ic">🧾</span> Claims</button>
       </div>
       <button class="nav-item" data-view="expenses"><span class="ic">🧾</span> Expenses</button>
       <button class="nav-item" data-view="capital"><span class="ic">🏦</span> Capital &amp; Investment</button>
@@ -1586,7 +1589,7 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
             <div class="filter-inline"><span>From</span><input type="date" class="filter-select" id="paymentsDateFromFilter" title="From date"></div>
             <div class="filter-inline"><span>To</span><input type="date" class="filter-select" id="paymentsDateToFilter" title="To date"></div>
             <select class="filter-select" id="paymentsProductFilter" title="Filter by product"><option value="all">All products</option></select>
-            <select class="filter-select" id="paymentsStatusFilter" title="Filter by status"><option value="All">All statuses</option><option value="Shipped">Shipped</option><option value="Delivered">Delivered</option><option value="Cancelled">Cancelled</option><option value="RTO">RTO</option><option value="Customer Return">Customer Return</option><option value="RTO_LOCKED">RTO_LOCKED</option><option value="Lost">Lost</option></select>
+            <select class="filter-select" id="paymentsStatusFilter" title="Filter by status"><option value="All">All statuses</option><option value="Shipped">Shipped</option><option value="Delivered">Delivered</option><option value="Cancelled">Cancelled</option><option value="RTO">RTO</option><option value="Customer Return">Customer Return</option><option value="RTO_LOCKED">RTO_LOCKED</option><option value="Lost">Lost</option><option value="Claim">Claim</option></select>
             <select class="filter-select" id="paymentsPaymentFilter" title="Filter by payment status"><option value="all">All payments</option><option value="received">Payment received</option><option value="pending">Payment pending</option></select>
             <select class="filter-select" id="paymentsPlatformFilter" title="Filter by platform"><option value="all">All platforms</option><option value="Meesho">Meesho</option><option value="Offline">Offline</option></select>
             <button class="btn small secondary" id="paymentsClearFiltersBtn">Clear filters</button>
@@ -1637,6 +1640,36 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
           <div id="paymentsEmpty" class="empty-state" style="display:none;"><div class="ic">📭</div><b>No payment records match this filter</b>Try a different status tab or clear your search.</div>
           <p class="subtle-note" style="padding:12px 18px 0;">These columns are pulled directly from the Meesho payments file you upload (matched by Sub Order No) — nothing here is computed or estimated. Rows appear once that order's payment record has been imported. Click a row for the full settlement breakdown, including profit figures and compensation/claims/recovery.</p>
         </div>
+      </div>
+
+      <!-- ===================== CLAIMS (dedicated sidebar home for Supplementary Meesho payments —
+           the same claims/RTO-settlement/other-payout rows shown inside the Meesho Payments tab,
+           surfaced here as their own feature so they don't need to be hunted for inside that tab.
+           Rendered by the same renderPaymentsSupplementaryTable() call that fills the card on the
+           Payments tab — see that function; nothing about the Payments tab's own card changes. ===================== -->
+      <div class="view" id="view-claims">
+        <div class="card" id="claimsReceivedHero" style="margin-bottom:16px; background:linear-gradient(135deg, var(--panel), var(--panel-2)); border:1.5px solid var(--gold);">
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; padding:20px 22px;">
+            <div>
+              <div class="meta" style="font-weight:700; text-transform:uppercase; letter-spacing:.04em; font-size:11px; margin-bottom:5px;">🧾 Total Claims / Supplementary Payouts</div>
+              <div id="claimsReceivedHeroValue" style="font-size:32px; font-weight:800; color:var(--heading); font-family:'Marcellus',serif; line-height:1.1;">₹0</div>
+              <div class="meta" id="claimsReceivedHeroNote" style="margin-top:5px;"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:16px; display:none;" id="claimsSupplementaryCard">
+          <div class="card-head"><h3>🧾 Supplementary Meesho payments (claims / RTO settlements / other payouts)</h3><span class="meta">Rows with a Sub Order No but a blank Live Order Status — a later payout on an order already reported once. Added on top of that order's settlement, and included in the Total Payments Received figure on the Meesho Payments tab</span></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Payment Date</th><th>Sub Order No</th><th>Product / SKU</th><th>Reason</th><th style="text-align:right;">Amount (₹)</th><th>Status</th><th>Source file</th><th style="text-align:right;">Actions</th></tr></thead>
+              <tbody id="claimsSupplementaryBody"></tbody>
+              <tfoot><tr class="tot-row" id="claimsSupplementaryFoot"></tr></tfoot>
+            </table>
+          </div>
+        </div>
+        <div id="claimsEmpty" class="empty-state" style="display:none;"><div class="ic">🧾</div><b>No claims or supplementary payouts yet</b>These appear automatically once an imported Meesho payments file has a row with a Sub Order No but a blank Live Order Status — e.g. an RTO settlement, a compensation credit, or another follow-up payout on an order already reported once. Import a Meesho payments file from the Meesho Payments tab to populate this.</div>
+        <p class="subtle-note" style="padding:12px 18px 0;">This is the same data shown inside the Meesho Payments tab's "Supplementary Meesho payments" card — pulled out here as its own page so claims, RTO settlements and other follow-up payouts are easy to find without opening the full payment ledger. Deleting or reviewing a row here behaves exactly the same as doing it from the Payments tab.</p>
       </div>
 
       <!-- ===================== EXPENSES ===================== -->
@@ -3339,6 +3372,7 @@ const titles = {
   offline:["Offline Sales","Sales made in person or outside Meesho — cash, UPI or bank, recorded here"],
   listing:["Listing","What to list each product for on Meesho, and the bank settlement once it sells — costs pulled live from Inventory"],
   payments:["Meesho Payments","Payouts and the ledger behind them"],
+  claims:["Claims","Supplementary Meesho payouts — claims, RTO settlements &amp; other follow-up payments on orders already reported once"],
   labels:["Order Labels / QR","Stamp your store QR, a message &amp; stickers onto daily order-label PDFs, drop invoice-only pages, and download one merged print-ready file"],
   expenses:["Expenses","Operating costs outside of product &amp; packaging — including ad spend, broken down by platform"],
   capital:["Capital &amp; Investment","Money you've put into the business from your own account, and anything you've withdrawn"],
@@ -3382,7 +3416,7 @@ function setView(view){
   const paymentsToggle = document.getElementById("paymentsNavToggle");
   const paymentsSub = document.getElementById("paymentsNavSub");
   if(paymentsToggle && paymentsSub){
-    const isPayments = view==="payments";
+    const isPayments = view==="payments" || view==="claims";
     paymentsToggle.classList.toggle("has-active-child", isPayments);
     if(isPayments){ paymentsToggle.classList.add("expanded"); paymentsSub.classList.add("show"); }
   }
@@ -4148,7 +4182,12 @@ const STATUS_TAB_META = {
   "Customer Return":  {icon:"🔁", color:"var(--purple)", bg:"var(--purple-bg)"},
   "RTO_LOCKED":       {icon:"🔒", color:"var(--red)",    bg:"var(--red-bg)"},
   "Lost":             {icon:"❓", color:"var(--ink)",    bg:"var(--panel-2)"},
+  "Claim":            {icon:"🧾", color:"var(--amber)",  bg:"var(--gold-bg)"},
 };
+/* Payments-tab-only status tabs — same list as the shared statusTabs (used by the Orders tab)
+   plus a "Claim" tab for supplementary Meesho payouts (see meeshoSupplementaryPaymentRows). Kept
+   as its own array so the Orders tab's tabs/filters are completely untouched by this. */
+const paymentStatusTabs = [...statusTabs, "Claim"];
 function populateOrderProductFilter(){
   const sel = document.getElementById("productFilter");
   if(!sel) return;
@@ -7043,19 +7082,18 @@ function deletePaymentsOrphanRow(id){
   renderPayments();
   persistState();
 }
-/* Renders the "Supplementary Meesho payments" table on the Payments tab — see
-   meeshoSupplementaryPaymentRows above for what these are. */
+/* Renders the "Supplementary Meesho payments" table (claims / RTO settlements / other follow-up
+   payouts) — see meeshoSupplementaryPaymentRows above for what these are. This single pass over
+   the data fills TWO places from the same rows: the original card embedded in the Meesho Payments
+   tab (unchanged from before), and the dedicated "Claims" sidebar view, so claims have their own
+   page without duplicating or diverging the underlying logic. Either destination is simply skipped
+   if its elements aren't on the page. */
 function renderPaymentsSupplementaryTable(paymentDateFilter){
-  const card = document.getElementById("paymentsSupplementaryCard");
-  const body = document.getElementById("paymentsSupplementaryBody");
-  const foot = document.getElementById("paymentsSupplementaryFoot");
-  if(!card || !body) return;
   const rows = meeshoSupplementaryPaymentRows
     .filter(o=> !paymentDateFilter || o.paymentDate===paymentDateFilter)
     .sort((a,b)=> (b.paymentDate||"").localeCompare(a.paymentDate||""));
-  card.style.display = rows.length ? "block" : "none";
-  if(!rows.length) return;
-  body.innerHTML = rows.map(o=>`
+  const total = rows.reduce((s,o)=>s+(o.amount||0),0);
+  const rowsHtml = rows.map(o=>`
     <tr>
       <td>${o.paymentDate ? esc(fmtDateFull(o.paymentDate)) : "—"}</td>
       <td class="mono" style="font-size:11px;">${esc(o.subOrderNo||"—")}</td>
@@ -7067,8 +7105,43 @@ function renderPaymentsSupplementaryTable(paymentDateFilter){
       <td style="text-align:right;"><button class="btn small secondary" onclick="deletePaymentsSupplementaryRow('${o.id}')" title="Remove this entry">🗑</button></td>
     </tr>
   `).join("");
-  const total = rows.reduce((s,o)=>s+(o.amount||0),0);
-  foot.innerHTML = `<td colspan="4" style="text-align:right;"><b>Total (${rows.length} entr${rows.length===1?"y":"ies"})</b></td><td style="text-align:right;"><b>${fmt(total)}</b></td><td colspan="3"></td>`;
+  const footHtml = `<td colspan="4" style="text-align:right;"><b>Total (${rows.length} entr${rows.length===1?"y":"ies"})</b></td><td style="text-align:right;"><b>${fmt(total)}</b></td><td colspan="3"></td>`;
+
+  // Destination 1: the card embedded inside the Meesho Payments tab — behaviour identical to before.
+  const card = document.getElementById("paymentsSupplementaryCard");
+  const body = document.getElementById("paymentsSupplementaryBody");
+  const foot = document.getElementById("paymentsSupplementaryFoot");
+  if(card && body){
+    card.style.display = rows.length ? "block" : "none";
+    if(rows.length){
+      body.innerHTML = rowsHtml;
+      if(foot) foot.innerHTML = footHtml;
+    }
+  }
+
+  // Destination 2: the dedicated "Claims" sidebar view — same rows, their own page.
+  const claimsCard = document.getElementById("claimsSupplementaryCard");
+  const claimsBody = document.getElementById("claimsSupplementaryBody");
+  const claimsFoot = document.getElementById("claimsSupplementaryFoot");
+  const claimsEmpty = document.getElementById("claimsEmpty");
+  if(claimsCard && claimsBody){
+    claimsCard.style.display = rows.length ? "block" : "none";
+    if(claimsEmpty) claimsEmpty.style.display = rows.length ? "none" : "block";
+    if(rows.length){
+      claimsBody.innerHTML = rowsHtml;
+      if(claimsFoot) claimsFoot.innerHTML = footHtml;
+    }
+  }
+  const claimsHeroVal = document.getElementById("claimsReceivedHeroValue");
+  if(claimsHeroVal) claimsHeroVal.textContent = fmt(total);
+  const claimsHeroNote = document.getElementById("claimsReceivedHeroNote");
+  if(claimsHeroNote){
+    const linkedCount = rows.filter(o=>o.linked).length;
+    const unlinkedCount = rows.length - linkedCount;
+    claimsHeroNote.textContent = rows.length
+      ? `${rows.length} entr${rows.length===1?"y":"ies"} · ${linkedCount} linked to an order, ${unlinkedCount} not yet matched${paymentDateFilter ? ` · ${fmtDateFull(paymentDateFilter)} only` : ""}`
+      : "No claims or supplementary payouts recorded yet";
+  }
 }
 /* Deleting a LINKED supplementary row must also undo exactly what it added to its order — the
    settlement amount, and every deduction/credit field it was merged into (via extraFields, the
@@ -7100,8 +7173,12 @@ function renderPaymentTabs(){
   const wrap = document.getElementById("paymentTabs");
   if(!wrap) return;
   const allPaid = orders.filter(o=>o.paymentDetails);
-  wrap.innerHTML = statusTabs.map(s=>{
-    const count = s==="All" ? allPaid.length : allPaid.filter(o=>getPaymentStatus(o)===s).length;
+  wrap.innerHTML = paymentStatusTabs.map(s=>{
+    /* "Claim" isn't a real order status — it counts the supplementary/claim payout rows instead
+       (see meeshoSupplementaryPaymentRows), and is folded into "All" too, same as every other tab. */
+    const count = s==="All" ? allPaid.length + meeshoSupplementaryPaymentRows.length
+      : s==="Claim" ? meeshoSupplementaryPaymentRows.length
+      : allPaid.filter(o=>getPaymentStatus(o)===s).length;
     const meta = STATUS_TAB_META[s] || {icon:"•", color:"var(--ink-soft)", bg:"var(--panel-2)"};
     const isActive = activePaymentStatusTab===s;
     return `<button class="status-card ${isActive?'active':''}" data-tab="${s}" style="--card-color:${meta.color}; --card-color-bg:${meta.bg};">
@@ -7163,6 +7240,27 @@ function populatePaymentsColFilterSelects(){
     paymentsColFilters[key] = sel.value;
   });
 }
+/* Claim pseudo-rows for the main Payment ledger table — the very same entries already shown on
+   the dedicated Claims page and the Payments tab's "Supplementary Meesho payments" card, but also
+   surfaced here as ledger rows (Live Order Status "Claim") so that money is visible in the same
+   table as every other payout, not just tucked away in a separate card. This is display only:
+   nothing here changes what's counted in computePaymentsSummary / the Total Payments Received
+   hero figure, which already includes every claim rupee (see the comment above supplementaryLinkedTotal
+   in computePaymentsSummary) — these rows just make that money visible where sellers actually look.
+   Respects the same search / date-range / platform / payment-status toolbar filters real order rows
+   do. Column sort and the per-column filter dropdowns don't apply to these (different shape of
+   record to an order), so they always sort newest-payment-date-first and are appended after the
+   sorted/filtered order rows. */
+function getFilteredPaymentClaims(){
+  if(paymentsPlatformFilterVal !== "all" && paymentsPlatformFilterVal !== "Meesho") return [];
+  if(paymentsPaymentFilterVal==="pending") return []; // a claim payout is always money already received
+  let list = meeshoSupplementaryPaymentRows.slice();
+  if(paymentsDateFromVal) list = list.filter(o=> (o.paymentDate||"") >= paymentsDateFromVal);
+  if(paymentsDateToVal) list = list.filter(o=> (o.paymentDate||"") <= paymentsDateToVal);
+  if(paymentsSearchTerm) list = list.filter(o=> (o.product||"").toLowerCase().includes(paymentsSearchTerm) || (o.subOrderNo||"").toLowerCase().includes(paymentsSearchTerm));
+  if(paymentsColFilters.paymentDate) list = list.filter(o=> o.paymentDate===paymentsColFilters.paymentDate);
+  return list.sort((a,b)=> (b.paymentDate||"").localeCompare(a.paymentDate||""));
+}
 function getFilteredPayments(){
   let list = orders.filter(o=>o.paymentDetails);
   if(activePaymentStatusTab !== "All") list = list.filter(o=>getPaymentStatus(o)===activePaymentStatusTab);
@@ -7199,7 +7297,11 @@ function getFilteredPayments(){
 function renderPayments(){
   renderPaymentTabs();
   const paidOrders = getFilteredPayments();
-  document.getElementById("paymentsEmpty").style.display = paidOrders.length ? "none" : "block";
+  /* Claim rows fold into the "All" tab alongside real orders, and also have their own "Claim" tab
+     to see just these; every other specific status tab (Delivered, RTO, ...) shows only real order
+     rows, exactly as before. */
+  const claimRows = (activePaymentStatusTab==="All" || activePaymentStatusTab==="Claim") ? getFilteredPaymentClaims() : [];
+  document.getElementById("paymentsEmpty").style.display = (paidOrders.length + claimRows.length) ? "none" : "block";
   /* Compute each row's figures exactly once here, then reuse the same {o, rf} pairs for both the
      missing-breakdown warning banner and the table row markup below — avoids calling
      getPaymentRowFigures twice per order on every render. */
@@ -7282,6 +7384,30 @@ function renderPayments(){
       <td class="num-cell" style="${rf.otherExpenseMissing ? 'color:#b8860b; font-weight:600;' : ''}" title="${rf.otherExpenseSynced ? 'Synced from Packing Cost Calculator' : (rf.isRTORow || rf.isReturnRow ? 'Flat ₹5 handling fee (RTO/Return)' : 'No Packing Cost Calculator breakdown saved for this product — Other Expense is showing ₹0 and Net Profit is overstated. Add a breakdown in the Packing Cost Calculator to fix this row.')}">${fmt(otherExpenseVal)}${rf.otherExpenseSynced ? ' <span style="color:var(--purple);">🔗</span>' : ''}${rf.otherExpenseMissing ? ' <span style="color:#b8860b;">⚠</span>' : ''}</td>
       <td class="num-cell" style="${netProfitStyle}">${netProfitVal!=null ? fmt(netProfitVal) : "—"}</td>
       <td class="num-cell" style="${marginStyle}">${marginVal!=null ? marginVal.toFixed(1)+"%" : "—"}</td>
+    </tr>`;
+  }).join("") + claimRows.map(o=>{
+    const amt = o.amount||0;
+    const amtStyle = amt>=0 ? "color:var(--forest); font-weight:600;" : "color:var(--red); font-weight:600;";
+    const linkNote = o.linked ? "linked to that order's own settlement row above" : "no matching order yet — see the Claims page";
+    const titleText = `${o.reason ? o.reason+" — " : ""}${linkNote}`;
+    return `<tr class="claim-row" title="${esc(titleText)}">
+      <td>—</td>
+      <td class="mono" style="font-size:11px; color:var(--ink-soft);">${esc(o.subOrderNo||"—")}</td>
+      <td title="${esc(o.product||"")}">${esc((o.sku && o.sku.trim()) || (o.product ? o.product.trim() : "—"))}</td>
+      <td class="mono" style="font-size:11px;">—</td>
+      <td>${statusPillHTML("Claim")}</td>
+      <td class="num-cell">—</td>
+      <td class="num-cell">—</td>
+      <td class="num-cell">—</td>
+      <td class="num-cell">—</td>
+      <td class="num-cell">—</td>
+      <td class="num-cell">—</td>
+      <td class="num-cell" style="${amtStyle}">${fmt(amt)}</td>
+      <td>${o.paymentDate ? fmtDateFull(o.paymentDate) : "—"}</td>
+      <td class="num-cell">—</td>
+      <td class="num-cell">—</td>
+      <td class="num-cell">—</td>
+      <td class="num-cell">—</td>
     </tr>`;
   }).join("");
   document.querySelectorAll("#paymentsBody tr[data-order-id]").forEach(tr=>{
