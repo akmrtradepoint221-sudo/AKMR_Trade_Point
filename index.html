@@ -1545,6 +1545,21 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
             </table>
           </div>
         </div>
+        <!-- Rows a Payments file carried WITH a Sub Order No but a BLANK Live Order Status — a
+             follow-up claim/compensation/recovery payout on an order Meesho already reported once.
+             Linked rows are already added into that order's own settlement figure above; unlinked
+             ones (no matching order yet) are still captured and counted in the hero total, same as
+             the "no order number" card above. Hidden automatically when there are none. -->
+        <div class="card" style="margin-bottom:16px; display:none;" id="paymentsSupplementaryCard">
+          <div class="card-head"><h3>🧾 Supplementary Meesho payments (claims / RTO settlements / other payouts)</h3><span class="meta">Rows with a Sub Order No but a blank Live Order Status — a later payout on an order already reported once. Added on top of that order's settlement, and included in the Total Payments Received figure above</span></div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Payment Date</th><th>Sub Order No</th><th>Product / SKU</th><th>Reason</th><th style="text-align:right;">Amount (₹)</th><th>Status</th><th>Source file</th><th style="text-align:right;">Actions</th></tr></thead>
+              <tbody id="paymentsSupplementaryBody"></tbody>
+              <tfoot><tr class="tot-row" id="paymentsSupplementaryFoot"></tr></tfoot>
+            </table>
+          </div>
+        </div>
         <div class="card" style="margin-bottom:16px; display:none;" id="tcsTdsCard">
           <div class="card-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
             <div><h3>TCS / TDS credit reconciliation</h3><span class="meta">What platforms deducted vs what's actually showing in your GST portal / 26AS</span></div>
@@ -2923,6 +2938,13 @@ let orders = [
    any Orders-tab entry — captured on their own instead of being silently discarded, so their
    amount still counts toward Total Payments Received and shows up for review on the Payments tab. */
 let meeshoOrphanPaymentRows = []; // {id, paymentDate, product, sku, amount, sourceFile, importedAt}
+/* Payment file rows that DO carry a Sub Order No, but come with Live Order Status left BLANK —
+   Meesho does this for a follow-up payout on an order it already reported once (an RTO claim, a
+   compensation credit, a recovery adjustment), not a fresh order snapshot. Captured on their own
+   (see processMeeshoPaymentRows) instead of being dropped once the order is payment-locked, and,
+   where a matching order exists, also folded straight into that order's bank figure — see
+   "linked" below. */
+let meeshoSupplementaryPaymentRows = []; // {id, subOrderNo, paymentDate, amount, transactionId, product, sku, reason, sourceFile, importedAt, linked, extraFields}
 /* Returns & RTO tab is driven ONLY by rows actually present in an uploaded Meesho Returns file —
    never inferred from an order's own status column. This array is populated exclusively inside
    processMeeshoReturnRows(); nothing else writes to it. */
@@ -6975,8 +6997,20 @@ function computePaymentsSummary(paymentDateFilter){
      profit accounting. Filtered by the same Payment Date picker as everything else on this tab. */
   const orphanRowsInScope = meeshoOrphanPaymentRows.filter(o=> !paymentDateFilter || o.paymentDate===paymentDateFilter);
   const orphanTotal = orphanRowsInScope.reduce((s,o)=>s+(o.amount||0),0);
-  const grandTotalReceived = netBankSettlement + orphanTotal;
-  return {totalListingPrice, totalActualReceived, totalPricePerUnit, totalOtherExpense, netBankSettlement, totalNetProfit, overallMargin, settledCount: paidOrdersAll.length, orphanTotal, orphanCount: orphanRowsInScope.length, grandTotalReceived};
+  /* Supplementary (blank Live Order Status) payment rows — see meeshoSupplementaryPaymentRows.
+     A "linked" one is already baked straight into its order's own o.bank, so it's already inside
+     netBankSettlement above and must NOT be added again here. An "unlinked" one has no matching
+     order yet, so — exactly like an orphan row — it's added on top so the hero total and bank
+     reconciliation still add up to every rupee the file actually reported. */
+  const supplementaryRowsInScope = meeshoSupplementaryPaymentRows.filter(o=> !paymentDateFilter || o.paymentDate===paymentDateFilter);
+  const supplementaryLinkedRows = supplementaryRowsInScope.filter(o=>o.linked);
+  const supplementaryUnlinkedRows = supplementaryRowsInScope.filter(o=>!o.linked);
+  const supplementaryLinkedTotal = supplementaryLinkedRows.reduce((s,o)=>s+(o.amount||0),0);
+  const supplementaryUnlinkedTotal = supplementaryUnlinkedRows.reduce((s,o)=>s+(o.amount||0),0);
+  const grandTotalReceived = netBankSettlement + orphanTotal + supplementaryUnlinkedTotal;
+  return {totalListingPrice, totalActualReceived, totalPricePerUnit, totalOtherExpense, netBankSettlement, totalNetProfit, overallMargin, settledCount: paidOrdersAll.length, orphanTotal, orphanCount: orphanRowsInScope.length,
+    supplementaryLinkedTotal, supplementaryLinkedCount: supplementaryLinkedRows.length, supplementaryUnlinkedTotal, supplementaryUnlinkedCount: supplementaryUnlinkedRows.length,
+    grandTotalReceived};
 }
 /* Renders the "Other entries from imported files (no order number)" table on the Payments tab —
    see meeshoOrphanPaymentRows above for what these are and why they're captured at all. */
@@ -7007,6 +7041,59 @@ function deletePaymentsOrphanRow(id){
   if(idx===-1) return;
   meeshoOrphanPaymentRows.splice(idx,1);
   renderPayments();
+  persistState();
+}
+/* Renders the "Supplementary Meesho payments" table on the Payments tab — see
+   meeshoSupplementaryPaymentRows above for what these are. */
+function renderPaymentsSupplementaryTable(paymentDateFilter){
+  const card = document.getElementById("paymentsSupplementaryCard");
+  const body = document.getElementById("paymentsSupplementaryBody");
+  const foot = document.getElementById("paymentsSupplementaryFoot");
+  if(!card || !body) return;
+  const rows = meeshoSupplementaryPaymentRows
+    .filter(o=> !paymentDateFilter || o.paymentDate===paymentDateFilter)
+    .sort((a,b)=> (b.paymentDate||"").localeCompare(a.paymentDate||""));
+  card.style.display = rows.length ? "block" : "none";
+  if(!rows.length) return;
+  body.innerHTML = rows.map(o=>`
+    <tr>
+      <td>${o.paymentDate ? esc(fmtDateFull(o.paymentDate)) : "—"}</td>
+      <td class="mono" style="font-size:11px;">${esc(o.subOrderNo||"—")}</td>
+      <td>${esc(o.product||"—")}${o.sku ? ` <span class="meta">(${esc(o.sku)})</span>` : ""}</td>
+      <td style="font-size:11.5px; color:var(--ink-soft);">${esc(o.reason||"—")}</td>
+      <td style="text-align:right; ${o.amount>=0?"color:var(--forest);":"color:var(--red);"} font-weight:600;">${fmt(o.amount)}</td>
+      <td>${o.linked ? `<span style="color:var(--forest); font-weight:700;">🔗 Linked to order</span>` : `<span style="color:var(--amber); font-weight:700;">⚠ No matching order yet</span>`}</td>
+      <td class="mono" style="font-size:11px; color:var(--ink-soft);">${esc(o.sourceFile||"")}</td>
+      <td style="text-align:right;"><button class="btn small secondary" onclick="deletePaymentsSupplementaryRow('${o.id}')" title="Remove this entry">🗑</button></td>
+    </tr>
+  `).join("");
+  const total = rows.reduce((s,o)=>s+(o.amount||0),0);
+  foot.innerHTML = `<td colspan="4" style="text-align:right;"><b>Total (${rows.length} entr${rows.length===1?"y":"ies"})</b></td><td style="text-align:right;"><b>${fmt(total)}</b></td><td colspan="3"></td>`;
+}
+/* Deleting a LINKED supplementary row must also undo exactly what it added to its order — the
+   settlement amount, and every deduction/credit field it was merged into (via extraFields, the
+   precise per-field deltas mergeAdditiveIntoPaymentDetails applied) — otherwise the order's bank
+   figure and the Payments totals would stay inflated by a payout the seller just removed. */
+function deletePaymentsSupplementaryRow(id){
+  const idx = meeshoSupplementaryPaymentRows.findIndex(o=>o.id===id);
+  if(idx===-1) return;
+  const entry = meeshoSupplementaryPaymentRows[idx];
+  if(entry.linked){
+    const oidx = orders.findIndex(o=>o.id===entry.subOrderNo);
+    if(oidx>-1){
+      const o = orders[oidx];
+      const newBank = o.bank!=null ? +((o.bank - (entry.amount||0))).toFixed(2) : null;
+      const pd = o.paymentDetails ? {...o.paymentDetails} : {};
+      Object.keys(entry.extraFields||{}).forEach(f=>{
+        pd[f] = +(((pd[f]||0)) - entry.extraFields[f]).toFixed(2);
+      });
+      if(newBank!=null) pd.settlementAmount = newBank;
+      orders[oidx] = {...o, bank:newBank, paymentDetails: pd};
+    }
+  }
+  meeshoSupplementaryPaymentRows.splice(idx,1);
+  inventory.forEach(recomputeInvFields);
+  renderAll();
   persistState();
 }
 function renderPaymentTabs(){
@@ -7236,7 +7323,12 @@ function renderPayments(){
   const totalTds = successOrders.reduce((s,o)=>s+(o.paymentDetails.tds||0),0);
   const successFigures = successOrders.map(o=>getPaymentRowFigures(o));
   const paySummary = computePaymentsSummary(paymentDateFilter);
-  const {totalListingPrice, totalActualReceived, totalPricePerUnit, totalOtherExpense, netBankSettlement, totalNetProfit, overallMargin, orphanTotal, orphanCount, grandTotalReceived} = paySummary;
+  const {totalListingPrice, totalActualReceived, totalPricePerUnit, totalOtherExpense, netBankSettlement, totalNetProfit, overallMargin, orphanTotal, orphanCount, supplementaryUnlinkedTotal, supplementaryUnlinkedCount, grandTotalReceived} = paySummary;
+  // Hero "other entries" box combines classic orphan rows (no Sub Order No at all) with unlinked
+  // supplementary rows (a Sub Order No, but no matching order yet) — both are real money the file
+  // reported that hasn't attached to an Orders-tab row yet.
+  const heroOtherTotal = orphanTotal + supplementaryUnlinkedTotal;
+  const heroOtherCount = orphanCount + supplementaryUnlinkedCount;
 
   /* The hero banner up top — the one number sellers open this tab to check first, so it's rendered
      before anything else below and includes every rupee an imported file mentioned, whether or not
@@ -7244,18 +7336,19 @@ function renderPayments(){
   const heroValueEl = document.getElementById("paymentsReceivedHeroValue");
   if(heroValueEl) heroValueEl.textContent = fmt(grandTotalReceived);
   const heroNoteEl = document.getElementById("paymentsReceivedHeroNote");
-  if(heroNoteEl) heroNoteEl.textContent = `From ${paidOrdersAll.length} order${paidOrdersAll.length===1?"":"s"} with payment data${orphanCount ? ` + ${orphanCount} other file entr${orphanCount===1?"y":"ies"}` : ""}${paymentDateFilter ? ` · ${fmtDateFull(paymentDateFilter)} only` : ""}`;
+  if(heroNoteEl) heroNoteEl.textContent = `From ${paidOrdersAll.length} order${paidOrdersAll.length===1?"":"s"} with payment data${heroOtherCount ? ` + ${heroOtherCount} other file entr${heroOtherCount===1?"y":"ies"}` : ""}${paymentDateFilter ? ` · ${fmtDateFull(paymentDateFilter)} only` : ""}`;
   const orphanBoxEl = document.getElementById("paymentsReceivedHeroOrphanBox");
   if(orphanBoxEl){
-    if(orphanCount){
+    if(heroOtherCount){
       orphanBoxEl.style.display = "block";
-      document.getElementById("paymentsReceivedHeroOrphanLabel").textContent = `⚠ Includes ${orphanCount} entr${orphanCount===1?"y":"ies"} with no order no.`;
-      document.getElementById("paymentsReceivedHeroOrphanValue").textContent = fmt(orphanTotal);
+      document.getElementById("paymentsReceivedHeroOrphanLabel").textContent = `⚠ Includes ${heroOtherCount} entr${heroOtherCount===1?"y":"ies"} not yet tied to an order`;
+      document.getElementById("paymentsReceivedHeroOrphanValue").textContent = fmt(heroOtherTotal);
     } else {
       orphanBoxEl.style.display = "none";
     }
   }
   renderPaymentsOrphanTable(paymentDateFilter);
+  renderPaymentsSupplementaryTable(paymentDateFilter);
 
   /* "Lost" here is just the loss slice of the sales above — sums only the orders where Net
      Profit came out negative, so a few loss-making sales don't hide inside the netted Net
@@ -9609,7 +9702,29 @@ function processMeeshoPaymentRows(rows, filename){
   const num = (v)=>{ const n=parseFloat(v); return isNaN(n)?null:n; };
   const usableRows = rows.filter(row=>!isMeeshoFillerRow(row, MEESHO_PAYMENT_FIELD_MAP) || (getField(row, MEESHO_PAYMENT_FIELD_MAP.subOrderNo)||"").toString().trim());
   const existingOrphanKeys = new Set(meeshoOrphanPaymentRows.map(orphanPaymentRowKey));
-  usableRows.forEach((row, i)=>{
+  const existingSupplementaryKeys = new Set(meeshoSupplementaryPaymentRows.map(supplementaryPaymentRowKey));
+  /* Meesho's Payments export can carry MORE THAN ONE row for the same Sub Order No: the main row
+     (a real Live Order Status — Shipped/Delivered/RTO/etc.) plus a follow-up row recording a
+     LATER payout against that same order — an RTO claim, a compensation credit, a recovery
+     adjustment — which Meesho exports with Live Order Status left BLANK because it isn't
+     reporting a fresh order state, just extra money moving. Reading every row through the single
+     matched/created path below used to mean the second row got dropped as "already payment
+     locked" the moment the first row had been processed — silently losing that follow-up payout,
+     which is exactly why the bank statement could show more credited than this dashboard ever
+     recorded. So this file is read in two passes: every row that actually carries a Live Order
+     Status first (unchanged logic below, building/locking each order's real state), then every
+     blank-status row afterwards, which is always treated as an ADDITION on top of that order's
+     settlement rather than a locked-out duplicate. Doing status rows first (regardless of their
+     position in the file) means a follow-up row works no matter which order it sits next to. */
+  const indexedRows = usableRows.map((row,i)=>({row,i}));
+  const primaryRows = [], supplementaryRows = [];
+  indexedRows.forEach(({row,i})=>{
+    const subNo = (getField(row, MEESHO_PAYMENT_FIELD_MAP.subOrderNo)||"").toString().trim();
+    const liveStatus = (getField(row, MEESHO_PAYMENT_FIELD_MAP.liveStatus)||"").toString().trim();
+    if(subNo && !liveStatus) supplementaryRows.push({row,i});
+    else primaryRows.push({row,i});
+  });
+  primaryRows.forEach(({row,i})=>{
     const subOrderNo = (getField(row, MEESHO_PAYMENT_FIELD_MAP.subOrderNo)||"").toString().trim();
     if(!subOrderNo){
       // No Sub Order No to attach this row to an Orders-tab entry — but the row still carried real
@@ -9701,44 +9816,7 @@ function processMeeshoPaymentRows(rows, filename){
        order) clears the lock. This is what keeps the Payments tab stable across repeat imports. */
     const idx = orders.findIndex(o=>o.id===subOrderNo);
     if(idx>-1 && orders[idx].paymentDataLocked){
-      /* Meesho's Payments export can carry a SECOND row for the same Sub Order No — the main
-         settlement row (a real Live Order Status, e.g. RTO, often with Final Settlement Amount
-         showing as 0) plus a separate row for that same order with Live Order Status left BLANK,
-         carrying its own real Final Settlement Amount / Claims / Compensation / Recovery figure
-         (e.g. an RTO row settles at 0.0, then a second, status-blank row for the same order
-         carries the actual ₹271.18 claim payout). Because the main row already locked the order,
-         and its settlement was 0 rather than empty, the old "only fill if still null" check never
-         triggered — 0 is not null — so this second row's real amount was silently dropped. Since
-         these blank-status rows represent genuinely separate money on top of (not a correction of)
-         whatever the main row already recorded, each one is ADDED to the existing figure instead
-         of only filling an empty gap. A content-based key (transaction id + date + the amounts
-         this specific row carries) is remembered on the order so re-uploading the very same
-         Payments file — which repeats the exact same row — is recognized as already-applied and
-         is not added again; only a row whose figures are genuinely new to that order gets summed
-         in. */
-      const existingPd = orders[idx].paymentDetails || {};
-      const supplementalKey = [subOrderNo, paymentDetails.transactionId||"", paymentDate||"", bank!=null?bank:"", paymentDetails.claims!=null?paymentDetails.claims:"", paymentDetails.compensation!=null?paymentDetails.compensation:"", paymentDetails.recovery!=null?paymentDetails.recovery:""].join("|");
-      const appliedKeys = existingPd.appliedSupplementalKeys || [];
-      const carriesAnAmount = bank!=null || paymentDetails.claims!=null || paymentDetails.compensation!=null || paymentDetails.recovery!=null;
-      const isNewSupplementalRow = !liveStatusRaw && carriesAnAmount && !appliedKeys.includes(supplementalKey);
-      if(isNewSupplementalRow){
-        orders[idx] = {...orders[idx],
-          bank: (orders[idx].bank!=null ? orders[idx].bank : 0) + (bank!=null ? bank : 0),
-          paymentDetails: {...existingPd,
-            settlementAmount: (existingPd.settlementAmount!=null ? existingPd.settlementAmount : 0) + (paymentDetails.settlementAmount!=null ? paymentDetails.settlementAmount : 0),
-            claims: (existingPd.claims!=null || paymentDetails.claims!=null) ? (existingPd.claims!=null ? existingPd.claims : 0) + (paymentDetails.claims!=null ? paymentDetails.claims : 0) : null,
-            compensation: (existingPd.compensation!=null || paymentDetails.compensation!=null) ? (existingPd.compensation!=null ? existingPd.compensation : 0) + (paymentDetails.compensation!=null ? paymentDetails.compensation : 0) : null,
-            recovery: (existingPd.recovery!=null || paymentDetails.recovery!=null) ? (existingPd.recovery!=null ? existingPd.recovery : 0) + (paymentDetails.recovery!=null ? paymentDetails.recovery : 0) : null,
-            claimsReason: [existingPd.claimsReason, paymentDetails.claimsReason].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join("; "),
-            compensationReason: [existingPd.compensationReason, paymentDetails.compensationReason].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join("; "),
-            recoveryReason: [existingPd.recoveryReason, paymentDetails.recoveryReason].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join("; "),
-            appliedSupplementalKeys: [...appliedKeys, supplementalKey],
-          }};
-        matched++;
-      } else {
-        locked++;
-      }
-      touchedIds.push(subOrderNo); return;
+      locked++; touchedIds.push(subOrderNo); return;
     }
     if(idx>-1){
       const keepStatus = ["Customer Return","RTO","RTO_LOCKED"].includes(orders[idx].status) || orders[idx].returnDataLocked;
@@ -9770,6 +9848,78 @@ function processMeeshoPaymentRows(rows, filename){
     }
     touchedIds.push(subOrderNo);
   });
+  /* ---- Second pass: blank-Live-Order-Status rows — a follow-up payout (RTO claim, compensation,
+     recovery, or any other post-settlement adjustment) for a Sub Order No that already has a main
+     settlement recorded, either from the pass above or from an earlier import. Always ADDS on top
+     of whatever bank amount that order already has, rather than overwriting or being blocked by
+     the payment lock — the lock only ever guarded against a full re-import of the SAME row, never
+     against a genuinely different follow-up row for the same order. ---- */
+  supplementaryRows.forEach(({row,i})=>{
+    const subOrderNo = (getField(row, MEESHO_PAYMENT_FIELD_MAP.subOrderNo)||"").toString().trim();
+    const paymentDate = normalizeDateOptional(getField(row, MEESHO_PAYMENT_FIELD_MAP.paymentDate));
+    const settlement = num(getField(row, MEESHO_PAYMENT_FIELD_MAP.settlementAmount));
+    const amt = settlement!=null ? settlement : 0;
+    const transactionId = (getField(row, MEESHO_PAYMENT_FIELD_MAP.transactionId)||"").toString().trim();
+    const productNameRaw = (getField(row, MEESHO_PAYMENT_FIELD_MAP.productName)||"").toString().trim();
+    const sku = (getField(row, MEESHO_PAYMENT_FIELD_MAP.sku)||"").toString().trim();
+    const extra = {
+      compensation: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.compensation)),
+      claims: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.claims)),
+      recovery: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.recovery)),
+      compensationReason: (getField(row, MEESHO_PAYMENT_FIELD_MAP.compensationReason)||"").toString().trim(),
+      claimsReason: (getField(row, MEESHO_PAYMENT_FIELD_MAP.claimsReason)||"").toString().trim(),
+      recoveryReason: (getField(row, MEESHO_PAYMENT_FIELD_MAP.recoveryReason)||"").toString().trim(),
+      tcs: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.tcs)),
+      tds: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.tds)),
+      commission: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.commission)),
+      goldPlatformFee: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.goldPlatformFee)),
+      mallPlatformFee: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.mallPlatformFee)),
+      fixedFeeDeduction: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.fixedFeeDeduction)),
+      fixedFeeOther: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.fixedFeeOther)),
+      warehousingFeeDeduction: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.warehousingFeeDeduction)),
+      warehousingFeeOther: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.warehousingFeeOther)),
+      returnPremium: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.returnPremium)),
+      returnPremiumOfReturn: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.returnPremiumOfReturn)),
+      returnShippingCharge: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.returnShippingCharge)),
+      shippingCharge: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.shippingCharge)),
+      gstCompensation: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.gstCompensation)),
+      otherSupportCharges: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.otherSupportCharges)),
+      waivers: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.waivers)),
+      netOtherSupportCharges: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.netOtherSupportCharges)),
+      cgstSgstOnPenalty: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.cgstSgstOnPenalty)),
+    };
+    const reasonParts = [extra.claimsReason, extra.compensationReason, extra.recoveryReason].filter(Boolean);
+    const reason = reasonParts.length ? reasonParts.join("; ") : "Other Meesho payment (blank Live Order Status)";
+
+    const key = supplementaryPaymentRowKey({subOrderNo, transactionId, amount:amt, paymentDate});
+    if(existingSupplementaryKeys.has(key)){
+      skipped++; touchedIds.push(subOrderNo);
+      skippedDetails.push({row:i+2, sku, product:productNameRaw, reason:"Blank Live Order Status row — this supplementary payment was already captured earlier"});
+      return;
+    }
+    existingSupplementaryKeys.add(key);
+
+    const idx = orders.findIndex(o=>o.id===subOrderNo);
+    const linked = idx>-1;
+    let appliedFields = {};
+    if(linked){
+      const prevBank = orders[idx].bank!=null ? orders[idx].bank : ((orders[idx].paymentDetails && orders[idx].paymentDetails.settlementAmount!=null) ? orders[idx].paymentDetails.settlementAmount : 0);
+      const newBank = +(((prevBank||0)) + amt).toFixed(2);
+      const {merged, appliedFields: af} = mergeAdditiveIntoPaymentDetails(orders[idx].paymentDetails, extra);
+      appliedFields = af;
+      merged.settlementAmount = newBank;
+      orders[idx] = {...orders[idx], bank:newBank, paymentDate: orders[idx].paymentDate || paymentDate, paymentDetails: merged};
+    }
+    meeshoSupplementaryPaymentRows.push({
+      id:newId("mosup"), subOrderNo, paymentDate, amount:amt, transactionId, product:productNameRaw, sku, reason,
+      sourceFile:filename, importedAt:new Date().toISOString(), linked, extraFields:appliedFields,
+    });
+    captured++;
+    touchedIds.push(subOrderNo);
+    skippedDetails.push({row:i+2, sku, product:productNameRaw, reason: linked
+      ? `Blank Live Order Status — captured as a supplementary payment of ${fmt(amt)} added to order ${subOrderNo}'s settlement (see "Supplementary Meesho payments" on the Payments tab)`
+      : `Blank Live Order Status — no matching order for ${subOrderNo} yet; captured separately, see "Supplementary Meesho payments" on the Payments tab`});
+  });
   inventory.forEach(recomputeInvFields);
   /* Reset every Payments-tab filter after a successful import — otherwise a filter left set from
      an earlier session (status tab, date range, product, search box, or a column filter) can hide
@@ -9795,6 +9945,38 @@ function processMeeshoPaymentRows(rows, filename){
    Total Payments Received figure. */
 function orphanPaymentRowKey(o){
   return [o.paymentDate||"", (o.sku||"").trim().toLowerCase(), (o.product||"").trim().toLowerCase(), +o.amount||0].join("|");
+}
+/* Content-based dedupe key for a supplementary (blank Live Order Status) payment row — keyed on
+   Sub Order No + Transaction ID + amount + payment date rather than a row number, since the same
+   subOrderNo/transactionId legitimately repeats between the main settlement row and its follow-up
+   claim row, and re-uploading the same file must never add that follow-up amount twice. */
+function supplementaryPaymentRowKey(o){
+  return [(o.subOrderNo||"").trim(), (o.transactionId||"").trim().toLowerCase(), +o.amount||0, o.paymentDate||""].join("|");
+}
+/* Adds a supplementary row's own deduction/credit figures on top of an order's existing
+   paymentDetails, rather than overwriting them — this is a second payout for the same order, so
+   its commission/claims/recovery/etc. figures are additional to what the main row already
+   recorded, not a replacement of it. Reason fields are concatenated (only if not already present)
+   so the Payment breakdown drawer shows every reason a claim/compensation/recovery landed.
+   Returns the merged object AND the exact per-field deltas applied, so a later deletion of this
+   supplementary row can precisely subtract them back out again. */
+const MEESHO_SUPPLEMENTARY_ADDITIVE_FIELDS = ["commission","goldPlatformFee","mallPlatformFee","fixedFeeDeduction","fixedFeeOther","warehousingFeeDeduction","warehousingFeeOther","returnPremium","returnPremiumOfReturn","returnShippingCharge","shippingCharge","gstCompensation","otherSupportCharges","waivers","netOtherSupportCharges","cgstSgstOnPenalty","tcs","tds","compensation","claims","recovery"];
+const MEESHO_SUPPLEMENTARY_REASON_FIELDS = ["compensationReason","claimsReason","recoveryReason"];
+function mergeAdditiveIntoPaymentDetails(pd, extra){
+  const merged = {...(pd||{})};
+  const appliedFields = {};
+  MEESHO_SUPPLEMENTARY_ADDITIVE_FIELDS.forEach(f=>{
+    if(extra[f]!=null && extra[f]!==0){
+      merged[f] = +(((merged[f]||0)) + extra[f]).toFixed(2);
+      appliedFields[f] = extra[f];
+    }
+  });
+  MEESHO_SUPPLEMENTARY_REASON_FIELDS.forEach(f=>{
+    if(extra[f] && !(merged[f]||"").includes(extra[f])){
+      merged[f] = merged[f] ? merged[f]+"; "+extra[f] : extra[f];
+    }
+  });
+  return {merged, appliedFields};
 }
 
 /* ---- Meesho's raw exports often have extra rows ABOVE the real column-name row — the Payments
@@ -10459,6 +10641,14 @@ function reconcileMeeshoVsBank(){
     if(!o.paymentDate || !o.amount) return;
     meeshoByDate[o.paymentDate] = (meeshoByDate[o.paymentDate]||0) + o.amount;
   });
+  // Supplementary (blank Live Order Status) rows that found a matching order are already inside
+  // that order's o.bank, so the orders.forEach above already counted them — only fold in the
+  // UNLINKED ones here, same reasoning as the orphan rows just above.
+  meeshoSupplementaryPaymentRows.forEach(o=>{
+    if(o.linked) return;
+    if(!o.paymentDate || !o.amount) return;
+    meeshoByDate[o.paymentDate] = (meeshoByDate[o.paymentDate]||0) + o.amount;
+  });
   const bankByDate = {}; // "YYYY-MM-DD" -> total credited that day per the bank statement
   bankStatementEntries.forEach(e=>{
     if(!e.date || !(e.credit>0)) return;
@@ -10605,6 +10795,7 @@ function openReconDetailDrawer(meeshoDate, unexplainedBankDate){
     if(!r) return;
     const paidOrders = orders.filter(o=>o.paymentDetails && o.paymentDate===meeshoDate);
     const orphanRows = meeshoOrphanPaymentRows.filter(o=>o.paymentDate===meeshoDate);
+    const unlinkedSupplementaryRows = meeshoSupplementaryPaymentRows.filter(o=>!o.linked && o.paymentDate===meeshoDate);
     const bankEntries = r.bankDate ? bankStatementEntries.filter(e=>e.date===r.bankDate && e.credit>0) : [];
     const diff = r.bankDate ? (r.bankAmt - r.meeshoAmt) : null;
     const dayGap = r.bankDate ? Math.round((new Date(r.bankDate+"T00:00:00")-new Date(r.meeshoDate+"T00:00:00"))/86400000) : null;
@@ -10631,6 +10822,8 @@ function openReconDetailDrawer(meeshoDate, unexplainedBankDate){
       ${paidOrders.map(o=>row(esc(o.id)+" — "+esc((o.product||"").slice(0,28)), fmt(o.bank))).join("") || row("—","—")}
       ${orphanRows.length ? section("Other Meesho entries (no Sub Order No) on this date") : ""}
       ${orphanRows.map(o=>row(esc(o.product||o.sku||"Unnamed row"), fmt(o.amount))).join("")}
+      ${unlinkedSupplementaryRows.length ? section("Supplementary claims/payments with no matching order yet") : ""}
+      ${unlinkedSupplementaryRows.map(o=>row(esc(o.subOrderNo)+" — "+esc(o.reason||""), fmt(o.amount))).join("")}
       ${bankEntries.length ? section(`Bank rows on ${esc(fmtDateFull(r.bankDate))}`) : ""}
       ${bankEntries.map(e=>row(esc(e.narration||"—"), fmt(e.credit))).join("")}
     `;
@@ -12655,7 +12848,7 @@ function collectPersistedState(){
     advanceTaxPayments, estimatedTaxLiability,
     tcsTdsClaims, nextTcsTdsClaimId,
     orders, returnRecords, damageLog, nextDamageLogId, labelCustomerDirectory,
-    meeshoOrphanPaymentRows,
+    meeshoOrphanPaymentRows, meeshoSupplementaryPaymentRows,
     importLog, importLogSeq,
     bankStatementEntries, nextBankStmtId, bankStmtImportLog,
     seenOrdersCount, seenLowStockIds: Array.from(seenLowStockIds),
@@ -12966,6 +13159,8 @@ function applyPersistedJSON(raw){
     bankStatementEntries.forEach(e=>{ if(e && e.id==null) e.id = "bs"+(nextBankStmtId++); });
     if(Array.isArray(data.meeshoOrphanPaymentRows)) meeshoOrphanPaymentRows = data.meeshoOrphanPaymentRows;
     meeshoOrphanPaymentRows.forEach(e=>{ if(e && e.id==null) e.id = newId("mop"); });
+    if(Array.isArray(data.meeshoSupplementaryPaymentRows)) meeshoSupplementaryPaymentRows = data.meeshoSupplementaryPaymentRows;
+    meeshoSupplementaryPaymentRows.forEach(e=>{ if(e && e.id==null) e.id = newId("mosup"); });
     if(typeof data.seenOrdersCount==="number") seenOrdersCount = data.seenOrdersCount;
     if(Array.isArray(data.seenLowStockIds)) seenLowStockIds = new Set(data.seenLowStockIds);
     if(typeof data.defaultWeightBucketIdx==="number") defaultWeightBucketIdx = data.defaultWeightBucketIdx;
