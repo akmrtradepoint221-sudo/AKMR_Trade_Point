@@ -10508,13 +10508,14 @@ function renderMeeshoBankReconciliation(){
   const body = document.getElementById("reconBody");
   body.innerHTML = shown.map(r=>{
     const diff = r.bankDate ? (r.bankAmt - r.meeshoAmt) : null;
-    return `<tr style="${reconRowStyle(r.status)}">
+    const clickable = r.status!=="matched";
+    return `<tr style="${reconRowStyle(r.status)} ${clickable?"cursor:pointer;":""}" ${clickable?`onclick="openReconDetailDrawer('${esc(r.meeshoDate)}')" title="Click to see why"`:""}>
       <td>${esc(fmtDateFull(r.meeshoDate))}</td>
       <td style="text-align:right;">${fmt(r.meeshoAmt)}</td>
       <td>${r.bankDate ? esc(fmtDateFull(r.bankDate)) + (r.bankDate!==r.meeshoDate ? ` <span class="meta">(${Math.round((new Date(r.bankDate)-new Date(r.meeshoDate))/86400000)>0?"+":""}${Math.round((new Date(r.bankDate)-new Date(r.meeshoDate))/86400000)}d)</span>` : "") : "—"}</td>
       <td style="text-align:right;">${r.bankDate ? fmt(r.bankAmt) : "—"}</td>
       <td style="text-align:right; ${diff!=null && Math.abs(diff)>RECON_AMOUNT_TOLERANCE ? "color:var(--red); font-weight:800;" : ""}">${diff!=null ? fmt(diff) : "—"}</td>
-      <td>${reconStatusBadge(r.status)}</td>
+      <td>${reconStatusBadge(r.status)}${clickable?` <span class="meta" style="text-decoration:underline;">Why?</span>`:""}</td>
     </tr>`;
   }).join("");
   document.getElementById("reconEmpty").style.display = rows.length ? "none" : "block";
@@ -10522,13 +10523,86 @@ function renderMeeshoBankReconciliation(){
   const unexBody = document.getElementById("reconUnexplainedBody");
   unexBody.innerHTML = unexplained.map(u=>{
     const narrations = bankStatementEntries.filter(e=>e.date===u.bankDate && e.credit>0).map(e=>e.narration).filter(Boolean);
-    return `<tr style="background:var(--gold-bg); box-shadow:inset 3px 0 0 var(--amber);">
+    return `<tr style="background:var(--gold-bg); box-shadow:inset 3px 0 0 var(--amber); cursor:pointer;" onclick="openReconDetailDrawer(null,'${esc(u.bankDate)}')" title="Click to see why">
       <td>${esc(fmtDateFull(u.bankDate))}</td>
       <td style="text-align:right;">${fmt(u.bankAmt)}</td>
-      <td style="font-size:11.5px; color:var(--ink-soft);">${esc(narrations.slice(0,2).join("; ") || "—")}</td>
+      <td style="font-size:11.5px; color:var(--ink-soft);">${esc(narrations.slice(0,2).join("; ") || "—")} <span class="meta" style="text-decoration:underline;">Why?</span></td>
     </tr>`;
   }).join("");
   document.getElementById("reconUnexplainedEmpty").style.display = unexplained.length ? "none" : "block";
+}
+/* ---- Explains ONE reconciliation row when clicked: which Meesho-side records made up that day's
+   total, which bank-statement rows made up the matched/mismatched day's credit (or, for an
+   unexplained bank credit, which nearby Meesho payouts it was compared against and ruled out), and
+   a plain-language reason for the gap. Reuses the shared drawer (#drawer/#drawerBody) — see
+   openOrderDrawer/openPaymentDrawer above — rather than adding a whole new modal for this. ---- */
+function openReconDetailDrawer(meeshoDate, unexplainedBankDate){
+  const row = (label, val, style)=> `<div class="drawer-row"><span>${label}</span><b style="${style||''}">${val}</b></div>`;
+  const section = (label)=> `<div style="font-size:11px; font-weight:700; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; margin:18px 0 6px;">${label}</div>`;
+  let title, body;
+
+  if(unexplainedBankDate){
+    const entries = bankStatementEntries.filter(e=>e.date===unexplainedBankDate && e.credit>0);
+    const bankAmt = entries.reduce((s,e)=>s+e.credit,0);
+    // Same-day and within-tolerance-window Meesho payouts, so the seller can see what this WAS compared against.
+    const { rows } = reconcileMeeshoVsBank();
+    const base = new Date(unexplainedBankDate+"T00:00:00");
+    const nearby = rows.filter(r=>{
+      const d = Math.round((new Date(r.meeshoDate+"T00:00:00")-base)/86400000);
+      return Math.abs(d) <= Math.max(reconToleranceDays,2) && r.bankDate!==unexplainedBankDate;
+    });
+    title = "Unexplained bank credit — " + fmtDateFull(unexplainedBankDate);
+    body = `
+      ${row("Bank date", esc(fmtDateFull(unexplainedBankDate)))}
+      ${row("Total credited", fmt(bankAmt))}
+      ${section("Why it's unexplained")}
+      <div class="drawer-row" style="display:block;">This money came into the bank on this date, but no Meesho payout total (within the ${reconToleranceDays}-day matching window) adds up to this amount. Either the matching Meesho payment file hasn't been imported yet, or this credit is from something other than Meesho (a refund, a different marketplace, a manual transfer, etc).</div>
+      ${section("Bank rows that make up this total")}
+      ${entries.map(e=>row(esc(e.narration||"—"), fmt(e.credit))).join("") || row("—","—")}
+      ${nearby.length ? section("Nearby Meesho payouts it was checked against") : ""}
+      ${nearby.map(r=>row(esc(fmtDateFull(r.meeshoDate))+" (Meesho)", fmt(r.meeshoAmt)+" — "+ (r.status==="matched"?"already matched elsewhere":"diff "+fmt(bankAmt-r.meeshoAmt)))).join("")}
+    `;
+  } else {
+    const { rows } = reconcileMeeshoVsBank();
+    const r = rows.find(x=>x.meeshoDate===meeshoDate);
+    if(!r) return;
+    const paidOrders = orders.filter(o=>o.paymentDetails && o.paymentDate===meeshoDate);
+    const orphanRows = meeshoOrphanPaymentRows.filter(o=>o.paymentDate===meeshoDate);
+    const bankEntries = r.bankDate ? bankStatementEntries.filter(e=>e.date===r.bankDate && e.credit>0) : [];
+    const diff = r.bankDate ? (r.bankAmt - r.meeshoAmt) : null;
+    const dayGap = r.bankDate ? Math.round((new Date(r.bankDate+"T00:00:00")-new Date(r.meeshoDate+"T00:00:00"))/86400000) : null;
+    let reason;
+    if(r.status==="pending"){
+      reason = `No bank credit has shown up yet within ${reconToleranceDays} day(s) either side of this date. Either the bank statement for that period hasn't been imported yet, or Meesho hasn't actually paid this out to the bank yet (widen the day window above if this settlement cycle usually pays out later).`;
+    } else if(diff!=null && Math.abs(diff) > RECON_AMOUNT_TOLERANCE){
+      reason = diff > 0
+        ? `The bank received ${fmt(Math.abs(diff))} <b>more</b> than Meesho's own payment records for this date add up to. Likely causes: a bank credit that day includes money from more than one Meesho payout date lumped together, a payment file for a nearby date hasn't been imported yet so its orders aren't counted here, or an "Other entries" row (no Sub Order No) landed on a different date than the bank transfer it belongs to.`
+        : `The bank received ${fmt(Math.abs(diff))} <b>less</b> than Meesho's own payment records for this date add up to. Likely causes: Meesho deducted something extra after this file was generated (an adjustment/recovery in a later payment cycle), part of this payout arrived in a separate bank credit not on this exact date (try widening the day window above), or the bank statement for the matching date is missing/incomplete.`;
+    } else {
+      reason = `Matched within ₹${RECON_AMOUNT_TOLERANCE} — this is shown here only because "Show only issues" is off.`;
+    }
+    title = "Reconciliation detail — " + fmtDateFull(meeshoDate);
+    body = `
+      ${row("Meesho payment date", esc(fmtDateFull(meeshoDate)))}
+      ${row("Meesho credited (per payment file)", fmt(r.meeshoAmt))}
+      ${row("Matched bank date", r.bankDate ? esc(fmtDateFull(r.bankDate)) + (dayGap ? ` <span class="meta">(${dayGap>0?"+":""}${dayGap}d)</span>` : "") : "—")}
+      ${row("Bank received", r.bankDate ? fmt(r.bankAmt) : "—")}
+      ${row("Difference", diff!=null ? fmt(diff) : "—", diff!=null && Math.abs(diff)>RECON_AMOUNT_TOLERANCE ? "color:var(--red);" : "")}
+      ${section("Likely reason")}
+      <div class="drawer-row" style="display:block;">${reason}</div>
+      ${section(`Meesho orders that make up ${fmt(r.meeshoAmt)}`)}
+      ${paidOrders.map(o=>row(esc(o.id)+" — "+esc((o.product||"").slice(0,28)), fmt(o.bank))).join("") || row("—","—")}
+      ${orphanRows.length ? section("Other Meesho entries (no Sub Order No) on this date") : ""}
+      ${orphanRows.map(o=>row(esc(o.product||o.sku||"Unnamed row"), fmt(o.amount))).join("")}
+      ${bankEntries.length ? section(`Bank rows on ${esc(fmtDateFull(r.bankDate))}`) : ""}
+      ${bankEntries.map(e=>row(esc(e.narration||"—"), fmt(e.credit))).join("")}
+    `;
+  }
+  document.getElementById("drawerTitle").textContent = title;
+  document.getElementById("drawerSub").textContent = "";
+  document.getElementById("drawerBody").innerHTML = body;
+  document.getElementById("drawer").classList.add("show");
+  document.getElementById("drawerOverlay").classList.add("show");
 }
 document.getElementById("reconToleranceSelect").addEventListener("change", e=>{ reconToleranceDays = +e.target.value; renderMeeshoBankReconciliation(); });
 document.getElementById("reconIssuesOnlyToggle").addEventListener("change", e=>{ reconIssuesOnly = e.target.checked; renderMeeshoBankReconciliation(); });
