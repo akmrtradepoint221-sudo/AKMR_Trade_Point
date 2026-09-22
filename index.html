@@ -9701,7 +9701,44 @@ function processMeeshoPaymentRows(rows, filename){
        order) clears the lock. This is what keeps the Payments tab stable across repeat imports. */
     const idx = orders.findIndex(o=>o.id===subOrderNo);
     if(idx>-1 && orders[idx].paymentDataLocked){
-      locked++; touchedIds.push(subOrderNo); return;
+      /* Meesho's Payments export can carry a SECOND row for the same Sub Order No — the main
+         settlement row (a real Live Order Status, e.g. RTO, often with Final Settlement Amount
+         showing as 0) plus a separate row for that same order with Live Order Status left BLANK,
+         carrying its own real Final Settlement Amount / Claims / Compensation / Recovery figure
+         (e.g. an RTO row settles at 0.0, then a second, status-blank row for the same order
+         carries the actual ₹271.18 claim payout). Because the main row already locked the order,
+         and its settlement was 0 rather than empty, the old "only fill if still null" check never
+         triggered — 0 is not null — so this second row's real amount was silently dropped. Since
+         these blank-status rows represent genuinely separate money on top of (not a correction of)
+         whatever the main row already recorded, each one is ADDED to the existing figure instead
+         of only filling an empty gap. A content-based key (transaction id + date + the amounts
+         this specific row carries) is remembered on the order so re-uploading the very same
+         Payments file — which repeats the exact same row — is recognized as already-applied and
+         is not added again; only a row whose figures are genuinely new to that order gets summed
+         in. */
+      const existingPd = orders[idx].paymentDetails || {};
+      const supplementalKey = [subOrderNo, paymentDetails.transactionId||"", paymentDate||"", bank!=null?bank:"", paymentDetails.claims!=null?paymentDetails.claims:"", paymentDetails.compensation!=null?paymentDetails.compensation:"", paymentDetails.recovery!=null?paymentDetails.recovery:""].join("|");
+      const appliedKeys = existingPd.appliedSupplementalKeys || [];
+      const carriesAnAmount = bank!=null || paymentDetails.claims!=null || paymentDetails.compensation!=null || paymentDetails.recovery!=null;
+      const isNewSupplementalRow = !liveStatusRaw && carriesAnAmount && !appliedKeys.includes(supplementalKey);
+      if(isNewSupplementalRow){
+        orders[idx] = {...orders[idx],
+          bank: (orders[idx].bank!=null ? orders[idx].bank : 0) + (bank!=null ? bank : 0),
+          paymentDetails: {...existingPd,
+            settlementAmount: (existingPd.settlementAmount!=null ? existingPd.settlementAmount : 0) + (paymentDetails.settlementAmount!=null ? paymentDetails.settlementAmount : 0),
+            claims: (existingPd.claims!=null || paymentDetails.claims!=null) ? (existingPd.claims!=null ? existingPd.claims : 0) + (paymentDetails.claims!=null ? paymentDetails.claims : 0) : null,
+            compensation: (existingPd.compensation!=null || paymentDetails.compensation!=null) ? (existingPd.compensation!=null ? existingPd.compensation : 0) + (paymentDetails.compensation!=null ? paymentDetails.compensation : 0) : null,
+            recovery: (existingPd.recovery!=null || paymentDetails.recovery!=null) ? (existingPd.recovery!=null ? existingPd.recovery : 0) + (paymentDetails.recovery!=null ? paymentDetails.recovery : 0) : null,
+            claimsReason: [existingPd.claimsReason, paymentDetails.claimsReason].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join("; "),
+            compensationReason: [existingPd.compensationReason, paymentDetails.compensationReason].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join("; "),
+            recoveryReason: [existingPd.recoveryReason, paymentDetails.recoveryReason].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join("; "),
+            appliedSupplementalKeys: [...appliedKeys, supplementalKey],
+          }};
+        matched++;
+      } else {
+        locked++;
+      }
+      touchedIds.push(subOrderNo); return;
     }
     if(idx>-1){
       const keepStatus = ["Customer Return","RTO","RTO_LOCKED"].includes(orders[idx].status) || orders[idx].returnDataLocked;
