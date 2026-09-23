@@ -9948,27 +9948,6 @@ function processMeeshoPaymentRows(rows, filename){
         subOrderNo, transactionId: ((orders[idx].paymentDetails && orders[idx].paymentDetails.transactionId)||"").trim(),
         amount: orders[idx].bank||0, paymentDate: orders[idx].paymentDate||"",
       });
-      /* FIX: same order + same Transaction ID + same payment date is the SAME payout, even if the
-         amount differs (a re-issued/corrected file, or a previously corrupted total). It must
-         REPLACE the order's main settlement (keeping any linked claims on top) — never be added
-         on top as a "second settlement", which is what produced totals like -297.35 instead of
-         -157. Re-importing the file therefore also self-heals an order whose stored total drifted. */
-      const sk = storedKey.split("|"), rk = rowSettlementKey.split("|");
-      const samePayout = storedKey===rowSettlementKey || (sk[1] && sk[1]===rk[1] && sk[3]===rk[3]);
-      if(samePayout && bank!=null){
-        const linkedClaimSum = getLinkedClaimTotalsByOrderId()[subOrderNo] || 0;
-        const expectedBank = +(bank + linkedClaimSum).toFixed(2);
-        const curBank = orders[idx].bank;
-        if(curBank==null || Math.abs(curBank-expectedBank) > 0.005){
-          orders[idx] = {...orders[idx], bank: expectedBank,
-            paymentDetails: {...(orders[idx].paymentDetails||{}), settlementAmount: expectedBank},
-            primarySettlementKey: rowSettlementKey};
-          backfilled++;
-        } else if(orders[idx].primarySettlementKey!==rowSettlementKey){
-          orders[idx] = {...orders[idx], primarySettlementKey: rowSettlementKey};
-        }
-        locked++; touchedIds.push(subOrderNo); return;
-      }
       const alreadyCaptured = storedKey===rowSettlementKey || existingSupplementaryKeys.has(rowSettlementKey);
       if(alreadyCaptured){
         locked++; touchedIds.push(subOrderNo); return;
