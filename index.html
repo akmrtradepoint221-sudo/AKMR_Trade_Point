@@ -406,7 +406,7 @@ tbody tr.clickable:hover td:first-child{box-shadow:inset 3px 0 0 var(--maroon);}
 .status-pill.rtolocked{background:var(--pink-bg); color:var(--pink);}
 .status-pill.lost{background:var(--red); color:#fff;}
 .status-pill.returned, .status-pill.customerreturn{background:var(--purple-bg); color:var(--purple);}
-.status-pill.claim{background:var(--gold-bg); color:var(--amber);}
+.status-pill.claims{background:var(--gold-bg); color:var(--amber);}
 .status-pill.lowstock{background:var(--red-bg); color:var(--red);}
 .status-pill.instock{background:var(--forest-bg); color:var(--forest);}
 .status-pill.nodata{background:var(--bg); color:var(--ink-soft);}
@@ -1548,21 +1548,12 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
             </table>
           </div>
         </div>
-        <!-- Rows a Payments file carried WITH a Sub Order No but a BLANK Live Order Status — a
-             follow-up claim/compensation/recovery payout on an order Meesho already reported once.
-             Linked rows are already added into that order's own settlement figure above; unlinked
-             ones (no matching order yet) are still captured and counted in the hero total, same as
-             the "no order number" card above. Hidden automatically when there are none. -->
-        <div class="card" style="margin-bottom:16px; display:none;" id="paymentsSupplementaryCard">
-          <div class="card-head"><h3>🧾 Supplementary Meesho payments (claims / RTO settlements / other payouts)</h3><span class="meta">Rows with a Sub Order No but a blank Live Order Status — a later payout on an order already reported once. Added on top of that order's settlement, and included in the Total Payments Received figure above</span></div>
-          <div class="table-scroll">
-            <table>
-              <thead><tr><th>Payment Date</th><th>Sub Order No</th><th>Product / SKU</th><th>Reason</th><th style="text-align:right;">Amount (₹)</th><th>Status</th><th>Source file</th><th style="text-align:right;">Actions</th></tr></thead>
-              <tbody id="paymentsSupplementaryBody"></tbody>
-              <tfoot><tr class="tot-row" id="paymentsSupplementaryFoot"></tr></tfoot>
-            </table>
-          </div>
-        </div>
+        <!-- The "Supplementary Meesho payments (claims / RTO settlements / other payouts)" card used
+             to live here. It's been moved out of this tab — those rows now show as "Claims" rows
+             directly in the Payment ledger table below (and still have their own dedicated "Claims"
+             page in the sidebar, under Payments). Nothing about the underlying data changed, only
+             where it's displayed — renderPaymentsSupplementaryTable() simply skips this spot now
+             since paymentsSupplementaryCard/Body/Foot no longer exist in the DOM. -->
         <div class="card" style="margin-bottom:16px; display:none;" id="tcsTdsCard">
           <div class="card-head" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
             <div><h3>TCS / TDS credit reconciliation</h3><span class="meta">What platforms deducted vs what's actually showing in your GST portal / 26AS</span></div>
@@ -1589,7 +1580,7 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
             <div class="filter-inline"><span>From</span><input type="date" class="filter-select" id="paymentsDateFromFilter" title="From date"></div>
             <div class="filter-inline"><span>To</span><input type="date" class="filter-select" id="paymentsDateToFilter" title="To date"></div>
             <select class="filter-select" id="paymentsProductFilter" title="Filter by product"><option value="all">All products</option></select>
-            <select class="filter-select" id="paymentsStatusFilter" title="Filter by status"><option value="All">All statuses</option><option value="Shipped">Shipped</option><option value="Delivered">Delivered</option><option value="Cancelled">Cancelled</option><option value="RTO">RTO</option><option value="Customer Return">Customer Return</option><option value="RTO_LOCKED">RTO_LOCKED</option><option value="Lost">Lost</option><option value="Claim">Claim</option></select>
+            <select class="filter-select" id="paymentsStatusFilter" title="Filter by status"><option value="All">All statuses</option><option value="Shipped">Shipped</option><option value="Delivered">Delivered</option><option value="Cancelled">Cancelled</option><option value="RTO">RTO</option><option value="Customer Return">Customer Return</option><option value="RTO_LOCKED">RTO_LOCKED</option><option value="Lost">Lost</option><option value="Claims">Claims</option></select>
             <select class="filter-select" id="paymentsPaymentFilter" title="Filter by payment status"><option value="all">All payments</option><option value="received">Payment received</option><option value="pending">Payment pending</option></select>
             <select class="filter-select" id="paymentsPlatformFilter" title="Filter by platform"><option value="all">All platforms</option><option value="Meesho">Meesho</option><option value="Offline">Offline</option></select>
             <button class="btn small secondary" id="paymentsClearFiltersBtn">Clear filters</button>
@@ -4182,12 +4173,12 @@ const STATUS_TAB_META = {
   "Customer Return":  {icon:"🔁", color:"var(--purple)", bg:"var(--purple-bg)"},
   "RTO_LOCKED":       {icon:"🔒", color:"var(--red)",    bg:"var(--red-bg)"},
   "Lost":             {icon:"❓", color:"var(--ink)",    bg:"var(--panel-2)"},
-  "Claim":            {icon:"🧾", color:"var(--amber)",  bg:"var(--gold-bg)"},
+  "Claims":           {icon:"🧾", color:"var(--amber)",  bg:"var(--gold-bg)"},
 };
 /* Payments-tab-only status tabs — same list as the shared statusTabs (used by the Orders tab)
-   plus a "Claim" tab for supplementary Meesho payouts (see meeshoSupplementaryPaymentRows). Kept
+   plus a "Claims" tab for supplementary Meesho payouts (see meeshoSupplementaryPaymentRows). Kept
    as its own array so the Orders tab's tabs/filters are completely untouched by this. */
-const paymentStatusTabs = [...statusTabs, "Claim"];
+const paymentStatusTabs = [...statusTabs, "Claims"];
 function populateOrderProductFilter(){
   const sel = document.getElementById("productFilter");
   if(!sel) return;
@@ -7083,11 +7074,10 @@ function deletePaymentsOrphanRow(id){
   persistState();
 }
 /* Renders the "Supplementary Meesho payments" table (claims / RTO settlements / other follow-up
-   payouts) — see meeshoSupplementaryPaymentRows above for what these are. This single pass over
-   the data fills TWO places from the same rows: the original card embedded in the Meesho Payments
-   tab (unchanged from before), and the dedicated "Claims" sidebar view, so claims have their own
-   page without duplicating or diverging the underlying logic. Either destination is simply skipped
-   if its elements aren't on the page. */
+   payouts) — see meeshoSupplementaryPaymentRows above for what these are. This fills the dedicated
+   "Claims" sidebar view. The same rows also show as "Claims" status rows directly inside the
+   Payment ledger table on the Meesho Payments tab (see the claimRows logic in renderPayments) —
+   there's no separate card for them inside that tab anymore. */
 function renderPaymentsSupplementaryTable(paymentDateFilter){
   const rows = meeshoSupplementaryPaymentRows
     .filter(o=> !paymentDateFilter || o.paymentDate===paymentDateFilter)
@@ -7107,19 +7097,9 @@ function renderPaymentsSupplementaryTable(paymentDateFilter){
   `).join("");
   const footHtml = `<td colspan="4" style="text-align:right;"><b>Total (${rows.length} entr${rows.length===1?"y":"ies"})</b></td><td style="text-align:right;"><b>${fmt(total)}</b></td><td colspan="3"></td>`;
 
-  // Destination 1: the card embedded inside the Meesho Payments tab — behaviour identical to before.
-  const card = document.getElementById("paymentsSupplementaryCard");
-  const body = document.getElementById("paymentsSupplementaryBody");
-  const foot = document.getElementById("paymentsSupplementaryFoot");
-  if(card && body){
-    card.style.display = rows.length ? "block" : "none";
-    if(rows.length){
-      body.innerHTML = rowsHtml;
-      if(foot) foot.innerHTML = footHtml;
-    }
-  }
-
-  // Destination 2: the dedicated "Claims" sidebar view — same rows, their own page.
+  // This card used to live inside the Meesho Payments tab too; it now lives only on the dedicated
+  // "Claims" sidebar view below (the entries themselves also show as "Claims" rows in the Payment
+  // ledger table). Kept as its own destination so nothing else about that rendering has to change.
   const claimsCard = document.getElementById("claimsSupplementaryCard");
   const claimsBody = document.getElementById("claimsSupplementaryBody");
   const claimsFoot = document.getElementById("claimsSupplementaryFoot");
@@ -7174,10 +7154,10 @@ function renderPaymentTabs(){
   if(!wrap) return;
   const allPaid = orders.filter(o=>o.paymentDetails);
   wrap.innerHTML = paymentStatusTabs.map(s=>{
-    /* "Claim" isn't a real order status — it counts the supplementary/claim payout rows instead
+    /* "Claims" isn't a real order status — it counts the supplementary/claim payout rows instead
        (see meeshoSupplementaryPaymentRows), and is folded into "All" too, same as every other tab. */
     const count = s==="All" ? allPaid.length + meeshoSupplementaryPaymentRows.length
-      : s==="Claim" ? meeshoSupplementaryPaymentRows.length
+      : s==="Claims" ? meeshoSupplementaryPaymentRows.length
       : allPaid.filter(o=>getPaymentStatus(o)===s).length;
     const meta = STATUS_TAB_META[s] || {icon:"•", color:"var(--ink-soft)", bg:"var(--panel-2)"};
     const isActive = activePaymentStatusTab===s;
@@ -7234,6 +7214,10 @@ function populatePaymentsColFilterSelects(){
     if(PAYMENTS_COL_FILTER_NUMERIC_KEYS.includes(key)) sorted = rawValues.slice().sort((a,b)=>Number(a)-Number(b));
     else if(PAYMENTS_COL_FILTER_DATE_KEYS.includes(key)) sorted = rawValues.slice().sort((a,b)=> a<b?-1:(a>b?1:0));
     else sorted = rawValues.slice().sort((a,b)=> a.toString().localeCompare(b.toString()));
+    /* The "Live Order Status" column filter also needs a "Claims" option — those rows aren't real
+       orders (see meeshoSupplementaryPaymentRows), so they never show up in rawValues above, which
+       only looks at `orders`. Appended at the end whenever at least one Claims row exists. */
+    if(key==="liveStatus" && meeshoSupplementaryPaymentRows.length) sorted.push("Claims");
     const strValues = sorted.map(v=>v.toString());
     sel.innerHTML = `<option value="">All</option>` + sorted.map((v,i)=>`<option value="${esc(strValues[i])}">${esc(formatPaymentsColFilterLabel(key,v))}</option>`).join("");
     sel.value = strValues.includes(prevVal) ? prevVal : "";
@@ -7242,7 +7226,7 @@ function populatePaymentsColFilterSelects(){
 }
 /* Claim pseudo-rows for the main Payment ledger table — the very same entries already shown on
    the dedicated Claims page and the Payments tab's "Supplementary Meesho payments" card, but also
-   surfaced here as ledger rows (Live Order Status "Claim") so that money is visible in the same
+   surfaced here as ledger rows (Live Order Status "Claims") so that money is visible in the same
    table as every other payout, not just tucked away in a separate card. This is display only:
    nothing here changes what's counted in computePaymentsSummary / the Total Payments Received
    hero figure, which already includes every claim rupee (see the comment above supplementaryLinkedTotal
@@ -7297,10 +7281,15 @@ function getFilteredPayments(){
 function renderPayments(){
   renderPaymentTabs();
   const paidOrders = getFilteredPayments();
-  /* Claim rows fold into the "All" tab alongside real orders, and also have their own "Claim" tab
+  /* Claim rows fold into the "All" tab alongside real orders, and also have their own "Claims" tab
      to see just these; every other specific status tab (Delivered, RTO, ...) shows only real order
-     rows, exactly as before. */
-  const claimRows = (activePaymentStatusTab==="All" || activePaymentStatusTab==="Claim") ? getFilteredPaymentClaims() : [];
+     rows, exactly as before. The "Live Order Status" column filter (paymentsColFilters.liveStatus)
+     overrides the tab: pick "Claims" there to see only Claims rows regardless of the active tab,
+     or pick any real status to hide Claims rows (they never match a real status). */
+  const liveStatusColFilter = paymentsColFilters.liveStatus || "";
+  const claimRows = liveStatusColFilter === "Claims" ? getFilteredPaymentClaims()
+    : liveStatusColFilter ? []
+    : (activePaymentStatusTab==="All" || activePaymentStatusTab==="Claims") ? getFilteredPaymentClaims() : [];
   document.getElementById("paymentsEmpty").style.display = (paidOrders.length + claimRows.length) ? "none" : "block";
   /* Compute each row's figures exactly once here, then reuse the same {o, rf} pairs for both the
      missing-breakdown warning banner and the table row markup below — avoids calling
@@ -7391,23 +7380,23 @@ function renderPayments(){
     const linkNote = o.linked ? "linked to that order's own settlement row above" : "no matching order yet — see the Claims page";
     const titleText = `${o.reason ? o.reason+" — " : ""}${linkNote}`;
     return `<tr class="claim-row" title="${esc(titleText)}">
-      <td>—</td>
+      <td>${o.dispatchDate ? fmtDateFull(o.dispatchDate) : "—"}</td>
       <td class="mono" style="font-size:11px; color:var(--ink-soft);">${esc(o.subOrderNo||"—")}</td>
       <td title="${esc(o.product||"")}">${esc((o.sku && o.sku.trim()) || (o.product ? o.product.trim() : "—"))}</td>
-      <td class="mono" style="font-size:11px;">—</td>
-      <td>${statusPillHTML("Claim")}</td>
-      <td class="num-cell">—</td>
-      <td class="num-cell">—</td>
-      <td class="num-cell">—</td>
-      <td class="num-cell">—</td>
-      <td class="num-cell">—</td>
-      <td class="num-cell">—</td>
+      <td class="mono" style="font-size:11px;">${esc(o.catalogId||"—")}</td>
+      <td>${statusPillHTML("Claims")}</td>
+      <td class="num-cell">${o.qty!=null ? o.qty : "—"}</td>
+      <td class="num-cell">${o.listingPrice!=null ? fmt(o.listingPrice) : "—"}</td>
+      <td class="num-cell">${o.shippingCharge!=null ? fmt(o.shippingCharge) : "—"}</td>
+      <td class="num-cell">${o.gstPct!=null ? o.gstPct+"%" : "—"}</td>
+      <td class="num-cell">${o.tcs!=null ? fmt(o.tcs) : "—"}</td>
+      <td class="num-cell">${o.tds!=null ? fmt(o.tds) : "—"}</td>
       <td class="num-cell" style="${amtStyle}">${fmt(amt)}</td>
       <td>${o.paymentDate ? fmtDateFull(o.paymentDate) : "—"}</td>
-      <td class="num-cell">—</td>
-      <td class="num-cell">—</td>
-      <td class="num-cell">—</td>
-      <td class="num-cell">—</td>
+      <td class="num-cell" title="Not computed for Claims rows — this is a follow-up payout, not a separate product sale with its own cost basis.">—</td>
+      <td class="num-cell" title="Not computed for Claims rows — this is a follow-up payout, not a separate product sale with its own cost basis.">—</td>
+      <td class="num-cell" title="Not computed for Claims rows — this is a follow-up payout, not a separate product sale with its own cost basis.">—</td>
+      <td class="num-cell" title="Not computed for Claims rows — this is a follow-up payout, not a separate product sale with its own cost basis.">—</td>
     </tr>`;
   }).join("");
   document.querySelectorAll("#paymentsBody tr[data-order-id]").forEach(tr=>{
@@ -9988,6 +9977,14 @@ function processMeeshoPaymentRows(rows, filename){
     const transactionId = (getField(row, MEESHO_PAYMENT_FIELD_MAP.transactionId)||"").toString().trim();
     const productNameRaw = (getField(row, MEESHO_PAYMENT_FIELD_MAP.productName)||"").toString().trim();
     const sku = (getField(row, MEESHO_PAYMENT_FIELD_MAP.sku)||"").toString().trim();
+    /* This blank-status row carries the same "order shape" columns as any normal row (Dispatch
+       Date, Catalog ID, Product GST %, Listing Price, Quantity) — captured here too so the Claims
+       row in the Payment ledger can show them exactly like every other row, instead of "—". */
+    const dispatchDate = normalizeDateOptional(getField(row, MEESHO_PAYMENT_FIELD_MAP.dispatchDate));
+    const catalogId = (getField(row, MEESHO_PAYMENT_FIELD_MAP.catalogId)||"").toString().trim();
+    const gstPct = num(getField(row, MEESHO_PAYMENT_FIELD_MAP.gstPct));
+    const listingPrice = num(getField(row, MEESHO_PAYMENT_FIELD_MAP.listingPrice));
+    const qty = num(getField(row, MEESHO_PAYMENT_FIELD_MAP.qty));
     const extra = {
       compensation: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.compensation)),
       claims: num(getField(row, MEESHO_PAYMENT_FIELD_MAP.claims)),
@@ -10038,6 +10035,8 @@ function processMeeshoPaymentRows(rows, filename){
     }
     meeshoSupplementaryPaymentRows.push({
       id:newId("mosup"), subOrderNo, paymentDate, amount:amt, transactionId, product:productNameRaw, sku, reason,
+      dispatchDate, catalogId, gstPct, listingPrice, qty,
+      tcs: extra.tcs, tds: extra.tds, shippingCharge: extra.shippingCharge,
       sourceFile:filename, importedAt:new Date().toISOString(), linked, extraFields:appliedFields,
     });
     captured++;
