@@ -9928,10 +9928,46 @@ function processMeeshoPaymentRows(rows, filename){
     /* Once payment data has been recorded for a Sub Order No — by this import, an earlier one, or
        a manual payment entry — it's locked. Re-uploading the same/an updated Payments file never
        silently rewrites bank amount, status, fees, etc. again; only deleting that import (or the
-       order) clears the lock. This is what keeps the Payments tab stable across repeat imports. */
+       order) clears the lock. This is what keeps the Payments tab stable across repeat imports.
+       BUT Meesho's Payments export can also legitimately carry a genuinely SECOND row for the same
+       Sub Order No with a real (non-blank) Live Order Status too — not only the blank-status
+       follow-up rows the second pass below handles — e.g. a correction, or a later payout under the
+       same order. A content-based fingerprint (Sub Order No + Transaction ID + amount + payment
+       date, the same idea used for blank-status rows) tells the two apart: matching the order's
+       already-stored fingerprint means it really is the same row being re-uploaded and is skipped
+       as locked; not matching means it's new money the file is reporting and is captured on top,
+       the same way a blank-status follow-up row is — never silently dropped. */
+    const rowSettlementKey = supplementaryPaymentRowKey({subOrderNo, transactionId: (paymentDetails.transactionId||"").trim(), amount: bank||0, paymentDate});
     const idx = orders.findIndex(o=>o.id===subOrderNo);
     if(idx>-1 && orders[idx].paymentDataLocked){
-      locked++; touchedIds.push(subOrderNo); return;
+      /* An order locked by an earlier version of this app (before primarySettlementKey existed)
+         won't have that field — reconstruct the same fingerprint from what's currently stored on
+         it so re-uploading that order's ORIGINAL file still correctly matches and skips, instead
+         of being mistaken for a new second settlement and double-counted. */
+      const storedKey = orders[idx].primarySettlementKey || supplementaryPaymentRowKey({
+        subOrderNo, transactionId: ((orders[idx].paymentDetails && orders[idx].paymentDetails.transactionId)||"").trim(),
+        amount: orders[idx].bank||0, paymentDate: orders[idx].paymentDate||"",
+      });
+      const alreadyCaptured = storedKey===rowSettlementKey || existingSupplementaryKeys.has(rowSettlementKey);
+      if(alreadyCaptured){
+        locked++; touchedIds.push(subOrderNo); return;
+      }
+      existingSupplementaryKeys.add(rowSettlementKey);
+      const amt = bank||0;
+      const prevBank = orders[idx].bank!=null ? orders[idx].bank : 0;
+      const newBank = +(((prevBank||0)) + amt).toFixed(2);
+      const {merged} = mergeAdditiveIntoPaymentDetails(orders[idx].paymentDetails, paymentDetails);
+      merged.settlementAmount = newBank;
+      orders[idx] = {...orders[idx], bank:newBank, paymentDetails: merged};
+      meeshoSupplementaryPaymentRows.push({
+        id:newId("mosup"), subOrderNo, paymentDate, amount:amt, transactionId:(paymentDetails.transactionId||"").trim(),
+        product:productNameRaw, sku, reason:`Second settlement row for this Sub Order No (Live Order Status: ${liveStatusDisplay||"—"})`,
+        dispatchDate: paymentDetails.dispatchDate, catalogId, gstPct: paymentDetails.gstPct, listingPrice, qty,
+        tcs: paymentDetails.tcs, tds: paymentDetails.tds, shippingCharge: paymentDetails.shippingCharge,
+        sourceFile:filename, importedAt:new Date().toISOString(), linked:true, extraFields:{},
+      });
+      captured++; touchedIds.push(subOrderNo);
+      return;
     }
     if(idx>-1){
       const keepStatus = ["Customer Return","RTO","RTO_LOCKED"].includes(orders[idx].status) || orders[idx].returnDataLocked;
@@ -9945,7 +9981,7 @@ function processMeeshoPaymentRows(rows, filename){
         status: nextStatus,
         sku: orders[idx].sku || sku || orders[idx].sku,
         catalogId: orders[idx].catalogId || catalogId || orders[idx].catalogId,
-        paymentDetails, paymentSource: filename, paymentDataLocked: true,
+        paymentDetails, paymentSource: filename, paymentDataLocked: true, primarySettlementKey: rowSettlementKey,
       };
       matched++;
     } else {
@@ -9957,7 +9993,7 @@ function processMeeshoPaymentRows(rows, filename){
         id: subOrderNo, platform:"Meesho", date: orderDate || paymentDate, product, qty,
         sell: listingPrice!=null ? listingPrice : (saleAmount!=null ? saleAmount : (bank||0)), cost,
         status: resolveOrderStatus(mappedStatus || "Delivered", bank), fee: fee!=null ? fee : 0, bank, paymentDate, sku, catalogId, source: filename,
-        paymentDetails, paymentOnly: true, paymentSource: filename, paymentDataLocked: true,
+        paymentDetails, paymentOnly: true, paymentSource: filename, paymentDataLocked: true, primarySettlementKey: rowSettlementKey,
       });
       created++;
     }
