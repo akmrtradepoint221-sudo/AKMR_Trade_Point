@@ -9809,7 +9809,7 @@ function processMeeshoReturnRows(rows, filename){
    Meesho settlement breakdown (revenue, TCS/TDS, compensation/claims/recovery) into
    o.paymentDetails so it can be shown in the payment breakdown drawer. ---- */
 function processMeeshoPaymentRows(rows, filename){
-  let matched=0, created=0, skipped=0, unmatched=0, locked=0, captured=0;
+  let matched=0, created=0, skipped=0, unmatched=0, locked=0, captured=0, backfilled=0;
   const unmatchedSet = new Set();
   const touchedIds = [];
   const skippedDetails = [];
@@ -10016,6 +10016,20 @@ function processMeeshoPaymentRows(rows, filename){
 
     const key = supplementaryPaymentRowKey({subOrderNo, transactionId, amount:amt, paymentDate});
     if(existingSupplementaryKeys.has(key)){
+      /* Already captured — but an earlier import (from before Catalog ID/GST%/Listing
+         Price/Qty/Shipping Charge/TCS/TDS/Dispatch Date were captured for these rows) may have
+         stored this row without them. Backfill any of those that are still missing from THIS
+         file's copy of the same row, without touching the amount again or re-merging it into the
+         linked order's settlement a second time — that part is already done. */
+      const existingRow = meeshoSupplementaryPaymentRows.find(r=> supplementaryPaymentRowKey(r)===key);
+      if(existingRow){
+        let patched = false;
+        const fill = (field, val)=>{ if((existingRow[field]==null || existingRow[field]==="") && val!=null && val!==""){ existingRow[field]=val; patched=true; } };
+        fill("dispatchDate", dispatchDate); fill("catalogId", catalogId); fill("gstPct", gstPct);
+        fill("listingPrice", listingPrice); fill("qty", qty);
+        fill("tcs", extra.tcs); fill("tds", extra.tds); fill("shippingCharge", extra.shippingCharge);
+        if(patched) backfilled++;
+      }
       skipped++; touchedIds.push(subOrderNo);
       skippedDetails.push({row:i+2, sku, product:productNameRaw, reason:"Blank Live Order Status row — this supplementary payment was already captured earlier"});
       return;
@@ -10063,7 +10077,7 @@ function processMeeshoPaymentRows(rows, filename){
   document.querySelectorAll("#view-payments thead th[data-sort]").forEach(t=>t.classList.remove("sorted"));
   renderAll();
   populateProductSelect();
-  return {matched, created, skipped, unmatched, locked, captured, unmatchedList:[...unmatchedSet], total:usableRows.length, orderIds: touchedIds, skippedDetails, capturedOrphanIds};
+  return {matched, created, skipped, unmatched, locked, captured, backfilled, unmatchedList:[...unmatchedSet], total:usableRows.length, orderIds: touchedIds, skippedDetails, capturedOrphanIds};
 }
 /* Content-based dedupe key for an orphan (no Sub Order No) payment row — same idea as
    bankStmtRowKey — so re-uploading the same Payments file never double-counts these into the
@@ -10751,13 +10765,35 @@ let reconToleranceDays = 2;
 let reconIssuesOnly = false;
 const RECON_AMOUNT_TOLERANCE = 2; // ₹ — absorbs paisa-level rounding between Meesho's figure and the bank's
 
+/* Every rupee a linked Claims row added to its order's o.bank (see processMeeshoPaymentRows),
+   grouped by order id — shared by reconcileMeeshoVsBank() and openReconDetailDrawer() so the two
+   never disagree about how much of an order's settlement is "the original sale" vs "a later claim
+   riding along on the same order id". */
+function getLinkedClaimTotalsByOrderId(){
+  const totals = {};
+  meeshoSupplementaryPaymentRows.forEach(o=>{
+    if(!o.linked) return;
+    totals[o.subOrderNo] = (totals[o.subOrderNo]||0) + (o.amount||0);
+  });
+  return totals;
+}
 function reconcileMeeshoVsBank(){
   const meeshoByDate = {}; // "YYYY-MM-DD" -> total settlement amount Meesho recorded that day
+  /* A linked Claims row's amount gets folded into its order's o.bank (see processMeeshoPaymentRows)
+     so Payment-ledger/profit figures show one combined settlement — but the order KEEPS its
+     original payment date, while the claim itself typically credits weeks later on its OWN payment
+     date. Attributing the whole (now-bigger) o.bank to the order's original date would misdate the
+     claim's portion here and show a false day-to-day mismatch against the bank statement. So this
+     reconciliation subtracts each order's linked-claim total back out of its original date's
+     bucket, then — same as an unlinked claim already did — adds every claim on the date IT actually
+     says it was paid, a few lines below. */
+  const linkedClaimTotalsByOrderId = getLinkedClaimTotalsByOrderId();
   orders.forEach(o=>{
     if(!o.paymentDetails || !o.paymentDate) return;
     const amt = getPaymentRowFigures(o).settlementAmt;
     if(amt==null) return;
-    meeshoByDate[o.paymentDate] = (meeshoByDate[o.paymentDate]||0) + amt;
+    const claimPortion = linkedClaimTotalsByOrderId[o.id] || 0;
+    meeshoByDate[o.paymentDate] = (meeshoByDate[o.paymentDate]||0) + (amt - claimPortion);
   });
   // Payment file rows with no Sub Order No (meeshoOrphanPaymentRows) are still real money Meesho's
   // file said moved on a given date, so they're folded into the same per-day totals here — otherwise
@@ -10766,11 +10802,10 @@ function reconcileMeeshoVsBank(){
     if(!o.paymentDate || !o.amount) return;
     meeshoByDate[o.paymentDate] = (meeshoByDate[o.paymentDate]||0) + o.amount;
   });
-  // Supplementary (blank Live Order Status) rows that found a matching order are already inside
-  // that order's o.bank, so the orders.forEach above already counted them — only fold in the
-  // UNLINKED ones here, same reasoning as the orphan rows just above.
+  // Every Claims row (linked or not) is added on ITS OWN payment date — a linked one had its
+  // original order's date-bucket already corrected for above, so this is the only place that
+  // amount is counted, on the date it actually belongs to.
   meeshoSupplementaryPaymentRows.forEach(o=>{
-    if(o.linked) return;
     if(!o.paymentDate || !o.amount) return;
     meeshoByDate[o.paymentDate] = (meeshoByDate[o.paymentDate]||0) + o.amount;
   });
@@ -10919,8 +10954,11 @@ function openReconDetailDrawer(meeshoDate, unexplainedBankDate){
     const r = rows.find(x=>x.meeshoDate===meeshoDate);
     if(!r) return;
     const paidOrders = orders.filter(o=>o.paymentDetails && o.paymentDate===meeshoDate);
+    const linkedClaimTotalsByOrderId = getLinkedClaimTotalsByOrderId();
     const orphanRows = meeshoOrphanPaymentRows.filter(o=>o.paymentDate===meeshoDate);
-    const unlinkedSupplementaryRows = meeshoSupplementaryPaymentRows.filter(o=>!o.linked && o.paymentDate===meeshoDate);
+    // Every Claims row on this date now counts here — a linked one's amount was subtracted back out
+    // of its order's own row just below (see paidOrders' displayed amount), so it isn't shown twice.
+    const supplementaryRowsHere = meeshoSupplementaryPaymentRows.filter(o=>o.paymentDate===meeshoDate);
     const bankEntries = r.bankDate ? bankStatementEntries.filter(e=>e.date===r.bankDate && e.credit>0) : [];
     const diff = r.bankDate ? (r.bankAmt - r.meeshoAmt) : null;
     const dayGap = r.bankDate ? Math.round((new Date(r.bankDate+"T00:00:00")-new Date(r.meeshoDate+"T00:00:00"))/86400000) : null;
@@ -10944,11 +10982,11 @@ function openReconDetailDrawer(meeshoDate, unexplainedBankDate){
       ${section("Likely reason")}
       <div class="drawer-row" style="display:block;">${reason}</div>
       ${section(`Meesho orders that make up ${fmt(r.meeshoAmt)}`)}
-      ${paidOrders.map(o=>row(esc(o.id)+" — "+esc((o.product||"").slice(0,28)), fmt(o.bank))).join("") || row("—","—")}
+      ${paidOrders.map(o=>row(esc(o.id)+" — "+esc((o.product||"").slice(0,28)), fmt(o.bank - (linkedClaimTotalsByOrderId[o.id]||0)))).join("") || row("—","—")}
       ${orphanRows.length ? section("Other Meesho entries (no Sub Order No) on this date") : ""}
       ${orphanRows.map(o=>row(esc(o.product||o.sku||"Unnamed row"), fmt(o.amount))).join("")}
-      ${unlinkedSupplementaryRows.length ? section("Supplementary claims/payments with no matching order yet") : ""}
-      ${unlinkedSupplementaryRows.map(o=>row(esc(o.subOrderNo)+" — "+esc(o.reason||""), fmt(o.amount))).join("")}
+      ${supplementaryRowsHere.length ? section("Claims (supplementary payments) on this date") : ""}
+      ${supplementaryRowsHere.map(o=>row(esc(o.subOrderNo)+" — "+esc(o.reason||"")+(o.linked?" (linked)":" (no matching order yet)"), fmt(o.amount))).join("")}
       ${bankEntries.length ? section(`Bank rows on ${esc(fmtDateFull(r.bankDate))}`) : ""}
       ${bankEntries.map(e=>row(esc(e.narration||"—"), fmt(e.credit))).join("")}
     `;
@@ -11385,6 +11423,7 @@ function buildImportLogRow(e){
   if(s.matched!=null) statHtml += ` <span class="import-stat stat-info">🔗 <b>${s.matched}</b> matched to existing order</span>`;
   if(s.created!=null) statHtml += ` <span class="import-stat stat-good">➕ <b>${s.created}</b> new order</span>`;
   if(s.captured!=null) statHtml += ` <span class="import-stat stat-good">📋 <b>${s.captured}</b> captured to dashboard</span>`;
+  if(s.backfilled) statHtml += ` <span class="import-stat stat-info">🧾 <b>${s.backfilled}</b> Claims row(s) filled in missing details</span>`;
   if(s.ordersUpdated!=null) statHtml += ` <span class="import-stat stat-info">🔗 <b>${s.ordersUpdated}</b> order status synced</span>`;
   if(s.newItems!=null) statHtml += ` <span class="import-stat stat-good">🆕 <b>${s.newItems}</b> new ${e.kind==="rawmaterial"?"material(s)":"item(s)"} created</span>`;
   if(s.locked) statHtml += ` <span class="import-stat stat-muted">🔒 <b>${s.locked}</b> already imported — left unchanged</span>`;
