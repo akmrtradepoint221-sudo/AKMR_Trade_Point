@@ -7037,7 +7037,12 @@ function computePaymentsSummary(paymentDateFilter){
   const supplementaryUnlinkedRows = supplementaryRowsInScope.filter(o=>!o.linked);
   const supplementaryLinkedTotal = supplementaryLinkedRows.reduce((s,o)=>s+(o.amount||0),0);
   const supplementaryUnlinkedTotal = supplementaryUnlinkedRows.reduce((s,o)=>s+(o.amount||0),0);
-  const grandTotalReceived = netBankSettlement + orphanTotal + supplementaryUnlinkedTotal;
+  /* Total Payments Received = every settlement rupee the imported files reported, summed the same
+     way the Meesho ↔ Bank reconciliation does (all statuses, positive or negative) so this hero
+     figure always agrees with what actually lands in the bank. netBankSettlement above is kept as-is
+     for the profit maths — it filters by status/sign, which made this total drift from the bank. */
+  const allSettlementsTotal = paidOrdersAll.reduce((s,o)=>{ const v = getPaymentRowFigures(o).settlementAmt; return s + (v!=null ? v : 0); }, 0);
+  const grandTotalReceived = allSettlementsTotal + orphanTotal + supplementaryUnlinkedTotal;
   return {totalListingPrice, totalActualReceived, totalPricePerUnit, totalOtherExpense, netBankSettlement, totalNetProfit, overallMargin, settledCount: paidOrdersAll.length, orphanTotal, orphanCount: orphanRowsInScope.length,
     supplementaryLinkedTotal, supplementaryLinkedCount: supplementaryLinkedRows.length, supplementaryUnlinkedTotal, supplementaryUnlinkedCount: supplementaryUnlinkedRows.length,
     grandTotalReceived};
@@ -7157,7 +7162,8 @@ function renderPaymentTabs(){
     /* "Claims" isn't a real order status — it counts the supplementary/claim payout rows instead
        (see meeshoSupplementaryPaymentRows), and is folded into "All" too, same as every other tab. */
     const count = s==="All" ? allPaid.length + meeshoSupplementaryPaymentRows.length
-      : s==="Claims" ? meeshoSupplementaryPaymentRows.length
+      : s==="Claims" ? meeshoSupplementaryPaymentRows.filter(o=>getSupplementaryDisplayStatus(o)==="Claims").length
+      : s==="Customer Return" ? allPaid.filter(o=>getPaymentStatus(o)===s).length + meeshoSupplementaryPaymentRows.filter(o=>getSupplementaryDisplayStatus(o)==="Customer Return").length
       : allPaid.filter(o=>getPaymentStatus(o)===s).length;
     const meta = STATUS_TAB_META[s] || {icon:"•", color:"var(--ink-soft)", bg:"var(--panel-2)"};
     const isActive = activePaymentStatusTab===s;
@@ -7217,7 +7223,10 @@ function populatePaymentsColFilterSelects(){
     /* The "Live Order Status" column filter also needs a "Claims" option — those rows aren't real
        orders (see meeshoSupplementaryPaymentRows), so they never show up in rawValues above, which
        only looks at `orders`. Appended at the end whenever at least one Claims row exists. */
-    if(key==="liveStatus" && meeshoSupplementaryPaymentRows.length) sorted.push("Claims");
+    if(key==="liveStatus"){
+      if(meeshoSupplementaryPaymentRows.some(o=>getSupplementaryDisplayStatus(o)==="Claims")) sorted.push("Claims");
+      if(meeshoSupplementaryPaymentRows.some(o=>getSupplementaryDisplayStatus(o)==="Customer Return") && !sorted.includes("Customer Return")) sorted.push("Customer Return");
+    }
     const strValues = sorted.map(v=>v.toString());
     sel.innerHTML = `<option value="">All</option>` + sorted.map((v,i)=>`<option value="${esc(strValues[i])}">${esc(formatPaymentsColFilterLabel(key,v))}</option>`).join("");
     sel.value = strValues.includes(prevVal) ? prevVal : "";
@@ -7235,10 +7244,23 @@ function populatePaymentsColFilterSelects(){
    do. Column sort and the per-column filter dropdowns don't apply to these (different shape of
    record to an order), so they always sort newest-payment-date-first and are appended after the
    sorted/filtered order rows. */
-function getFilteredPaymentClaims(){
+/* A blank-Live-Order-Status payout is only a genuine "Claim" when Meesho actually reported claims /
+   compensation / recovery on it. A negative settlement, or one carrying shipping / return-shipping
+   charges, is a customer-return (or RTO) settlement — it must NOT be labelled "Claims". */
+function getSupplementaryDisplayStatus(o){
+  const nz = v => v!=null && v!=="" && Number(v)!==0;
+  if(nz(o.claimsAmt) || nz(o.compensationAmt) || nz(o.recoveryAmt)) return "Claims";
+  const r = (o.reason||"");
+  const explicitReason = r && !/^Other Meesho payment/.test(r) && !/^Second settlement row/.test(r);
+  if(explicitReason) return "Claims";
+  if((o.amount||0) < 0 || nz(o.shippingCharge) || nz(o.returnShippingCharge) || nz(o.returnPremium)) return "Customer Return";
+  return "Claims";
+}
+function getFilteredPaymentClaims(kind){
   if(paymentsPlatformFilterVal !== "all" && paymentsPlatformFilterVal !== "Meesho") return [];
   if(paymentsPaymentFilterVal==="pending") return []; // a claim payout is always money already received
   let list = meeshoSupplementaryPaymentRows.slice();
+  if(kind) list = list.filter(o=> getSupplementaryDisplayStatus(o)===kind);
   if(paymentsDateFromVal) list = list.filter(o=> (o.paymentDate||"") >= paymentsDateFromVal);
   if(paymentsDateToVal) list = list.filter(o=> (o.paymentDate||"") <= paymentsDateToVal);
   if(paymentsSearchTerm) list = list.filter(o=> (o.product||"").toLowerCase().includes(paymentsSearchTerm) || (o.subOrderNo||"").toLowerCase().includes(paymentsSearchTerm));
@@ -7287,9 +7309,9 @@ function renderPayments(){
      overrides the tab: pick "Claims" there to see only Claims rows regardless of the active tab,
      or pick any real status to hide Claims rows (they never match a real status). */
   const liveStatusColFilter = paymentsColFilters.liveStatus || "";
-  const claimRows = liveStatusColFilter === "Claims" ? getFilteredPaymentClaims()
-    : liveStatusColFilter ? []
-    : (activePaymentStatusTab==="All" || activePaymentStatusTab==="Claims") ? getFilteredPaymentClaims() : [];
+  const claimRows = liveStatusColFilter ? ((liveStatusColFilter==="Claims"||liveStatusColFilter==="Customer Return") ? getFilteredPaymentClaims(liveStatusColFilter) : [])
+    : activePaymentStatusTab==="All" ? getFilteredPaymentClaims()
+    : (activePaymentStatusTab==="Claims"||activePaymentStatusTab==="Customer Return") ? getFilteredPaymentClaims(activePaymentStatusTab) : [];
   document.getElementById("paymentsEmpty").style.display = (paidOrders.length + claimRows.length) ? "none" : "block";
   /* Compute each row's figures exactly once here, then reuse the same {o, rf} pairs for both the
      missing-breakdown warning banner and the table row markup below — avoids calling
@@ -7384,7 +7406,7 @@ function renderPayments(){
       <td class="mono" style="font-size:11px; color:var(--ink-soft);">${esc(o.subOrderNo||"—")}</td>
       <td title="${esc(o.product||"")}">${esc((o.sku && o.sku.trim()) || (o.product ? o.product.trim() : "—"))}</td>
       <td class="mono" style="font-size:11px;">${esc(o.catalogId||"—")}</td>
-      <td>${statusPillHTML("Claims")}</td>
+      <td>${statusPillHTML(getSupplementaryDisplayStatus(o))}</td>
       <td class="num-cell">${o.qty!=null ? o.qty : "—"}</td>
       <td class="num-cell">${o.listingPrice!=null ? fmt(o.listingPrice) : "—"}</td>
       <td class="num-cell">${o.shippingCharge!=null ? fmt(o.shippingCharge) : "—"}</td>
@@ -10108,6 +10130,8 @@ function processMeeshoPaymentRows(rows, filename){
       id:newId("mosup"), subOrderNo, paymentDate, amount:amt, transactionId, product:productNameRaw, sku, reason,
       dispatchDate, catalogId, gstPct, listingPrice, qty,
       tcs: extra.tcs, tds: extra.tds, shippingCharge: extra.shippingCharge,
+      claimsAmt: extra.claims, compensationAmt: extra.compensation, recoveryAmt: extra.recovery,
+      returnShippingCharge: extra.returnShippingCharge, returnPremium: extra.returnPremium,
       sourceFile:filename, importedAt:new Date().toISOString(), linked, extraFields:appliedFields,
     });
     captured++;
