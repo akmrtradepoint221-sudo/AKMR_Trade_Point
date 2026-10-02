@@ -1653,14 +1653,14 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
           <div class="card-head"><h3>🧾 Supplementary Meesho payments (claims / RTO settlements / other payouts)</h3><span class="meta">Rows with a Sub Order No but a blank Live Order Status — a later payout on an order already reported once. Added on top of that order's settlement, and included in the Total Payments Received figure on the Meesho Payments tab</span></div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th>Payment Date</th><th>Sub Order No</th><th>Product / SKU</th><th>Reason</th><th style="text-align:right;">Amount (₹)</th><th>Status</th><th>Source file</th><th style="text-align:right;">Actions</th></tr></thead>
+              <thead><tr><th>Payment Date</th><th>Sub Order No</th><th>Product / SKU</th><th>Order Status</th><th>Reason</th><th style="text-align:right;">Order Settlement (₹)</th><th style="text-align:right;">Claim Amount (₹)</th><th>Link</th><th>Source file</th><th style="text-align:right;">Actions</th></tr></thead>
               <tbody id="claimsSupplementaryBody"></tbody>
               <tfoot><tr class="tot-row" id="claimsSupplementaryFoot"></tr></tfoot>
             </table>
           </div>
         </div>
         <div id="claimsEmpty" class="empty-state" style="display:none;"><div class="ic">🧾</div><b>No claims or supplementary payouts yet</b>These appear automatically once an imported Meesho payments file has a row with a Sub Order No but a blank Live Order Status — e.g. an RTO settlement, a compensation credit, or another follow-up payout on an order already reported once. Import a Meesho payments file from the Meesho Payments tab to populate this.</div>
-        <p class="subtle-note" style="padding:12px 18px 0;">This is the same data shown inside the Meesho Payments tab's "Supplementary Meesho payments" card — pulled out here as its own page so claims, RTO settlements and other follow-up payouts are easy to find without opening the full payment ledger. Deleting or reviewing a row here behaves exactly the same as doing it from the Payments tab.</p>
+        <p class="subtle-note" style="padding:12px 18px 0;">This is the same data shown inside the Meesho Payments tab's "Supplementary Meesho payments" card — pulled out here as its own page so claims, RTO settlements and other follow-up payouts are easy to find without opening the full payment ledger. Each claim is copied from Payments together with its order's status (RTO / Customer Return / …) and settlement, for reference. If you delete that order — or undo that payments import — on the Payments side, its claims disappear from this page at the same time.</p>
       </div>
 
       <!-- ===================== EXPENSES ===================== -->
@@ -3789,7 +3789,8 @@ function renderHomeHero(){
      mirroring the exact same formula used in the Payments tab's Net Bank Settlement (Overall) card,
      just scoped to the selected home-page period instead of all-time. */
   const periodReturnSettlement = customerReturnOrders.filter(o=>o.paymentDetails).map(getPaymentRowFigures).reduce((s,rf)=>s+(rf.settlementAmt||0),0);
-  const periodNetBankSettlement = periodReceived - Math.abs(periodReturnSettlement);
+  /* Same rule as computePaymentsSummary: real cash = every settled order's signed settlement. */
+  const periodNetBankSettlement = periodOrdersForPayments.filter(o=>o.paymentDetails).reduce((s,o)=>{ const v = getPaymentRowFigures(o).settlementAmt; return s + (v!=null ? v : 0); }, 0);
 
   /* Net Profit (period) = Net Bank Settlement (period) − Price per Unit (period) − Other Expense
      (period), mirroring the Payments tab's Net Profit (Overall) formula exactly. Price per Unit
@@ -4295,6 +4296,7 @@ function renderOrdersTable(){
         confirmLabel: "Delete selected",
         onConfirm: ()=>{
           orders = orders.filter(o=>!ids.includes(o.id));
+          removeClaimRowsForOrderIds(ids);
           selectedOrderIds.clear();
           inventory.forEach(recomputeInvFields);
           closeConfirm();
@@ -7015,7 +7017,13 @@ function computePaymentsSummary(paymentDateFilter){
      carved out of the "real" bank inflow figure here. */
   const returnOrders = paidOrdersAll.filter(o=> getPaymentStatus(o)==="Customer Return");
   const returnSettlement = returnOrders.reduce((s,o)=>s+(getPaymentRowFigures(o).settlementAmt||0),0);
-  const netBankSettlement = totalActualReceived - Math.abs(returnSettlement);
+  /* Net Bank Settlement = the real cash that landed: every order's settlement, signed, added up
+     (Delivered + claims on returned/RTO orders + return reversals). The old formula
+     (positive Delivered settlements − |Return settlements|) only worked while returns were always
+     negative and RTO paid ₹0. Once Meesho pays a CLAIM on a Return/RTO order (a positive amount, e.g.
+     "Wrong/No proof of delivery"), that formula subtracted the claim instead of adding it and ignored
+     RTO claims entirely, so it drifted far below the Excel / bank figure. */
+  const netBankSettlement = paidOrdersAll.reduce((s,o)=>{ const v = getPaymentRowFigures(o).settlementAmt; return s + (v!=null ? v : 0); }, 0);
   /* Net Profit (Overall) = Net Bank Settlement − Price per Unit − Other Expense. Deliberately left
      untouched by orphan payment rows below — those have no known cost basis or fulfillment status,
      so folding them in here would distort profit/margin rather than clarify it. */
@@ -7084,23 +7092,30 @@ function deletePaymentsOrphanRow(id){
    Payment ledger table on the Meesho Payments tab (see the claimRows logic in renderPayments) —
    there's no separate card for them inside that tab anymore. */
 function renderPaymentsSupplementaryTable(paymentDateFilter){
-  const rows = meeshoSupplementaryPaymentRows
-    .filter(o=> !paymentDateFilter || o.paymentDate===paymentDateFilter)
-    .sort((a,b)=> (b.paymentDate||"").localeCompare(a.paymentDate||""));
+  /* Claims page = copy of what Payments holds for each claimed order (RTO / Customer Return / etc.):
+     the order's current status and settlement are read live from the Payments record, so this page
+     can never disagree with it, and an order deleted from Payments disappears from here too. */
+  const mirror = getClaimsMirrorRows(paymentDateFilter);
+  const rows = mirror.map(m=>m.c);
   const total = rows.reduce((s,o)=>s+(o.amount||0),0);
-  const rowsHtml = rows.map(o=>`
+  const rowsHtml = mirror.map(({c:o, ord})=>{
+    const orderStatus = ord ? getPaymentStatus(ord) : getSupplementaryDisplayStatus(o);
+    const orderSettle = ord ? getPaymentRowFigures(ord).settlementAmt : null;
+    return `
     <tr>
       <td>${o.paymentDate ? esc(fmtDateFull(o.paymentDate)) : "—"}</td>
       <td class="mono" style="font-size:11px;">${esc(o.subOrderNo||"—")}</td>
       <td>${esc(o.product||"—")}${o.sku ? ` <span class="meta">(${esc(o.sku)})</span>` : ""}</td>
+      <td>${statusPillHTML(orderStatus)}</td>
       <td style="font-size:11.5px; color:var(--ink-soft);">${esc(o.reason||"—")}</td>
+      <td style="text-align:right; ${(orderSettle||0)>=0?"color:var(--forest);":"color:var(--red);"} font-weight:600;" title="Total settlement for this order on the Payments tab (main payout + claims)">${orderSettle!=null ? fmt(orderSettle) : "—"}</td>
       <td style="text-align:right; ${o.amount>=0?"color:var(--forest);":"color:var(--red);"} font-weight:600;">${fmt(o.amount)}</td>
       <td>${o.linked ? `<span style="color:var(--forest); font-weight:700;">🔗 Linked to order</span>` : `<span style="color:var(--amber); font-weight:700;">⚠ No matching order yet</span>`}</td>
       <td class="mono" style="font-size:11px; color:var(--ink-soft);">${esc(o.sourceFile||"")}</td>
       <td style="text-align:right;"><button class="btn small secondary" onclick="deletePaymentsSupplementaryRow('${o.id}')" title="Remove this entry">🗑</button></td>
     </tr>
-  `).join("");
-  const footHtml = `<td colspan="4" style="text-align:right;"><b>Total (${rows.length} entr${rows.length===1?"y":"ies"})</b></td><td style="text-align:right;"><b>${fmt(total)}</b></td><td colspan="3"></td>`;
+  `;}).join("");
+  const footHtml = `<td colspan="6" style="text-align:right;"><b>Total claimed (${rows.length} entr${rows.length===1?"y":"ies"})</b></td><td style="text-align:right;"><b>${fmt(total)}</b></td><td colspan="3"></td>`;
 
   // This card used to live inside the Meesho Payments tab too; it now lives only on the dedicated
   // "Claims" sidebar view below (the entries themselves also show as "Claims" rows in the Payment
@@ -7127,6 +7142,36 @@ function renderPaymentsSupplementaryTable(paymentDateFilter){
       ? `${rows.length} entr${rows.length===1?"y":"ies"} · ${linkedCount} linked to an order, ${unlinkedCount} not yet matched${paymentDateFilter ? ` · ${fmtDateFull(paymentDateFilter)} only` : ""}`
       : "No claims or supplementary payouts recorded yet";
   }
+}
+/* ---- Claims page = live mirror of Payments ----
+   A claim row only means something while the order it belongs to still has its payment record on
+   the Payments tab. These helpers keep the Claims page in lock-step with Payments: when an order
+   (or a whole payments import) is deleted there, its linked claim rows are removed here in the same
+   action. They only drop the claim ROWS — the order they belonged to is already gone/reverted, so
+   there is no settlement left to subtract from. */
+function removeClaimRowsForOrderIds(ids){
+  const set = new Set(ids);
+  const before = meeshoSupplementaryPaymentRows.length;
+  meeshoSupplementaryPaymentRows = meeshoSupplementaryPaymentRows.filter(c=> !(c.linked && set.has(c.subOrderNo)));
+  return before - meeshoSupplementaryPaymentRows.length;
+}
+function removeClaimRowsForFile(filename){
+  const before = meeshoSupplementaryPaymentRows.length;
+  meeshoSupplementaryPaymentRows = meeshoSupplementaryPaymentRows.filter(c=> c.sourceFile!==filename);
+  return before - meeshoSupplementaryPaymentRows.length;
+}
+/* The rows the Claims page shows: each claim copied from Payments together with its order's current
+   status and settlement, so it can be read for reference without opening the ledger. A linked claim
+   whose order no longer has payment data is hidden (it was deleted from Payments). */
+function getClaimsMirrorRows(paymentDateFilter){
+  return meeshoSupplementaryPaymentRows
+    .filter(c=> !paymentDateFilter || c.paymentDate===paymentDateFilter)
+    .map(c=>{
+      const ord = orders.find(o=>o.id===c.subOrderNo);
+      return {c, ord};
+    })
+    .filter(({c,ord})=> !c.linked || (ord && ord.paymentDetails))
+    .sort((a,b)=> (b.c.paymentDate||"").localeCompare(a.c.paymentDate||""));
 }
 /* Deleting a LINKED supplementary row must also undo exactly what it added to its order — the
    settlement amount, and every deduction/credit field it was merged into (via extraFields, the
@@ -7505,7 +7550,7 @@ function renderPayments(){
     <div class="summary-stat value"><span class="s-label">TCS (Overall)${tip("Sum of the Tax Collected at Source (TCS) the platform deducted from each order's settlement.")}</span><span class="s-value">${fmt(totalTcs)}</span></div>
     <div class="summary-stat sold"><span class="s-label">TDS (Overall)${tip("Sum of the Tax Deducted at Source (TDS) the platform deducted from each order's settlement.")}</span><span class="s-value">${fmt(totalTds)}</span></div>
     <div class="summary-stat grandtotal"><span class="s-label">Final Settlement Amount (Overall)${tip("Sum of the Final Settlement Amount the platform actually recorded for each Shipped/Delivered/Cancelled order (only positive settlements are added).")}</span><span class="s-value">${fmt(totalActualReceived)}</span></div>
-    <div class="summary-stat grandtotal"><span class="s-label">Net Bank Settlement (Overall)${tip("Final Settlement Amount (Overall) − money already paid out for Customer Return orders. This is what actually lands in your bank account.")}</span><span class="s-value">${fmt(netBankSettlement)}</span></div>
+    <div class="summary-stat grandtotal"><span class="s-label">Net Bank Settlement (Overall)${tip("Every settlement the platform recorded, added up with its sign — sales, claims/compensation on returned or RTO orders, and return reversals. This is what actually lands in your bank account.")}</span><span class="s-value">${fmt(netBankSettlement)}</span></div>
     <div class="summary-stat damaged"><span class="s-label">Price per Unit (Overall)${tip("Sum of your own product cost (cost per unit × quantity) for every Shipped/Delivered/Cancelled order — what the items actually cost you to buy, not what the customer paid.")}</span><span class="s-value">${fmt(totalPricePerUnit)}</span></div>
     <div class="summary-stat remaining"><span class="s-label">Other Expense (Overall)${tip("Sum of each order's Packing Cost Calculator total (or a flat ₹5 handling fee for RTO/Return).")}</span><span class="s-value">${fmt(totalOtherExpense)}</span></div>
     <div class="summary-stat damaged"><span class="s-label">Lost (Overall)${tip("Adds up Net Profit only from the orders where it came out negative — i.e. sales that lost money after settlement. This is separate from the RTO / Return / Lost-order loss shown in the section below.")}</span><span class="s-value">${fmt(Math.abs(totalLost))}</span></div>
@@ -9276,6 +9321,7 @@ function confirmDeleteOrder(id){
   document.getElementById("confirmCancelBtn").addEventListener("click", closeConfirm);
   document.getElementById("confirmDeleteBtn").addEventListener("click", ()=>{
     orders = orders.filter(x=>x.id!==id);
+    removeClaimRowsForOrderIds([id]); // keep the Claims page in step with Payments
     inventory.forEach(recomputeInvFields);
     closeConfirm();
     closeDrawer();
@@ -9976,13 +10022,21 @@ function processMeeshoPaymentRows(rows, filename){
          on top as a "second settlement", which is what produced totals like -297.35 instead of
          -157. Re-importing the file therefore also self-heals an order whose stored total drifted. */
       const sk = storedKey.split("|"), rk = rowSettlementKey.split("|");
-      const samePayout = storedKey===rowSettlementKey || (sk[1] && sk[1]===rk[1] && sk[3]===rk[3]);
+      /* A real Transaction ID (not blank / "NA") identifies ONE payout — so the same Sub Order No +
+         same Transaction ID is the same payout even when the stored Payment Date has drifted (an
+         older build shifted imported dates by a day). Without this, re-uploading a file over data
+         stored with a shifted date was read as a brand-new "second settlement" for EVERY row and
+         the totals roughly doubled. Blank/"NA" Transaction IDs still need the date to match. */
+      const hasRealTxn = !!(sk[1] && sk[1]===rk[1] && !["na","n/a","nan","-","null"].includes(sk[1]));
+      const samePayout = storedKey===rowSettlementKey || (sk[1] && sk[1]===rk[1] && (sk[3]===rk[3] || hasRealTxn));
       if(samePayout && bank!=null){
         const linkedClaimSum = getLinkedClaimTotalsByOrderId()[subOrderNo] || 0;
         const expectedBank = +(bank + linkedClaimSum).toFixed(2);
         const curBank = orders[idx].bank;
-        if(curBank==null || Math.abs(curBank-expectedBank) > 0.005){
+        const dateDrifted = !!paymentDate && orders[idx].paymentDate!==paymentDate;
+        if(curBank==null || Math.abs(curBank-expectedBank) > 0.005 || dateDrifted){
           orders[idx] = {...orders[idx], bank: expectedBank,
+            paymentDate: paymentDate || orders[idx].paymentDate,
             paymentDetails: {...(orders[idx].paymentDetails||{}), settlementAmount: expectedBank},
             primarySettlementKey: rowSettlementKey};
           backfilled++;
@@ -9995,13 +10049,28 @@ function processMeeshoPaymentRows(rows, filename){
       if(alreadyCaptured){
         locked++; touchedIds.push(subOrderNo); return;
       }
+      /* A repeat row carrying ₹0 and no claim / compensation / recovery adds no money — it's just the
+         same RTO / zero-payout line seen again, so it must not become a phantom "Claims" entry. */
+      if(!bank && !paymentDetails.claims && !paymentDetails.compensation && !paymentDetails.recovery){
+        locked++; touchedIds.push(subOrderNo); return;
+      }
       existingSupplementaryKeys.add(rowSettlementKey);
       const amt = bank||0;
       const prevBank = orders[idx].bank!=null ? orders[idx].bank : 0;
       const newBank = +(((prevBank||0)) + amt).toFixed(2);
       const {merged} = mergeAdditiveIntoPaymentDetails(orders[idx].paymentDetails, paymentDetails);
       merged.settlementAmount = newBank;
-      orders[idx] = {...orders[idx], bank:newBank, paymentDetails: merged};
+      /* A LATER file can report that an order already paid as Shipped/Delivered has since come back
+         (Return / RTO / Lost). Its reversal was being added to the settlement (correct) but the order
+         kept its old Delivered label, so Net Bank Settlement / Net Profit left that reversal out and
+         ran higher than the Excel. The newer, more final status now replaces the old one — only ever
+         moving Delivered/Shipped -> Return/RTO/Lost, never the other way. */
+      let nextOrderStatus = orders[idx].status;
+      if(mappedStatus && ["Customer Return","RTO","RTO_LOCKED","Lost"].includes(mappedStatus) && !["Customer Return","RTO","RTO_LOCKED","Lost"].includes(getPaymentStatus(orders[idx]))){
+        merged.liveStatus = liveStatusRaw; merged.liveStatusDisplay = liveStatusDisplay;
+        nextOrderStatus = mappedStatus;
+      }
+      orders[idx] = {...orders[idx], bank:newBank, status: nextOrderStatus, paymentDetails: merged};
       meeshoSupplementaryPaymentRows.push({
         id:newId("mosup"), subOrderNo, paymentDate, amount:amt, transactionId:(paymentDetails.transactionId||"").trim(),
         product:productNameRaw, sku, reason:`Second settlement row for this Sub Order No (Live Order Status: ${liveStatusDisplay||"—"})`,
@@ -10140,6 +10209,12 @@ function processMeeshoPaymentRows(rows, filename){
       ? `Blank Live Order Status — captured as a supplementary payment of ${fmt(amt)} added to order ${subOrderNo}'s settlement (see "Supplementary Meesho payments" on the Payments tab)`
       : `Blank Live Order Status — no matching order for ${subOrderNo} yet; captured separately, see "Supplementary Meesho payments" on the Payments tab`});
   });
+  /* Safety net: a claim / second-settlement row can end up recorded in the Claims list while the
+     order's own settlement never received it (e.g. the claim was captured by an older build, or the
+     file was imported in pieces). That left Total Payments Received short of the Excel by exactly the
+     claim amount. Re-derive every claim-linked order's settlement as (its own main payout) + (all
+     claims linked to it) so the dashboard always equals the sum of the Final Settlement Amount column. */
+  backfilled += healLinkedClaimsIntoOrders();
   inventory.forEach(recomputeInvFields);
   /* Reset every Payments-tab filter after a successful import — otherwise a filter left set from
      an earlier session (status tab, date range, product, search box, or a column filter) can hide
@@ -10850,6 +10925,27 @@ const RECON_AMOUNT_TOLERANCE = 2; // ₹ — absorbs paisa-level rounding betwee
    grouped by order id — shared by reconcileMeeshoVsBank() and openReconDetailDrawer() so the two
    never disagree about how much of an order's settlement is "the original sale" vs "a later claim
    riding along on the same order id". */
+/* Makes each claim-linked order's settlement = main payout + Σ linked claims. The main payout amount
+   is read back from the order's primarySettlementKey (Sub Order No|Transaction ID|amount|date), so
+   nothing is guessed. Orders without linked claims, or without a stored key, are never touched.
+   Returns how many orders were corrected. */
+function healLinkedClaimsIntoOrders(){
+  const claimTotals = getLinkedClaimTotalsByOrderId();
+  let fixed = 0;
+  Object.keys(claimTotals).forEach(subNo=>{
+    const idx = orders.findIndex(o=>o.id===subNo);
+    if(idx<0 || !orders[idx].paymentDetails || !orders[idx].primarySettlementKey) return;
+    const base = parseFloat(String(orders[idx].primarySettlementKey).split("|")[2]);
+    if(isNaN(base)) return;
+    const expected = +(base + claimTotals[subNo]).toFixed(2);
+    const cur = orders[idx].bank;
+    if(cur==null || Math.abs(cur-expected) > 0.005){
+      orders[idx] = {...orders[idx], bank: expected, paymentDetails: {...orders[idx].paymentDetails, settlementAmount: expected}};
+      fixed++;
+    }
+  });
+  return fixed;
+}
 function getLinkedClaimTotalsByOrderId(){
   const totals = {};
   meeshoSupplementaryPaymentRows.forEach(o=>{
@@ -11348,7 +11444,7 @@ function applyImportEntryDeletion(entry){
     entry.stats.orderIds.forEach(oid=>{
       const idx = orders.findIndex(o=>o.id===oid);
       if(idx>-1){
-        if(orders[idx].source===entry.filename){ orders.splice(idx,1); removed++; }
+        if(orders[idx].source===entry.filename){ orders.splice(idx,1); removeClaimRowsForOrderIds([oid]); removed++; }
         else kept++;
       }
     });
@@ -11382,8 +11478,10 @@ function applyImportEntryDeletion(entry){
           orders[idx] = {...orders[idx], bank:null, paymentDate:null, fee:0, paymentDetails:null, actualReceived:null, paymentSource:null, paymentDataLocked:false};
           reverted++;
         }
+        removeClaimRowsForOrderIds([oid]); // its payment record is gone, so its claims go too
       } else if(idx>-1){ kept++; }
     });
+    removeClaimRowsForFile(entry.filename); // claims this file brought in, including ones with no matching order
     return {kind:"payments", filename:entry.filename, removed, reverted, kept};
   } else if(isInventoryDelete){
     let removed=0, itemsRemoved=0;
