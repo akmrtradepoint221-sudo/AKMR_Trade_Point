@@ -993,6 +993,7 @@ html[data-theme="dark"] .cal-pay-banner .cpb-ic{background:rgba(0,0,0,0.25);}
             <label class="filter-inline" title="Flag a product when its stock will run out within this many days, based on its recent sales pace"><span>Reorder if &lt;</span><input type="number" class="filter-select" id="reorderThresholdInput" min="1" max="90" style="width:56px;"><span>days left</span></label>
             <button class="btn small secondary" id="openInventoryImportBtn" style="margin-left:auto;">📥 Import Excel</button>
             <button class="btn small secondary" id="exportInventoryBtn">⬇ Export Excel</button>
+            <button class="btn small secondary" id="jumpToCombosBtn" title="Jump to your combos">🎁 Combos <span id="comboCountBadge">0</span></button>
             <button class="btn small" id="newStockBtn">+ Add New Item</button>
             <button class="btn small secondary" id="deleteAllInventoryBtn" style="color:var(--red);">🗑 Delete all</button>
             <button class="btn small secondary" id="undoInventoryBtn" style="display:none;">↩ Undo delete</button>
@@ -4805,6 +4806,7 @@ function renderCombos(){
   const body = document.getElementById("comboBody");
   if(!body) return;
   const combos = getCombos();
+  const cb = document.getElementById("comboCountBadge"); if(cb) cb.textContent = combos.length;
   document.getElementById("comboSectionMeta").textContent = combos.length ? combos.length + " combo" + (combos.length===1?"":"s") : "";
   if(!combos.length){
     body.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--ink-soft); padding:22px;">No combos yet — click <b>+ Add New Item</b> and choose <b>Combo (from existing items)</b>.</td></tr>`;
@@ -4919,6 +4921,7 @@ document.getElementById("imageLightboxOverlay").addEventListener("click", (e)=>{
 document.getElementById("imageLightboxClose").addEventListener("click", closeImageLightbox);
 document.addEventListener("keydown", (e)=>{ if(e.key==="Escape") closeImageLightbox(); });
 document.getElementById("newStockBtn").addEventListener("click", ()=> openStockModal(null));
+document.getElementById("jumpToCombosBtn").addEventListener("click", ()=>{ const c=document.getElementById("comboSectionCard"); if(c){ c.scrollIntoView({behavior:"smooth", block:"start"}); c.style.boxShadow="0 0 0 2px var(--gold)"; setTimeout(()=>{ c.style.boxShadow=""; }, 1800); } });
 document.getElementById("stockModalClose").addEventListener("click", closeStockModal);
 document.getElementById("stockModalCancel").addEventListener("click", closeStockModal);
 document.getElementById("stockModalOverlay").addEventListener("click", (e)=>{ if(e.target.id==="stockModalOverlay") closeStockModal(); });
